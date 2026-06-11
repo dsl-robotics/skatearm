@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>skate_ros2</name>
+  <version>0.1.0</version>
+  <description>
+    ROS 2 bridge over the R.Botic Skate's native UDP protocol, plus a MuJoCo
+    sim endpoint that speaks the same protocol so the whole stack runs without
+    hardware. Part of the SkateArm project.
+  </description>
+  <maintainer email="porche121004@gmail.com">Daniels Skots-Lavs</maintainer>
+  <license>MIT</license>
+  <url type="repository">https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm</url>
+
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>python3-numpy</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
