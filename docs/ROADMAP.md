@@ -11,7 +11,11 @@
 - [ ] Decide thesis/capstone registration with RTU supervisor
 
 ## Phase 1 — Sim work-cell (MuJoCo)
-- [ ] Dual-arm reach/hold/insert primitives in sim
+- [x] Work-cell scene: table, base part (spec masses 45 g/12 g), peg, bins as free bodies (`make_cell_scene.py`); v1 pocket is square/blind — round H9 bore arrives with the QC package
+- [x] REACH primitive: closed-loop weighted-DLS IK via position actuators, bimanual, ≤ 2.5 cm under physics; smoothstep target gliding + task-space step clamp for human-smooth motion (`primitives.py`, lessons in sim/README)
+- [x] Joint-space MOVE primitive + collision-aware fold→raise route past the table edge (`move_joints`)
+- [x] GRASP/RELEASE + PICK & PLACE: weld-constraint grasp stand-in engaged at the part's current pose (no snap); both parts carried off the table and placed back (`demo_cell_pick.py`). Real gripper geometry replaces the stand-in when hardware arrives
+- [x] INSERT: relative servoing (peg→pocket from body poses — the future QC camera's job), force-guarded descent with τ watchdog, live xy correction; depth 18.5 mm, tilt ≤2°, assembled unit survives placement (`demo_cell_assemble.py`). Key enablers: lateral-offset grasps (hands don't collide at the meet point) and orientation-locked 6-DOF carry (prevention beats correction — fixing an accumulated tilt runs the wrist into its limits)
 - [ ] GRAFCET sequencer driving sim cell (soft-PLC)
 - [ ] Camera rendering in sim → first QC pipeline (classical CV)
 - [ ] Dashboard skeleton (Flask + SQL) logging sim cycles
