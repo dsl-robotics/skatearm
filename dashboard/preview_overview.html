@@ -26,43 +26,43 @@
 <h1><a href="/">SkateArm — cell dashboard</a></h1>
 <div class="sub">GRAFCET sequencer telemetry · sim work-cell · Phase 1</div>
 
-&lt;div class=&#34;cards&#34;&gt;
- &lt;div class=&#34;card&#34;&gt;&lt;div class=&#34;v&#34;&gt;2&lt;/div&gt;&lt;div class=&#34;l&#34;&gt;cycles logged&lt;/div&gt;&lt;/div&gt;
- &lt;div class=&#34;card&#34;&gt;&lt;div class=&#34;v ok&#34;&gt;100%&lt;/div&gt;
-   &lt;div class=&#34;l&#34;&gt;accept rate&lt;/div&gt;&lt;/div&gt;
- &lt;div class=&#34;card&#34;&gt;&lt;div class=&#34;v&#34;&gt;27.8 s&lt;/div&gt;&lt;div class=&#34;l&#34;&gt;avg cycle time (takt ≤ 60 s)&lt;/div&gt;&lt;/div&gt;
- &lt;div class=&#34;card&#34;&gt;&lt;div class=&#34;v&#34;&gt;1.6 mm&lt;/div&gt;&lt;div class=&#34;l&#34;&gt;QC residual · alignment&lt;/div&gt;&lt;/div&gt;
- &lt;div class=&#34;card&#34;&gt;&lt;div class=&#34;v&#34;&gt;3.4 mm&lt;/div&gt;&lt;div class=&#34;l&#34;&gt;QC residual · depth&lt;/div&gt;&lt;/div&gt;
-&lt;/div&gt;
-&lt;div class=&#34;panel&#34;&gt;&lt;canvas id=&#34;trend&#34; height=&#34;70&#34;&gt;&lt;/canvas&gt;&lt;/div&gt;
-&lt;div class=&#34;panel&#34;&gt;&lt;table&gt;
- &lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;source&lt;/th&gt;&lt;th&gt;verdict&lt;/th&gt;&lt;th&gt;cycle time&lt;/th&gt;
-     &lt;th&gt;cam align&lt;/th&gt;&lt;th&gt;cam depth&lt;/th&gt;&lt;th&gt;oracle align&lt;/th&gt;&lt;th&gt;oracle depth&lt;/th&gt;&lt;/tr&gt;
+<div class="cards">
+ <div class="card"><div class="v">2</div><div class="l">cycles logged</div></div>
+ <div class="card"><div class="v ok">100%</div>
+   <div class="l">accept rate</div></div>
+ <div class="card"><div class="v">27.8 s</div><div class="l">avg cycle time (takt ≤ 60 s)</div></div>
+ <div class="card"><div class="v">1.6 mm</div><div class="l">QC residual · alignment</div></div>
+ <div class="card"><div class="v">3.4 mm</div><div class="l">QC residual · depth</div></div>
+</div>
+<div class="panel"><canvas id="trend" height="70"></canvas></div>
+<div class="panel"><table>
+ <tr><th>#</th><th>source</th><th>verdict</th><th>cycle time</th>
+     <th>cam align</th><th>cam depth</th><th>oracle align</th><th>oracle depth</th></tr>
  
- &lt;tr&gt;&lt;td&gt;&lt;a href=&#34;/cycle/1&#34;&gt;1&lt;/a&gt;&lt;/td&gt;&lt;td&gt;cycle_001.json&lt;/td&gt;
-  &lt;td class=&#34;ok&#34;&gt;ACCEPT&lt;/td&gt;
-  &lt;td&gt;42.384 s&lt;/td&gt;
-  &lt;td&gt;—&lt;/td&gt;
-  &lt;td&gt;—&lt;/td&gt;
-  &lt;td&gt;1.3331&lt;/td&gt;
-  &lt;td&gt;22.1169&lt;/td&gt;&lt;/tr&gt;
+ <tr><td><a href="/cycle/1">1</a></td><td>cycle_001.json</td>
+  <td class="ok">ACCEPT</td>
+  <td>42.384 s</td>
+  <td>—</td>
+  <td>—</td>
+  <td>1.3331</td>
+  <td>22.1169</td></tr>
  
- &lt;tr&gt;&lt;td&gt;&lt;a href=&#34;/cycle/2&#34;&gt;2&lt;/a&gt;&lt;/td&gt;&lt;td&gt;cycle_002.json&lt;/td&gt;
-  &lt;td class=&#34;ok&#34;&gt;ACCEPT&lt;/td&gt;
-  &lt;td&gt;13.12 s&lt;/td&gt;
-  &lt;td&gt;2.8088&lt;/td&gt;
-  &lt;td&gt;18.7177&lt;/td&gt;
-  &lt;td&gt;1.2505&lt;/td&gt;
-  &lt;td&gt;22.1247&lt;/td&gt;&lt;/tr&gt;
+ <tr><td><a href="/cycle/2">2</a></td><td>cycle_002.json</td>
+  <td class="ok">ACCEPT</td>
+  <td>13.12 s</td>
+  <td>2.8088</td>
+  <td>18.7177</td>
+  <td>1.2505</td>
+  <td>22.1247</td></tr>
  
-&lt;/table&gt;&lt;/div&gt;
-&lt;script&gt;
-new Chart(document.getElementById(&#39;trend&#39;),{type:&#39;line&#39;,
- data:{labels:[&amp;#39;#1&amp;#39;, &amp;#39;#2&amp;#39;],datasets:[{label:&#39;cycle time, s&#39;,data:[42.384, 13.12],
-  borderColor:&#39;#58a6ff&#39;,backgroundColor:&#39;rgba(88,166,255,.15)&#39;,fill:true,tension:.3},
-  {label:&#39;takt target&#39;,data:[60, 60],borderColor:&#39;#f8514966&#39;,borderDash:[6,4],pointRadius:0}]},
- options:{plugins:{legend:{labels:{color:&#39;#c9d1d9&#39;}}},
-  scales:{x:{ticks:{color:&#39;#8b949e&#39;},grid:{color:&#39;#21262d&#39;}},
-          y:{ticks:{color:&#39;#8b949e&#39;},grid:{color:&#39;#21262d&#39;},suggestedMax:70}}}});
-&lt;/script&gt;
+</table></div>
+<script>
+new Chart(document.getElementById('trend'),{type:'line',
+ data:{labels:[&#39;#1&#39;, &#39;#2&#39;],datasets:[{label:'cycle time, s',data:[42.384, 13.12],
+  borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.15)',fill:true,tension:.3},
+  {label:'takt target',data:[60, 60],borderColor:'#f8514966',borderDash:[6,4],pointRadius:0}]},
+ options:{plugins:{legend:{labels:{color:'#c9d1d9'}}},
+  scales:{x:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}},
+          y:{ticks:{color:'#8b949e'},grid:{color:'#21262d'},suggestedMax:70}}}});
+</script>
 </body></html>

@@ -123,7 +123,7 @@ BASE = """<!doctype html><html><head><meta charset="utf-8">
 </style></head><body>
 <h1><a href="/">SkateArm — cell dashboard</a></h1>
 <div class="sub">GRAFCET sequencer telemetry · sim work-cell · Phase 1</div>
-{{ body }}
+{{ body|safe }}
 </body></html>"""
 
 OVERVIEW = """
