@@ -1,0 +1,99 @@
+[
+ {
+  "t": 0.0,
+  "step": "S0",
+  "msg": "cycle start"
+ },
+ {
+  "t": 3.6,
+  "step": "S0",
+  "msg": "parts detected on table -> S1",
+  "base": [
+   -0.12000000000015668,
+   0.4400000000000001,
+   0.029892244579783813
+  ],
+  "peg": [
+   0.12000077860295454,
+   0.4400004764498537,
+   0.04993460754454997
+  ]
+ },
+ {
+  "t": 3.6,
+  "step": "S1",
+  "msg": "approach"
+ },
+ {
+  "t": 14.4,
+  "step": "S1",
+  "msg": "grasps confirmed -> S2"
+ },
+ {
+  "t": 14.4,
+  "step": "S2",
+  "msg": "carry to fixture/staging"
+ },
+ {
+  "t": 22.096,
+  "step": "S2",
+  "msg": "at meet point -> S3",
+  "block_tilt": 1.483,
+  "peg_tilt": 2.7255
+ },
+ {
+  "t": 22.096,
+  "step": "S3",
+  "msg": "align",
+  "err_xy": 0.0217
+ },
+ {
+  "t": 25.296,
+  "step": "S3",
+  "msg": "aligned -> S4",
+  "err_xy": 0.009
+ },
+ {
+  "t": 25.8,
+  "step": "S4",
+  "msg": "insert done -> S5",
+  "depth_mm": 22.1,
+  "aborted": false
+ },
+ {
+  "t": 2.208,
+  "step": "S5",
+  "msg": "CAMERA QC verify",
+  "cam_align_mm": 2.8088,
+  "cam_depth_mm": 18.7177,
+  "cam_peg_present": true,
+  "cam_result": "ACCEPT",
+  "oracle_depth_mm": 22.1247,
+  "oracle_align_mm": 1.2505,
+  "oracle_tilt_deg": 1.2868,
+  "residual_align_mm": 1.5584,
+  "residual_depth_mm": 3.4071
+ },
+ {
+  "t": 2.208,
+  "step": "S6",
+  "msg": "place to ACCEPT bin"
+ },
+ {
+  "t": 10.112,
+  "step": "S6",
+  "msg": "released on bin",
+  "unit_at": [
+   -0.24102598008697473,
+   0.412798268072203,
+   0.03986495222605267
+  ],
+  "peg_rel_z": 0.0249
+ },
+ {
+  "t": 13.12,
+  "step": "S7",
+  "msg": "cycle complete",
+  "cycle_time_s": 13.12
+ }
+]

@@ -1,0 +1,100 @@
+[
+ {
+  "t": 1.0,
+  "step": "S0",
+  "msg": "cycle start"
+ },
+ {
+  "t": 4.6,
+  "step": "S0",
+  "msg": "parts detected on table -> S1",
+  "base": [
+   -0.12000000000015668,
+   0.4400000000000001,
+   0.029892244579783813
+  ],
+  "peg": [
+   0.12000077860295454,
+   0.4400004764498537,
+   0.04993460754454997
+  ]
+ },
+ {
+  "t": 4.6,
+  "step": "S1",
+  "msg": "approach"
+ },
+ {
+  "t": 15.4,
+  "step": "S1",
+  "msg": "grasps confirmed -> S2"
+ },
+ {
+  "t": 15.4,
+  "step": "S2",
+  "msg": "carry to fixture/staging"
+ },
+ {
+  "t": 23.096,
+  "step": "S2",
+  "msg": "at meet point -> S3",
+  "block_tilt": 1.5835,
+  "peg_tilt": 1.6148
+ },
+ {
+  "t": 23.096,
+  "step": "S3",
+  "msg": "align",
+  "err_xy": 0.0187
+ },
+ {
+  "t": 26.296,
+  "step": "S3",
+  "msg": "aligned -> S4",
+  "err_xy": 0.0064
+ },
+ {
+  "t": 26.296,
+  "step": "S4",
+  "msg": "insert (guarded)",
+  "tau_baseline": 5.6469
+ },
+ {
+  "t": 26.872,
+  "step": "S4",
+  "msg": "insert done -> S5",
+  "depth_mm": 22.1169,
+  "aborted": false
+ },
+ {
+  "t": 29.08,
+  "step": "S5",
+  "msg": "QC verify",
+  "depth_mm": 22.1244,
+  "tilt_deg": 1.3854,
+  "err_xy_mm": 1.3331,
+  "result": "ACCEPT"
+ },
+ {
+  "t": 29.08,
+  "step": "S6",
+  "msg": "place to ACCEPT bin"
+ },
+ {
+  "t": 39.376,
+  "step": "S6",
+  "msg": "released on bin",
+  "unit_at": [
+   -0.2311813401341423,
+   0.41368127993497156,
+   0.03986495270679367
+  ],
+  "peg_rel_z": 0.0249
+ },
+ {
+  "t": 42.384,
+  "step": "S7",
+  "msg": "cycle complete",
+  "cycle_time_s": 42.384
+ }
+]
