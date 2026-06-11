@@ -21,6 +21,8 @@
 - [x] Dashboard (Flask + SQLite): KPI cards, cycle-time trend vs takt, camera/oracle residuals, GRAFCET step timeline per cycle; ingest schema = sequencer event stream (real-cell ready) (`dashboard/app.py`)
 - [x] First community tool shipped: **`skate_ros2`** (`tools/skate_ros2/`) — documented UDP wire protocol, pure-Python client, MuJoCo sim endpoint speaking the real protocol, rclpy driver with firmware-mirrored safety (arm-at-pose, deadman freshness, overtemp latch); 15 ROS-free unit tests + e2e over real sockets (60 Hz cmds, ~200 pkt/s telemetry, 0.015 rad tracking, watchdog < 0.3 s)
 - [ ] `ros2_control` hardware interface + MoveIt 2 config over the bridge
+- [x] **`skate_commander` v0.1** (`tools/skate_commander/`) — web cockpit over the same UDP wire: in-browser URDF twin (FK validated vs MuJoCo < 0.001 mm), joint jog with live angle/vel/temp, SIM/REAL toggle, estop-first safety (starts dampened, arm-at-measured-pose, legs locked in REAL); FastAPI+WS backend, ws→UDP→MuJoCo e2e tested; functional reference: Waldo Commander (PAROL6), own design
+- [ ] `skate_commander` v0.2: cartesian drag-gizmo (DLS IK), waypoint sequencer + playback, TCP trace, tool/TCP offsets
 
 ## Phase 2 — Real Skate bring-up (hardware in Riga)
 - [ ] Unboxing → teleop → joint-by-joint validation (document as handbook chapters)
