@@ -28,13 +28,16 @@
 - ✅ **Bimanual REACH primitive** — closed-loop weighted-DLS IK through the position actuators (no qpos teleports), smoothstep target gliding, collision-aware routes; motion-quality lessons documented in [sim/README.md](sim/README.md)
 - ✅ **PICK & PLACE** — both hands grasp the base part and peg, carry them off the table and place them back ([sim/demo_cell_pick.py](sim/demo_cell_pick.py)); grasp is a documented weld stand-in until the real gripper geometry is known
 - ✅ **FULL BIMANUAL ASSEMBLY** — the demonstrator task's manipulation core: left arm fixtures the base part in the air, right arm aligns the peg over the pocket by relative servoing and inserts it with a force-guarded descent (τ watchdog); insertion depth 18.5 mm, peg tilt ≤2°, the assembled unit is placed back on the table intact ([sim/demo_cell_assemble.py](sim/demo_cell_assemble.py))
-- ⬜ GRAFCET sequencer, QC pipeline, dashboard skeleton, `skate_ros2` bridge — see [docs/ROADMAP.md](docs/ROADMAP.md)
+- ✅ **GRAFCET SEQUENCER — full automatic cycle** — soft-PLC step engine with sensor-based receptivities (no timers, per the spec): parts check → grasp → carry → align → guarded insert → QC verify → ACCEPT/REJECT bin → home. **Cycle time 42.4 s** (takt target ≤ 60 s); every transition logged to [logs/cycle_001.json](logs/cycle_001.json) — the seed of the SCADA dashboard ([sim/sequencer.py](sim/sequencer.py), [sim/demo_cell_cycle.py](sim/demo_cell_cycle.py))
+- ✅ **QC CAMERA PIPELINE** — two fixed inspection cameras (overhead + lateral) with classical CV: color segmentation in a fixed inspection window, pocket-rim alignment reference, px→mm from camera geometry. Camera verdict drives the sequencer's accept/reject; the sim pose oracle stays as a logged cross-check — **residuals: alignment ±1.3 mm, depth ±3.4 mm** ([sim/qc.py](sim/qc.py), annotated views in [docs/img/14_qc_top_annotated.png](docs/img/14_qc_top_annotated.png))
+- ✅ **CELL DASHBOARD** — Flask + SQLite SCADA monitor over the sequencer logs: accept rate, cycle-time trend vs takt, camera-vs-oracle QC residuals, per-cycle GRAFCET timeline ([dashboard/](dashboard/))
+- ⬜ `skate_ros2` bridge — the first standalone community tool, see [docs/ROADMAP.md](docs/ROADMAP.md)
 
 <div align="center">
-  <img src="docs/img/cell_assemble_demo.gif" width="480px" alt="Full bimanual assembly: fixture, align, force-guarded insert, place">
+  <img src="docs/img/cell_cycle_demo.gif" width="480px" alt="Full automatic GRAFCET cycle with HMI overlay: grasp, carry, align, insert, QC, place to bin">
   <br>
-  <em>Phase 1: full bimanual assembly — grasp, orientation-locked carry, align, force-guarded insert, place.
-  HD video: <a href="docs/video/cell_assemble_demo.mp4">cell_assemble_demo.mp4</a> · <a href="docs/video/cell_pick_demo.mp4">cell_pick_demo.mp4</a></em>
+  <em>Phase 1: the full automatic cycle under the GRAFCET sequencer — HMI overlay shows the live step and sensor metrics; QC verdict ACCEPT, unit placed on the green bin.
+  HD video: <a href="docs/video/cell_cycle_demo.mp4">cell_cycle_demo.mp4</a> · <a href="docs/video/cell_assemble_demo.mp4">cell_assemble_demo.mp4</a></em>
 </div>
 
 <div align="center">
