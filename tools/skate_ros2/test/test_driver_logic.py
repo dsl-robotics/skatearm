@@ -295,16 +295,54 @@ def test_overtemp_latch_and_hysteresis():
 
 def test_joint_cmd_by_name_merges_and_ignores_unknown():
     node = make_node()
+    measured = np.linspace(0.1, 0.2, 26)
+    feed_state(node, measured)
+    node.rx_tick()
     msg = JointState()
     msg.name = ["a3_armL_a11", "definitely_not_a_joint"]
     msg.position = [1.0, 9.9]
     node.subscriptions["skate/joint_position_cmd"](msg)
     assert node.targ[11] == 1.0
-    # everything else fell back to the documented default pose
-    assert np.allclose(np.delete(node.targ, 11),
-                       np.delete(np.array(names.DEFAULT_POSE), 11))
+    # everything else stays at the measured (armed) pose
+    assert np.allclose(np.delete(node.targ, 11), np.delete(measured, 11))
     assert any("definitely_not_a_joint" in line
                for _lvl, line in node._logger.lines)
+
+
+def test_joint_cmd_ignored_before_arming():
+    """Commands before first telemetry must not invent a base pose."""
+    node = make_node()
+    msg = JointState()
+    msg.name = ["a3_armL_a11"]
+    msg.position = [1.0]
+    node.subscriptions["skate/joint_position_cmd"](msg)
+    assert node.targ is None                      # still unarmed
+    assert any("no telemetry yet" in line
+               for _lvl, line in node._logger.lines)
+    # after telemetry the driver arms at the MEASURED pose, not the command
+    measured = np.full(26, 0.3)
+    feed_state(node, measured)
+    node.rx_tick()
+    assert np.allclose(node.targ, measured)
+
+
+def test_stale_cmd_vel_decays_to_zero():
+    """A single old Twist must not keep driving the base forever."""
+    node = make_node()
+    feed_state(node, np.zeros(26))
+    node.rx_tick()
+    tw = Twist()
+    tw.linear.x = 0.3
+    node.subscriptions["skate/cmd_vel"](tw)
+    node.tx_tick()
+    assert np.allclose(node.link.sent[-1][1], [0.3, 0.0, 0.0])
+    # joint commands keep the deadman alive, but the old Twist must die
+    node._clock.t += 0.5
+    node.subscriptions["skate/joint_position_cmd_raw"](
+        type("M", (), {"data": [0.0] * 26})())
+    node.tx_tick()
+    assert node.link.sent[-1][3] == (1, 1, 1)     # deadman alive
+    assert np.allclose(node.link.sent[-1][1], [0.0, 0.0, 0.0])  # vel decayed
 
 
 def test_raw_cmd_rejects_wrong_length():
@@ -320,6 +358,8 @@ if __name__ == "__main__":
               test_estop_latches,
               test_overtemp_latch_and_hysteresis,
               test_joint_cmd_by_name_merges_and_ignores_unknown,
+              test_joint_cmd_ignored_before_arming,
+              test_stale_cmd_vel_decays_to_zero,
               test_raw_cmd_rejects_wrong_length]:
         f()
         print(f"PASS {f.__name__}")
