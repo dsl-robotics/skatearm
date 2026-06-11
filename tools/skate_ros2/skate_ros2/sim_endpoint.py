@@ -78,6 +78,7 @@ class SkateSimEndpoint:
         self.n_cmds = 0
         self.n_telemetry = 0
         self.decode_errors = 0
+        self._stop = False
 
         # settle into the model's initial pose
         self.d.ctrl[:] = np.clip(self.d.qpos[:names.N_JOINTS], self.lo, self.hi)
@@ -195,7 +196,7 @@ class SkateSimEndpoint:
             print(f"[sim_endpoint] skt_v3 twin on UDP :{self.port} "
                   f"(telemetry {1/self.telemetry_period:.0f} Hz, "
                   f"{'realtime' if self.realtime else 'fast'} physics)")
-        while True:
+        while not self._stop:
             sim_t = self.d.time
             wall_t = time.monotonic() - t_wall0
             if duration is not None and sim_t >= duration:
@@ -221,6 +222,9 @@ class SkateSimEndpoint:
                 next_log = clock + 2.0
 
     def close(self):
+        """Stop the run loop (if any) and release the socket — safe to call
+        from another thread; embedders should join their thread after this."""
+        self._stop = True
         self.sock.close()
 
 
