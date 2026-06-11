@@ -27,6 +27,14 @@ def parse_urdf(urdf_path):
     """Return {links: {...}, joints: [...], mesh_files: [...]} for /api/model."""
     root = ET.parse(str(urdf_path)).getroot()
 
+    # URDF defines colors once in named materials; visuals reference by name
+    palette = {}
+    for mat in root.iter("material"):
+        cel = mat.find("color")
+        if cel is not None and mat.get("name"):
+            palette[mat.get("name")] = _floats(cel.get("rgba"),
+                                               (0.7, 0.7, 0.7, 1.0))
+
     links = {}
     mesh_files = []
     for link in root.findall("link"):
@@ -44,9 +52,13 @@ def parse_urdf(urdf_path):
             fname = Path(mesh.get("filename")).name   # basename only
             scale = _floats(mesh.get("scale"), (1, 1, 1))
             color = None
-            cel = vis.find("material/color")
-            if cel is not None:
-                color = _floats(cel.get("rgba"), (0.7, 0.7, 0.7, 1.0))
+            mel = vis.find("material")
+            if mel is not None:
+                cel = mel.find("color")
+                if cel is not None:
+                    color = _floats(cel.get("rgba"), (0.7, 0.7, 0.7, 1.0))
+                elif mel.get("name") in palette:
+                    color = palette[mel.get("name")]
             visuals.append({"mesh": fname, "xyz": xyz, "rpy": rpy,
                             "scale": scale, "color": color})
             mesh_files.append(fname)

@@ -1,0 +1,120 @@
+"""Pure-numpy kinematics for the Skate arms — FK, numeric Jacobian, DLS IK.
+
+No MuJoCo dependency: forward kinematics is computed straight from the parsed
+URDF (the same math the browser viewer uses; validated against MuJoCo link
+positions to < 1e-6 m). The Jacobian is central-difference numeric — at 7
+joints per arm and 20-60 Hz it is far below the cost of anything else.
+
+The IK is deliberately conservative for teleop:
+* position-only (3 DoF target), wrist orientation is free;
+* one damped-least-squares step per call, error capped at ``step_m`` and
+  joint motion capped at ``dq_max`` — the arm *glides* toward the target;
+* joint limits clamped every step.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+ARM_JOINTS = {"left": list(range(8, 15)),    # a0..a6 of the left arm
+              "right": list(range(16, 23))}  # gripper (a7) excluded
+
+
+def _rx(a):
+    c, s = np.cos(a), np.sin(a)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+
+def _ry(a):
+    c, s = np.cos(a), np.sin(a)
+    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
+
+
+def _rz(a):
+    c, s = np.cos(a), np.sin(a)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+
+def _rpy(r, p, y):                      # URDF fixed-axis == intrinsic ZYX
+    return _rz(y) @ _ry(p) @ _rx(r)
+
+
+def _axis_rot(ax, th):
+    ax = np.asarray(ax, float)
+    ax = ax / np.linalg.norm(ax)
+    K = np.array([[0, -ax[2], ax[1]], [ax[2], 0, -ax[0]], [-ax[1], ax[0], 0]])
+    return np.eye(3) + np.sin(th) * K + (1 - np.cos(th)) * (K @ K)
+
+
+class ArmKinematics:
+    """FK/IK for one arm chain of the skt_v3 model."""
+
+    def __init__(self, model, arm):
+        if arm not in ARM_JOINTS:
+            raise ValueError(arm)
+        self.arm = arm
+        self.idx = ARM_JOINTS[arm]
+        # chain of joints from root to the arm's last wrist joint (a6)
+        joints = {j["child"]: j for j in model["joints"]}
+        last = next(j for j in model["joints"] if j["index"] == self.idx[-1])
+        chain = [last]
+        while chain[0]["parent"] in joints:
+            chain.insert(0, joints[chain[0]["parent"]])
+        self.chain = chain                       # root -> ... -> a6
+        # NB: limits can legitimately be 0.0 (the elbow's lower bound!) —
+        # `x or default` would silently replace it, so test for None.
+        def _lim(v, default):
+            return default if v is None else v
+        self.lo = np.array([_lim(next(j for j in model["joints"]
+                                      if j["index"] == i)["lower"], -np.pi)
+                            for i in self.idx])
+        self.hi = np.array([_lim(next(j for j in model["joints"]
+                                      if j["index"] == i)["upper"], np.pi)
+                            for i in self.idx])
+
+    def fk(self, q26):
+        """World position of the arm's wrist (end of the a6 link frame)."""
+        x = np.zeros(3)
+        R = np.eye(3)
+        for j in self.chain:
+            x = x + R @ np.asarray(j["xyz"])
+            Rj = _rpy(*j["rpy"])
+            if j["index"] is not None:
+                Rj = Rj @ _axis_rot(j["axis"], q26[j["index"]])
+            R = R @ Rj
+        return x
+
+    def jacobian(self, q26, eps=1e-5):
+        """3x7 numeric Jacobian of the wrist position wrt this arm's joints."""
+        J = np.zeros((3, len(self.idx)))
+        q = np.array(q26, dtype=float)
+        for k, i in enumerate(self.idx):
+            q[i] += eps
+            p_hi = self.fk(q)
+            q[i] -= 2 * eps
+            p_lo = self.fk(q)
+            q[i] += eps
+            J[:, k] = (p_hi - p_lo) / (2 * eps)
+        return J
+
+    def ik_step(self, q26, target, lam=0.05, step_m=0.04, dq_max=0.06):
+        """One DLS step toward ``target`` (world, meters).
+
+        Returns (new_q26 copy, err_m_before_step). Call repeatedly (e.g. each
+        bridge tick) and the wrist glides to the target.
+        """
+        q = np.array(q26, dtype=float)
+        cur = self.fk(q)
+        e = np.asarray(target, float) - cur
+        err = float(np.linalg.norm(e))
+        if err < 1e-4:
+            return q, err
+        if err > step_m:                          # glide, don't jump
+            e = e * (step_m / err)
+        J = self.jacobian(q)
+        JJt = J @ J.T + (lam ** 2) * np.eye(3)
+        dq = J.T @ np.linalg.solve(JJt, e)
+        dq = np.clip(dq, -dq_max, dq_max)
+        for k, i in enumerate(self.idx):
+            q[i] = np.clip(q[i] + dq[k], self.lo[k], self.hi[k])
+        return q, err

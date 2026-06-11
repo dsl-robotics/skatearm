@@ -23,15 +23,95 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .bridge import RobotBridge
+from .kinematics import ArmKinematics
 from .urdf import joint_limits, parse_urdf
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+SEQ_DIR = Path(__file__).resolve().parents[1] / "sequences"
+
+
+def _seq_name_ok(name):
+    return (isinstance(name, str) and 0 < len(name) <= 40
+            and all(c.isalnum() or c in "-_" for c in name))
 
 TX_HZ = 60.0          # bridge tick / command rate
 WS_HZ = 20.0          # UI telemetry rate
 
 
-def build_app(model_dir, real_host="r.local", sim_port=2000):
+def make_collision_guard(collision_xml):
+    """Self-collision predicate over the SkateArm box-collision model.
+
+    The physics collision model excludes pairs that touch at the neutral pose
+    (hanging hands sit right next to the hips!) so the robot doesn't jam in
+    sim. A *predictive* guard must still see those pairs — so we build a
+    guard-specific variant: distant excludes (kinematically > 3 hops apart,
+    e.g. hand<->thigh) are re-enabled, and instead of excluding them we
+    tolerate exactly the contact depth they have at the neutral pose.
+    q26 -> True if the pose penetrates >2 mm (or >4 mm past baseline).
+    """
+    import xml.etree.ElementTree as ET
+
+    import mujoco
+    collision_xml = Path(collision_xml)
+    m0 = mujoco.MjModel.from_xml_path(str(collision_xml))
+
+    def chain(b):
+        out = []
+        while b != 0:
+            out.append(b)
+            b = m0.body_parentid[b]
+        out.append(0)
+        return out
+
+    def hops(a, b):                       # kinematic distance between bodies
+        ca, cb = chain(a), chain(b)
+        return min(i + cb.index(x) for i, x in enumerate(ca) if x in cb)
+
+    tree = ET.parse(collision_xml)
+    cel = tree.getroot().find("contact")
+    removed = 0
+    if cel is not None:
+        for ex in list(cel.findall("exclude")):
+            try:
+                b1 = m0.body(ex.get("body1")).id
+                b2 = m0.body(ex.get("body2")).id
+            except Exception:
+                continue
+            if hops(b1, b2) > 3:          # distant pair: the guard must see it
+                cel.remove(ex)
+                removed += 1
+    guard_xml = collision_xml.parent / ".skate_guard.xml"
+    tree.write(str(guard_xml))
+    gm = mujoco.MjModel.from_xml_path(str(guard_xml))
+    gd = mujoco.MjData(gm)
+
+    # contacts already present at the neutral pose are tolerated up to their
+    # baseline depth — anything deeper (or any NEW pair) is a violation
+    gd.qpos[:] = 0
+    mujoco.mj_forward(gm, gd)
+    base = {}
+    for i in range(gd.ncon):
+        c = gd.contact[i]
+        key = (min(c.geom1, c.geom2), max(c.geom1, c.geom2))
+        base[key] = min(base.get(key, 0.0), float(c.dist))
+    print(f"[commander] guard model: {removed} distant pairs re-enabled, "
+          f"{len(base)} neutral-pose contacts baselined")
+
+    def guard(q):
+        gd.qpos[:26] = q
+        mujoco.mj_forward(gm, gd)
+        for i in range(gd.ncon):
+            c = gd.contact[i]
+            key = (min(c.geom1, c.geom2), max(c.geom1, c.geom2))
+            thr = base[key] - 0.004 if key in base else -0.002
+            if float(c.dist) < thr:
+                return True
+        return False
+    return guard
+
+
+def build_app(model_dir, real_host="r.local", sim_port=2000,
+              collision_model=None):
     model_dir = Path(model_dir)
     urdf_path = model_dir / "skt_v3.urdf"
     mesh_dir = model_dir / "skt_v3_meshes" / "scaled_stl_files"
@@ -54,8 +134,13 @@ def build_app(model_dir, real_host="r.local", sim_port=2000):
               f"under {model_dir} — the viewer will fall back to a stick "
               f"figure for those links: {sorted(missing)[:3]}...")
 
+    kin = {arm: ArmKinematics(model, arm) for arm in ("left", "right")}
     bridge = RobotBridge(real_host=real_host, sim_port=sim_port,
-                         limits=joint_limits(model))
+                         limits=joint_limits(model), kin=kin)
+    if collision_model:
+        bridge.guard = make_collision_guard(collision_model)
+        print("[commander] collision guard ON — self-colliding targets are "
+              "rejected before they reach the robot")
     app = FastAPI(title="Skate Commander")
     app.state.bridge = bridge
     app.state.clients = 0
@@ -67,6 +152,12 @@ def build_app(model_dir, real_host="r.local", sim_port=2000):
     @app.get("/api/model")
     async def api_model():
         return JSONResponse(model)
+
+    @app.get("/api/sequences")
+    async def api_sequences():
+        if not SEQ_DIR.exists():
+            return JSONResponse([])
+        return JSONResponse(sorted(p.stem for p in SEQ_DIR.glob("*.json")))
 
     @app.get("/meshes/{name}")
     async def mesh(name: str):
@@ -124,6 +215,39 @@ def handle_command(bridge: RobotBridge, cmd: dict):
         bridge.jog_step(int(cmd["idx"]), float(cmd["delta"]))
     elif t == "set_joint":
         bridge.set_joint(int(cmd["idx"]), float(cmd["value"]))
+    elif t == "ik_target":
+        bridge.set_ik_target(cmd.get("arm"), cmd.get("pos", ()))
+    elif t == "ik_clear":
+        bridge.clear_ik_target(cmd.get("arm"))
+    elif t == "wp_add":
+        bridge.wp_add()
+    elif t == "wp_delete":
+        bridge.wp_delete(int(cmd.get("idx", -1)))
+    elif t == "wp_clear":
+        bridge.wp_clear()
+    elif t == "wp_goto":
+        bridge.wp_goto(int(cmd.get("idx", -1)))
+    elif t == "wp_play":
+        bridge.wp_play(loop=bool(cmd.get("loop", False)))
+    elif t == "wp_stop":
+        bridge.seq_stop()
+    elif t == "wp_save":
+        name = cmd.get("name", "")
+        if _seq_name_ok(name) and bridge.waypoints:
+            SEQ_DIR.mkdir(exist_ok=True)
+            (SEQ_DIR / f"{name}.json").write_text(json.dumps(
+                {"names": bridge.wp_names,
+                 "q": [w.tolist() for w in bridge.waypoints]}))
+    elif t == "wp_load":
+        name = cmd.get("name", "")
+        path = SEQ_DIR / f"{name}.json"
+        if _seq_name_ok(name) and path.exists():
+            import numpy as np
+            data = json.loads(path.read_text())
+            bridge.wp_clear()
+            bridge.waypoints = [np.asarray(q, dtype=float)
+                                for q in data["q"]]
+            bridge.wp_names = list(data["names"])
     elif t == "estop":
         bridge.trigger_estop()
     elif t == "resume":
@@ -141,8 +265,14 @@ def main(argv=None):
     ap.add_argument("--real-host", default="r.local")
     ap.add_argument("--port", type=int, default=8088)
     ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--spawn-sim", metavar="CONTROL_XML", default=None,
-                    help="also launch the skate_ros2 sim endpoint on UDP :2000")
+    ap.add_argument("--spawn-sim", metavar="MJCF_XML", default=None,
+                    help="also launch the skate_ros2 sim endpoint on UDP :2000 "
+                         "(use skt_v3_collision.xml so the twin physically "
+                         "stops at self-contact)")
+    ap.add_argument("--collision-model", metavar="COLLISION_XML", default=None,
+                    help="enable the collision guard: targets that would "
+                         "self-collide are rejected before being sent "
+                         "(generate with sim/make_collision_model.py)")
     args = ap.parse_args(argv)
 
     sim_proc = None
@@ -154,7 +284,8 @@ def main(argv=None):
         print(f"[commander] sim endpoint spawned (pid {sim_proc.pid})")
 
     import uvicorn
-    app = build_app(args.model_dir, real_host=args.real_host)
+    app = build_app(args.model_dir, real_host=args.real_host,
+                    collision_model=args.collision_model)
     print(f"[commander] http://{args.host}:{args.port}  (mode starts in SIM, "
           "dampened — press RESUME in the UI)")
     try:

@@ -37,7 +37,7 @@ OVERTEMP_RELEASE_C = 53.0
 class RobotBridge:
     def __init__(self, sim_host="127.0.0.1", sim_port=2000,
                  real_host="r.local", real_port=2000,
-                 jog_rate=0.35, limits=None):
+                 jog_rate=0.35, limits=None, kin=None):
         """jog_rate: rad/s while a jog button is held.
         limits: optional (lo[26], hi[26]) from the URDF; clamps jog targets."""
         self.sim_addr = (sim_host, sim_port)
@@ -56,6 +56,21 @@ class RobotBridge:
         self.estop = True                  # latched; starts SAFE (dampened)
         self.overtemp = False
         self.jog_dir = np.zeros(names.N_JOINTS)   # -1/0/+1 per joint
+        self.kin = kin or {}               # {"left"/"right": ArmKinematics}
+        self.guard = None                  # callable(q26)->True if SELF-COLLIDING
+        self.guard_blocking = False
+        self.ik_targets = {"left": None, "right": None}
+        self.ik_err = {"left": None, "right": None}
+        # waypoint sequencer
+        self.waypoints = []                # list of np[26] (commanded poses)
+        self.wp_names = []
+        self.seq_active = False           # gliding toward waypoints[seq_idx]
+        self.seq_playing = False          # auto-advance through the list
+        self.seq_loop = False
+        self.seq_idx = None
+        self.seq_rate = 0.6               # rad/s glide speed
+        self.seq_dwell = 0.6              # s pause on each waypoint
+        self._seq_wait = 0.0
         self._last_tx = None
 
     # -- mode / safety -------------------------------------------------------
@@ -70,11 +85,14 @@ class RobotBridge:
         self.mode = mode
         self.targ = None                   # re-arm from the new robot's pose
         self.jog_dir[:] = 0
+        self.ik_targets = {"left": None, "right": None}
         self.estop = True                  # explicit resume required
 
     def trigger_estop(self):
         self.estop = True
         self.jog_dir[:] = 0
+        self.clear_ik_target()
+        self.seq_stop()
 
     def resume(self):
         """Clear the estop latch. Only possible once telemetry is up."""
@@ -82,9 +100,97 @@ class RobotBridge:
             self.estop = False
         return not self.estop
 
+    # -- collision guard -------------------------------------------------------
+    def _guard_ok(self, prev):
+        """Reject self-colliding targets: revert to ``prev`` if the new targ
+        would interpenetrate. Large jumps (slider clicks, goto) are checked
+        along the interpolated path so a collision can't be tunnelled through
+        between two safe endpoints."""
+        if self.guard is None or prev is None:
+            return True
+        delta = np.abs(self.targ - prev)
+        n = max(1, int(np.ceil(float(delta.max()) / 0.05)))
+        goal = self.targ.copy()
+        for k in range(1, n + 1):
+            q = prev + (goal - prev) * (k / n)
+            if self.guard(q):
+                self.targ = prev
+                self.guard_blocking = True
+                return False
+        self.guard_blocking = False
+        return True
+
+    # -- waypoint sequencer ----------------------------------------------------
+    def seq_stop(self):
+        self.seq_active = False
+        self.seq_playing = False
+        self._seq_wait = 0.0
+
+    def wp_add(self):
+        """Record the current commanded pose as a waypoint."""
+        if self.targ is not None:
+            self.waypoints.append(self.targ.copy())
+            self.wp_names.append(f"WP{len(self.waypoints)}")
+
+    def wp_delete(self, i):
+        if 0 <= i < len(self.waypoints):
+            self.waypoints.pop(i)
+            self.wp_names.pop(i)
+            self.seq_stop()
+            self.seq_idx = None
+
+    def wp_clear(self):
+        self.waypoints = []
+        self.wp_names = []
+        self.seq_stop()
+        self.seq_idx = None
+
+    def wp_goto(self, i):
+        """Glide to one waypoint, no auto-advance."""
+        if 0 <= i < len(self.waypoints) and self.targ is not None \
+                and not self.estop:
+            self.seq_idx = i
+            self.seq_active = True
+            self.seq_playing = False
+
+    def wp_play(self, loop=False):
+        if self.waypoints and self.targ is not None and not self.estop:
+            self.seq_idx = 0
+            self.seq_loop = bool(loop)
+            self.seq_active = True
+            self.seq_playing = True
+            self._seq_wait = 0.0
+
+    def _seq_tick(self, dt):
+        """Glide targ toward the active waypoint; advance when playing."""
+        if not self.seq_active or self.seq_idx is None \
+                or self.seq_idx >= len(self.waypoints):
+            return
+        wp = self.waypoints[self.seq_idx]
+        step = self.seq_rate * dt
+        self.targ = np.clip(self.targ + np.clip(wp - self.targ, -step, step),
+                            self.lo, self.hi)
+        if float(np.max(np.abs(wp - self.targ))) < 0.01:   # arrived
+            if not self.seq_playing:
+                self.seq_active = False
+                return
+            self._seq_wait += dt
+            if self._seq_wait < self.seq_dwell:
+                return
+            self._seq_wait = 0.0
+            nxt = self.seq_idx + 1
+            if nxt >= len(self.waypoints):
+                if self.seq_loop:
+                    self.seq_idx = 0
+                else:
+                    self.seq_stop()
+            else:
+                self.seq_idx = nxt
+
     # -- jog input from the UI -----------------------------------------------
     def jog_start(self, idx, direction):
         if 0 <= idx < names.N_JOINTS:
+            self.seq_stop()                # manual input overrides playback
             self.jog_dir[idx] = 1.0 if direction > 0 else -1.0
 
     def jog_stop(self, idx=None):
@@ -97,20 +203,40 @@ class RobotBridge:
         """Single click: move target by delta radians."""
         if self.targ is None or self.estop:
             return
+        self.seq_stop()
+        prev = self.targ.copy()
         self.targ[idx] = float(np.clip(self.targ[idx] + delta,
                                        self.lo[idx], self.hi[idx]))
+        self._guard_ok(prev)
 
     def set_joint(self, idx, value):
         """Absolute target for one joint (slider input)."""
         if self.targ is None or self.estop:
             return
+        self.seq_stop()
+        prev = self.targ.copy()
         self.targ[idx] = float(np.clip(value, self.lo[idx], self.hi[idx]))
+        self._guard_ok(prev)
+
+    def set_ik_target(self, arm, pos):
+        """Drag-gizmo target (world meters); ignored unless armed & resumed."""
+        if (arm in self.kin and self.targ is not None and not self.estop
+                and len(pos) == 3):
+            self.seq_stop()                # manual input overrides playback
+            self.ik_targets[arm] = np.asarray(pos, dtype=float)
+
+    def clear_ik_target(self, arm=None):
+        for a in ([arm] if arm else ["left", "right"]):
+            if a in self.ik_targets:
+                self.ik_targets[a] = None
+                self.ik_err[a] = None
 
     def home(self):
         """Glide the target to the documented default pose (handled by the
         position servos; the pose itself is the official safe default)."""
         if self.targ is None or self.estop:
             return
+        self.seq_stop()
         self.targ = np.array(names.DEFAULT_POSE)
 
     # -- periodic work (call at ~60 Hz from the server loop) -------------------
@@ -135,9 +261,21 @@ class RobotBridge:
                 and self.targ is not None and self.link.connected)
 
         if self.targ is not None:
+            prev = self.targ.copy()
             if live and self.jog_dir.any():
                 self.targ = np.clip(self.targ + self.jog_dir * self.jog_rate * dt,
                                     self.lo, self.hi)
+            if live:
+                for arm, target in self.ik_targets.items():
+                    if target is not None and arm in self.kin:
+                        self.targ, err = self.kin[arm].ik_step(self.targ,
+                                                               target)
+                        self.ik_err[arm] = err
+                self._seq_tick(dt)
+                if not np.array_equal(self.targ, prev):
+                    self._guard_ok(prev)
+            elif self.seq_active:
+                self.seq_stop()            # dampened: playback must not resume
             deadman = (1, 1, 1) if live else (0, 0, 0)
             self.link.send_command(self.targ, deadman=deadman)
             self._last_tx = time.monotonic()
@@ -159,6 +297,13 @@ class RobotBridge:
             "tau": st.dof_torque(),
             "temps": st.motor_temps(),
             "targ": None if self.targ is None else self.targ.tolist(),
+            "ik": {a: (None if e is None else round(e, 4))
+                   for a, e in self.ik_err.items()},
+            "seq": {"n": len(self.waypoints), "names": list(self.wp_names),
+                    "idx": self.seq_idx, "playing": self.seq_playing,
+                    "loop": self.seq_loop, "active": self.seq_active},
+            "guard": {"on": self.guard is not None,
+                      "blocking": self.guard_blocking},
         }
 
     def close(self):
