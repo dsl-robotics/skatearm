@@ -2,80 +2,84 @@
 
 Drive the [SkateArm](../../README.md) digital twin from a browser — and, when
 the hardware lands, flip one switch and drive the real Skate over the exact
-same UDP wire. Functionally inspired by PAROL6's Waldo Commander; the design
-and the bimanual specifics are our own.
+same UDP wire. Functional reference: PAROL6's Waldo Commander; the design,
+the bimanual specifics and the safety model are our own.
 
 **[▶ Live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html)** —
-recorded telemetry playback, no install needed (twin renders as a stick
-figure there: STL meshes belong to Rbotic and are only loaded from your local
-clone, never redistributed).
+recorded telemetry playback, no install (simplified stick-figure twin there:
+Rbotic's STL meshes are only loaded from your local clone, never
+redistributed).
 
-![commander UI](../../docs/img/commander_ui_live.png)
-
-## v0.1 features
+## Features (v0.4)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
-  (Three.js; kinematic math validated against MuJoCo to < 0.001 mm)
-* **Joint jog** — hold −/+ per joint, grouped LEFT ARM / RIGHT ARM / HEAD /
-  LEGS, with live angle, velocity and per-motor temperature readouts
+  (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
+  material colors)
+* **Joint control three ways** — hold −/+ to jog, **drag the slider thumb**
+  (amber thumb = your command, azure fill = actual position), or grab a
+  wrist sphere and **drag in 3D**: server-side damped-least-squares IK glides
+  all 7 arm joints (pure numpy, 0.15 ms/step)
+* **Waypoint sequencer** — record poses, glide through them with pause/loop,
+  jump to any step, save/load named sequences (`sequences/*.json`); any
+  manual input or E-STOP interrupts playback
+* **TCP traces** — colored wrist trajectories in the viewport (toggle/clear)
+* **Collision guard** — every candidate target (jog, slider, IK, sequencer)
+  is checked for self-collision *before it is sent*; large jumps are checked
+  along the interpolated path (no tunneling). The guard sees hand↔leg pairs
+  the physics model deliberately excludes, tolerating only the contacts that
+  exist at the neutral pose
 * **SIM / REAL toggle** — the same `skate_ros2` UDP protocol either way;
-  SIM targets the local MuJoCo endpoint, REAL targets `r.local`
-* **Safety chrome**: big E-STOP/RESUME, DAMPENED banner, overtemp chip,
-  HOME glide to the documented safe pose
+  switching always re-latches the E-STOP
 
-## Safety model (inherited from skate_ros2, plus UI rules)
+## Safety model
 
-* Starts **estopped and dampened**; RESUME is an explicit human action.
-* Arms at the robot's **measured pose** — no jump on connect; jog input
-  before arming is ignored.
-* Close the tab → deadman drops within 0.3 s (firmware watchdog semantics).
-* Any SIM↔REAL switch **re-latches the estop** and re-arms from telemetry.
-* Switching to REAL asks for confirmation and comes up dampened.
-* Jog targets are clamped to URDF joint limits at the bridge, not in the UI.
-* The lower chain (legs) is **locked in REAL mode** — balance belongs to the
-  firmware.
+Starts **estopped**; RESUME is an explicit human action. Arms at the robot's
+**measured pose** (no jump on connect; early commands are ignored). Close the
+tab → deadman drops in 0.3 s (firmware watchdog semantics). Joint limits are
+clamped at the bridge; self-colliding targets never leave the server; the
+lower chain is locked in REAL mode. Overtemp (58 °C) latches a whole-body
+dampen.
 
 ## Quick start (no hardware)
 
 ```bash
 pip install -r requirements.txt mujoco
-# control-ready MJCF, if you haven't generated it yet:
-python3 ../../sim/make_control_model.py /path/to/skate_teleop/skt_v3
+python3 ../../sim/make_control_model.py   /path/to/skate_teleop/skt_v3
+python3 ../../sim/make_collision_model.py /path/to/skate_teleop/skt_v3
 
 python3 -m skate_commander.server \
-    --model-dir /path/to/skate_teleop/skt_v3 \
-    --spawn-sim /path/to/skate_teleop/skt_v3/skt_v3_control.xml
-# open http://127.0.0.1:8088 → RESUME → jog
+    --model-dir       /path/to/skate_teleop/skt_v3 \
+    --spawn-sim       /path/to/skate_teleop/skt_v3/skt_v3_collision.xml \
+    --collision-model /path/to/skate_teleop/skt_v3/skt_v3_collision.xml
+# open http://127.0.0.1:8088 → RESUME → jog / drag / record
 ```
 
-With a real Skate on the network: leave out `--spawn-sim`, flip the toggle to
-REAL in the UI (default robot host `r.local`, override with `--real-host`).
+With a real Skate: leave out `--spawn-sim`, flip the toggle to REAL
+(`--real-host` overrides `r.local`). Keep `--collision-model` — it protects
+the real robot too.
 
 ## Architecture
 
 ```
-browser (Three.js twin + jog UI)
+browser (Three.js twin · sliders · gizmo · sequencer UI)
    │ WebSocket: telemetry ↓20 Hz · commands ↑
 FastAPI server (skate_commander.server)
-   │ RobotBridge: arming · jog integrator @60 Hz · estop/overtemp · mode
+   │ RobotBridge: arming · jog/slider/IK/sequencer @60 Hz
+   │              estop · overtemp · collision guard · SIM/REAL
+   │ numpy kinematics (FK = MuJoCo ±0; DLS IK)
    │ skate_ros2.SkateLink — the native UDP wire
    ▼
 MuJoCo sim endpoint (SIM)  /  real Skate (REAL)
 ```
 
-The bridge and URDF layers are pure Python with no web dependencies —
-`test/` runs them headless, including a full WebSocket→UDP→MuJoCo e2e.
-
 ## Tests
 
-```bash
-python3 test/test_urdf.py        # URDF→tree: 26 indexed joints, limits
-SKATE_MJCF=.../skt_v3_control.xml python3 test/test_bridge.py   # safety cycle
-SKATE_MJCF=.../skt_v3_control.xml python3 test/test_ws_e2e.py   # full stack
-```
+`test/` runs headless: URDF parsing, bridge safety cycle, kinematics vs
+MuJoCo, full WebSocket→UDP→MuJoCo e2e, sequencer e2e, collision-guard e2e
+(including leg coverage and anti-tunneling). The guard suite was verified on
+a plain Windows + Python 3.13 machine — no ROS anywhere in the stack.
 
 ## Roadmap
 
-v0.2+: cartesian drag-gizmo (reusing the work-cell's DLS IK), waypoint
-sequencer with playback, TCP trajectory trace, tool/TCP-offset manager,
-camera passthrough. Graduates to its own repo once it's daily-drivable.
+Tool/TCP-offset manager and camera passthrough wait for the real gripper and
+hardware (Phase 2). Graduates to its own repo once it's daily-drivable.
