@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn>=0.27
+numpy>=1.26
+# the wire layer comes from ../skate_ros2 (same repo); mujoco only if you
+# want the local sim endpoint:
+# mujoco>=3.0
