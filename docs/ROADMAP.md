@@ -19,7 +19,8 @@
 - [x] GRAFCET sequencer driving the sim cell: step engine with sensor receptivities (S0–S7), force-guard divert to reject branch, full cycle 42.4 s ≤ 60 s takt, JSON cycle log (`sequencer.py`, `demo_cell_cycle.py`, `logs/cycle_001.json`)
 - [x] QC camera pipeline: qc_top/qc_side fixed cameras, classical CV (color segmentation + fixed inspection window + pocket-rim reference), camera verdict in the sequencer with oracle cross-check; residuals align ±1.3 mm / depth ±3.4 mm (`qc.py`; lessons in sim/README — camera roll, lighting biases, part presentation)
 - [x] Dashboard (Flask + SQLite): KPI cards, cycle-time trend vs takt, camera/oracle residuals, GRAFCET step timeline per cycle; ingest schema = sequencer event stream (real-cell ready) (`dashboard/app.py`)
-- [ ] First community tool shipped: `skate_ros2` bridge (sim side) **or** control-ready MJCF release
+- [x] First community tool shipped: **`skate_ros2`** (`tools/skate_ros2/`) — documented UDP wire protocol, pure-Python client, MuJoCo sim endpoint speaking the real protocol, rclpy driver with firmware-mirrored safety (arm-at-pose, deadman freshness, overtemp latch); 15 ROS-free unit tests + e2e over real sockets (60 Hz cmds, ~200 pkt/s telemetry, 0.015 rad tracking, watchdog < 0.3 s)
+- [ ] `ros2_control` hardware interface + MoveIt 2 config over the bridge
 
 ## Phase 2 — Real Skate bring-up (hardware in Riga)
 - [ ] Unboxing → teleop → joint-by-joint validation (document as handbook chapters)
