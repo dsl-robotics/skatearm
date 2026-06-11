@@ -4,7 +4,7 @@ Standalone, reusable tools for Skate owners. Built because SkateArm needs them; 
 
 | Tool | Description | Status |
 |---|---|---|
-| `skate_ros2` | ROS 2 / MoveIt bridge over Skate's native UDP protocol | planned — first up |
+| [`skate_ros2`](skate_ros2/) | ROS 2 bridge over Skate's native UDP protocol + MuJoCo sim endpoint speaking the same wire format | ✅ **shipped** — sim-verified, real-hardware validation in Phase 2 |
 | `control-ready MJCF` | skt_v3 with actuators + sensors for control/RL work | planned |
 | `dataset-hub` | Bimanual teleop datasets, LeRobot format | planned |
 | `mujoco-benchmarks` | Repeatable bimanual tasks for policy comparison | planned |
