@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skate Commander</title>
+<link rel="stylesheet" href="/static/style.css">
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+  <div id="topbar">
+    <div id="logo">SKATE <span>COMMANDER</span></div>
+    <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
+      <div id="mode-sim" class="active sim">SIM</div>
+      <div id="mode-real">REAL</div>
+    </div>
+    <div class="chip" id="chip-link">LINK</div>
+    <div class="chip" id="chip-armed">ARMED</div>
+    <div class="chip" id="chip-live">DAMPENED</div>
+    <div class="chip" id="chip-temp">TEMP</div>
+    <button id="btn-home" title="Glide to the documented safe pose">HOME</button>
+    <button id="btn-estop">E-STOP</button>
+  </div>
+
+  <div id="main">
+    <div id="viewport">
+      <div id="banner"></div>
+      <div class="overlay" id="overlay"></div>
+    </div>
+    <div id="panel">
+      <div id="tabs">
+        <div data-group="left" class="active">LEFT ARM</div>
+        <div data-group="right">RIGHT ARM</div>
+        <div data-group="head">HEAD</div>
+        <div data-group="legs">LEGS</div>
+      </div>
+      <div id="joints"></div>
+      <div id="footer">
+        <span>skate_ros2 wire · UDP :2000</span>
+        <span id="foot-mode">mode: sim</span>
+        <span id="foot-rate"></span>
+      </div>
+    </div>
+  </div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
