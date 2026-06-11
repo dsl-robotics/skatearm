@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+renders/
+skt_v3_render.xml
+.venv/
+*.mp4
+.DS_Store
