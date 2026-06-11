@@ -18,8 +18,12 @@ Subscribed topics
     skate/estop                   std_msgs/Bool            True = dampen, latched
 
 Safety model (mirrors the firmware deadman):
-* until the first telemetry arrives, nothing is commanded;
+* until the first telemetry arrives, nothing is commanded — and incoming
+  joint commands are IGNORED, so the robot can never jump to a guessed pose
+  the moment it comes online;
 * the first target is the robot's own measured pose (no jump-to-zero);
+* a stale ``skate/cmd_vel`` decays to zero after ``cmd_timeout`` — joint
+  commands can't keep an old base velocity alive;
 * deadman flags are (1,1,1) only while subscriber commands are fresher than
   ``cmd_timeout`` and no estop/overtemp is latched — stop publishing commands
   and the robot dampens, exactly like releasing the VR deadman button;
@@ -66,9 +70,11 @@ class SkateDriver(Node):
         self.vel_cmd = np.zeros(3)
         self.height_cmd = 1.0
         self.last_cmd_time = None     # node clock seconds of last subscriber cmd
+        self.last_vel_time = None     # node clock seconds of last cmd_vel
         self.estop = False            # latched via skate/estop
         self.overtemp = False         # latched with hysteresis
         self._warned_names = set()
+        self._warned_not_armed = False
         self._last_connected = None
         self._last_state_count = -1
 
@@ -115,7 +121,14 @@ class SkateDriver(Node):
     # -- subscriber callbacks ---------------------------------------------------
     def on_joint_cmd(self, msg: JointState):
         if self.targ is None:
-            self.targ = np.array(names.DEFAULT_POSE)
+            # Not armed yet: merging into a guessed base pose could make the
+            # robot jump to it when telemetry finally comes up. Refuse.
+            if not self._warned_not_armed:
+                self._warned_not_armed = True
+                self.get_logger().warning(
+                    "joint command ignored — no telemetry yet; the driver "
+                    "arms at the robot's measured pose first")
+            return
         for name, pos in zip(msg.name, msg.position):
             idx = names.INDEX.get(name)
             if idx is None:
@@ -139,6 +152,7 @@ class SkateDriver(Node):
 
     def on_cmd_vel(self, msg: Twist):
         self.vel_cmd = np.array([msg.linear.x, msg.linear.y, msg.angular.z])
+        self.last_vel_time = self._now_s()
         self._mark_cmd()
 
     def on_height(self, msg: Float64):
@@ -160,8 +174,12 @@ class SkateDriver(Node):
         live = (not self.estop and not self.overtemp
                 and (self._cmd_fresh() or not self.auto_deadman))
         deadman = (1, 1, 1) if live else (0, 0, 0)
-        self.link.send_command(self.targ, self.vel_cmd, self.height_cmd,
-                               deadman)
+        # a stale Twist must not keep driving the base while joint commands
+        # keep the deadman alive — decay it to zero after cmd_timeout
+        vel_fresh = (self.last_vel_time is not None
+                     and self._now_s() - self.last_vel_time < self.cmd_timeout)
+        vel = self.vel_cmd if vel_fresh else np.zeros(3)
+        self.link.send_command(self.targ, vel, self.height_cmd, deadman)
 
     def rx_tick(self):
         self.link.poll()
