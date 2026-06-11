@@ -23,7 +23,7 @@
 - ✅ **Sensors + telemetry** — joint pos/vel/torque + end-effector sites in the model; [sim/telemetry_demo.py](sim/telemetry_demo.py) logs and plots tracking/torques ([docs/img/sensor_tracking.png](docs/img/sensor_tracking.png)) — the schema seeds the future SCADA dashboard
 - ✅ **Demonstrator task spec v1 (approved)** — bimanual peg-in-hole + in-cell QC, GRAFCET cycle, metrics ([specs/demo_task_spec.md](specs/demo_task_spec.md))
 
-**Phase 1 — in progress (sim work-cell):**
+**Phase 1 — complete (sim work-cell):**
 - ✅ **Work-cell scene** — table, base part (60×40×25 mm, spec masses), peg Ø20×40, accept/reject bins as free bodies with physics ([sim/make_cell_scene.py](sim/make_cell_scene.py))
 - ✅ **Bimanual REACH primitive** — closed-loop weighted-DLS IK through the position actuators (no qpos teleports), smoothstep target gliding, collision-aware routes; motion-quality lessons documented in [sim/README.md](sim/README.md)
 - ✅ **PICK & PLACE** — both hands grasp the base part and peg, carry them off the table and place them back ([sim/demo_cell_pick.py](sim/demo_cell_pick.py)); grasp is a documented weld stand-in until the real gripper geometry is known
@@ -56,7 +56,7 @@
   HD video: <a href="docs/video/control_demo.mp4">control_demo.mp4</a> · <a href="docs/video/collision_demo.mp4">collision_demo.mp4</a></em>
 </div>
 
-The real Skate (assembled, 16 DoF, span 1615 mm, RPi 5 on board, UDP control) is en route to Riga — Phase 2 starts when it arrives.
+The real Skate (assembled, 16 DoF, span 1615 mm, RPi 5 on board, UDP control) is en route to Riga — Phase 2 starts when it arrives. The `skate_ros2` bridge is already waiting for it: swap the sim endpoint's IP for `r.local` and the same stack drives the real robot.
 
 ## Why this project
 
