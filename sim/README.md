@@ -55,6 +55,52 @@ Known limitation: AABB boxes overestimate the L-shaped wrist links, so hands "to
 - `demo_wave.py` — physics demo: arm trajectories under position control → GIF or MP4 (format follows the `--out` extension; MP4 needs `pip install imageio-ffmpeg`).
 - `demo_selfcollision.py` — hands-meet demo with the collision layer revealed mid-clip → GIF or MP4.
 - `telemetry_demo.py` — log sensors during the wave trajectory → tracking/torque/EE plot (+ optional CSV).
+- `make_cell_scene.py` — generate `skt_v3_cell.xml`: work table, base part (60×40×25 mm, 45 g, square 22 mm pocket as v1 bore stand-in), peg (Ø20×40, 12 g), accept/reject bins.
+- `primitives.py` — task-space primitives: `reach()` = closed-loop damped-least-squares IK on the 8-DoF arm chains, servoed through position actuators (physics stays honest, no qpos writes).
+- `demo_cell_reach.py` — Phase 1 demo: bimanual hover → descend → lift over the parts → GIF/MP4.
+- `demo_cell_pick.py` — Phase 1 demo: full bimanual pick & place (grasp → carry → place → release). The grasp is a **weld-constraint stand-in** (`primitives.grasp/release`): engaged at the part's current relative pose so nothing snaps; replaced by real gripper geometry once the hardware arrives.
+- `demo_cell_assemble.py` — Phase 1 capstone: full bimanual assembly (fixture + align + force-guarded insert + place). Insertion know-how documented in the script docstring: lateral-offset grasps, orientation-locked carries (`Arm.lock_orientation` + `ik_step6`), relative servoing, τ watchdog.
+
+## 6-DOF carry notes
+
+`Arm.ik_step6` holds the EE orientation captured by `lock_orientation()` while
+tracking position. Tuning matters: orientation must **dominate** (rot_weight
+2.0, position step capped at 2 cm/cycle). Letting tilt accumulate and fixing it
+later does NOT work — a 60° correction demands wrist excursions beyond the
+±90° joint limits; holding from the start keeps the wrist mid-range (≤2° tilt
+over a 16 cm carry, measured). The orientation error is computed with
+`mju_subQuat` (local frame) and rotated to world to match `mj_jacSite`'s jacr.
+
+## Workspace notes (measured)
+
+EE site reach (fixed base): x ±0.33 m, y up to ~0.54 m forward, z −0.13…0.42 m.
+Table top at z = 0.03, front edge at y = 0.38, parts at y = 0.44; IK converges
+to ≤ 2.5 cm under physics (gravity sag of the kp=100 servos is the limit).
+
+## Motion-quality lessons (paid for in debugging hours)
+
+The first cell demo was visibly jerky. Measured causes and the fixes, in order:
+
+1. **Goal-jump commands** — feeding the IK the final goal directly produced
+   ~5 m/s EE whips at segment starts. Fix: the commanded target *glides* from
+   the current EE pose to the goal on a smoothstep profile (`reach(ease=True)`).
+2. **Catch-up whip in the settle phase** — tracking lag released as one violent
+   step (a0 hit 9 rad/s). Fix: task-space step clamp (`Arm.max_step`).
+3. **Intra-arm jams** — grandparent collision boxes (wrist_a1↔wrist_a3) overlap
+   during articulation and lock the wrist. Fix: structural excludes in
+   `make_collision_model.py` (intra-arm + arm↔lower-body).
+4. **Table-edge geometry** — the arm is long: any straight path from the hanging
+   rest pose crosses the table plane while the hand is still below the top.
+   Fix: fold-elbows → raise route in joint space (`move_joints`), and the table
+   front edge moved to y = 0.38 in the scene.
+5. **Controller stability** — integrating IK updates on `d.ctrl` winds up;
+   `qfrc_bias/kp` feedforward feeds Coriolis terms back (unstable). Final law:
+   plain P on qpos + weighted DLS (distal joints de-weighted) + small null-space
+   posture bias + the step clamp. Residual ~2 cm gravity sag is an accepted v1
+   limitation (future: gravity-only feedforward via `mj_rne` with qvel=0).
+
+Verified profile of the final demo: peak EE speed 0.61 m/s, peak accel ~11 m/s²,
+final speed 0.000 m/s (the clip ends at rest, not mid-motion).
 
 ## Sensors
 
