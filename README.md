@@ -23,7 +23,19 @@
 - ✅ **Sensors + telemetry** — joint pos/vel/torque + end-effector sites in the model; [sim/telemetry_demo.py](sim/telemetry_demo.py) logs and plots tracking/torques ([docs/img/sensor_tracking.png](docs/img/sensor_tracking.png)) — the schema seeds the future SCADA dashboard
 - ✅ **Demonstrator task spec v1 (approved)** — bimanual peg-in-hole + in-cell QC, GRAFCET cycle, metrics ([specs/demo_task_spec.md](specs/demo_task_spec.md))
 
-**Next — Phase 1 (sim work-cell):** dual-arm primitives, GRAFCET sequencer, first QC pipeline, dashboard skeleton, and the first standalone community tool (`skate_ros2` bridge). See [docs/ROADMAP.md](docs/ROADMAP.md).
+**Phase 1 — in progress (sim work-cell):**
+- ✅ **Work-cell scene** — table, base part (60×40×25 mm, spec masses), peg Ø20×40, accept/reject bins as free bodies with physics ([sim/make_cell_scene.py](sim/make_cell_scene.py))
+- ✅ **Bimanual REACH primitive** — closed-loop weighted-DLS IK through the position actuators (no qpos teleports), smoothstep target gliding, collision-aware routes; motion-quality lessons documented in [sim/README.md](sim/README.md)
+- ✅ **PICK & PLACE** — both hands grasp the base part and peg, carry them off the table and place them back ([sim/demo_cell_pick.py](sim/demo_cell_pick.py)); grasp is a documented weld stand-in until the real gripper geometry is known
+- ✅ **FULL BIMANUAL ASSEMBLY** — the demonstrator task's manipulation core: left arm fixtures the base part in the air, right arm aligns the peg over the pocket by relative servoing and inserts it with a force-guarded descent (τ watchdog); insertion depth 18.5 mm, peg tilt ≤2°, the assembled unit is placed back on the table intact ([sim/demo_cell_assemble.py](sim/demo_cell_assemble.py))
+- ⬜ GRAFCET sequencer, QC pipeline, dashboard skeleton, `skate_ros2` bridge — see [docs/ROADMAP.md](docs/ROADMAP.md)
+
+<div align="center">
+  <img src="docs/img/cell_assemble_demo.gif" width="480px" alt="Full bimanual assembly: fixture, align, force-guarded insert, place">
+  <br>
+  <em>Phase 1: full bimanual assembly — grasp, orientation-locked carry, align, force-guarded insert, place.
+  HD video: <a href="docs/video/cell_assemble_demo.mp4">cell_assemble_demo.mp4</a> · <a href="docs/video/cell_pick_demo.mp4">cell_pick_demo.mp4</a></em>
+</div>
 
 <div align="center">
   <img src="docs/img/control_demo.gif" width="400px" alt="Closed-loop control demo: independent arm trajectories under physics">
