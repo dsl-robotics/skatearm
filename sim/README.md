@@ -60,6 +60,31 @@ Known limitation: AABB boxes overestimate the L-shaped wrist links, so hands "to
 - `demo_cell_reach.py` — Phase 1 demo: bimanual hover → descend → lift over the parts → GIF/MP4.
 - `demo_cell_pick.py` — Phase 1 demo: full bimanual pick & place (grasp → carry → place → release). The grasp is a **weld-constraint stand-in** (`primitives.grasp/release`): engaged at the part's current relative pose so nothing snaps; replaced by real gripper geometry once the hardware arrives.
 - `demo_cell_assemble.py` — Phase 1 capstone: full bimanual assembly (fixture + align + force-guarded insert + place). Insertion know-how documented in the script docstring: lateral-offset grasps, orientation-locked carries (`Arm.lock_orientation` + `ik_step6`), relative servoing, τ watchdog.
+- `sequencer.py` — GRAFCET-style soft-PLC engine + the demonstrator cycle S0–S7. Receptivities are sensor predicates (poses, grasp state, insertion depth, τ), never timers. QC verify is a v1 pose oracle — the camera pipeline replaces it. Cycle log → JSON (see `../logs/cycle_001.json`).
+- `demo_cell_cycle.py` — run the full automatic cycle and render it with an HMI overlay (live GRAFCET step + sensor metrics). Reference cycle: 42.4 s.
+- `qc.py` — camera QC pipeline: `measure()` renders qc_top/qc_side and returns peg presence, alignment (mm) and insertion-depth estimate; `verdict()` applies the spec thresholds; `annotate()` saves inspection images.
+
+## QC vision lessons (all measured, not guessed)
+
+1. **Fix the camera roll explicitly** — `zaxis="1 0 0"` leaves the roll free and
+   MuJoCo picked up = −y: the whole image was rotated 90° and the vertical peg
+   "pointed sideways". Use `xyaxes` to pin image right/up.
+2. **Fixed inspection window (ROI)** — a specular glint on the wrist 150 px away
+   matched the "yellow peg" threshold and dragged the centroid 148 mm off.
+   Industrial answer: the part is always presented at the same pose, so analyze
+   only a centered window.
+3. **The wooden table defeats naive thresholds** — lit table RGB (247,194,138)
+   sits 4 units under a G>190 "yellow" threshold. Thresholds must be validated
+   against EVERY background surface, not just the part.
+4. **Reference = the feature, not the part** — wrist occlusion biased the
+   whole-block centroid ~7 mm; alignment is measured against the POCKET RIM
+   ring around the peg (what concentricity actually means here).
+5. **Present the part to the camera** — the final fix was choreography, not CV:
+   the left arm grasps the block with a FRONT (−y) offset so the overhead
+   camera sees the pocket unoccluded at the verify station; grasp offsets on
+   both arms widened to 8 cm so the wrists clear each other at the meet point.
+6. Residuals vs sim ground truth: alignment ±1.3 mm, depth ±3.4 mm (480p,
+   1 px ≈ 0.66 mm overhead). Tilt needs higher resolution — explicitly v2.
 
 ## 6-DOF carry notes
 

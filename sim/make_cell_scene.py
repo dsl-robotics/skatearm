@@ -15,9 +15,11 @@ SCENE = """
     <geom name="floor" type="plane" pos="0 0 -1.05" size="4 4 0.1" material="grid"/>
     <light pos="1.5 1.5 2" dir="-0.4 -0.4 -1" diffuse="0.6 0.6 0.6"/>
     <light pos="-1 2 1.5" dir="0.3 -0.6 -1" diffuse="0.3 0.3 0.3"/>
+    <camera name="qc_top" pos="0 0.41 0.60" zaxis="0 0 1" fovy="42"/>
+    <camera name="qc_side" pos="0.32 0.41 0.13" xyaxes="0 1 0 0 0 1" fovy="38"/>
     <geom name="table" type="box" pos="0 0.50 0" size="0.45 0.12 0.03" rgba="0.55 0.42 0.28 1" friction="0.8 0.005 0.0001"/>
-    <geom name="bin_accept" type="box" pos="-0.36 0.46 0.035" size="0.05 0.05 0.005" rgba="0.2 0.7 0.3 1"/>
-    <geom name="bin_reject" type="box" pos="0.36 0.46 0.035" size="0.05 0.05 0.005" rgba="0.8 0.25 0.2 1"/>
+    <geom name="bin_accept" type="box" pos="-0.24 0.41 0.035" size="0.05 0.05 0.005" rgba="0.2 0.7 0.3 1"/>
+    <geom name="bin_reject" type="box" pos="0.24 0.41 0.035" size="0.05 0.05 0.005" rgba="0.8 0.25 0.2 1"/>
     <body name="base_part" pos="-0.12 0.44 0.0301">
       <freejoint/>
       <geom type="box" pos="0 0 0.0025" size="0.030 0.020 0.0025" rgba="0.2 0.55 0.65 1" density="900"/>
