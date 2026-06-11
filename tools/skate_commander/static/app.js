@@ -80,6 +80,7 @@ function buildRobot() {
 
   // visuals
   const loader = new STLLoader();
+  let meshFails = 0;
   for (const [name, link] of Object.entries(model.links)) {
     let fallback = !PREVIEW ? 0 : 1;
     for (const v of link.visuals) {
@@ -93,7 +94,16 @@ function buildRobot() {
         mesh.quaternion.copy(rpyToQuat(v.rpy));
         mesh.scale.set(...v.scale);
         g(name).add(mesh);
-      }, undefined, () => { if (!fallback++) stickFigure(name, g); });
+      }, undefined, () => {
+        meshFails++;
+        console.error(`mesh failed: /meshes/${v.mesh}`);
+        const ov = $("overlay");
+        ov.style.color = "var(--warn)";
+        ov.textContent = `⚠ ${meshFails} mesh(es) failed to load — ` +
+          "check --model-dir points at skt_v3 with skt_v3_meshes/ " +
+          "(stick figure shown instead)";
+        if (!fallback++) stickFigure(name, g);
+      });
     }
     if (PREVIEW) stickFigure(name, g);
   }
@@ -152,6 +162,11 @@ function buildPanel() {
       <div class="jval"><span class="ang">—</span><small class="sub">—</small></div>`;
     wrap.appendChild(row);
     for (const b of row.querySelectorAll(".jbtn")) {
+      if (PREVIEW) {
+        b.disabled = true;
+        b.title = "preview is a recording — run the local server to control";
+        continue;
+      }
       if (legsLockedReal) { b.disabled = true; continue; }
       const d = parseInt(b.dataset.d);
       const stop = () => send({ type: "jog_stop", idx });
@@ -174,7 +189,8 @@ function buildPanel() {
   }
 }
 
-const deg = (r) => (r * 180 / Math.PI).toFixed(1) + "°";
+const z = (x) => (Math.abs(x) < 0.005 ? 0 : x);   // kill -0.0 flicker
+const deg = (r) => (z(r) * 180 / Math.PI).toFixed(1) + "°";
 
 function updatePanel() {
   if (!state) return;
@@ -191,7 +207,7 @@ function updatePanel() {
     const tcls = t > 50 ? "temp-bad" : t > 40 ? "temp-warn" : "temp-ok";
     r.sub.className = "sub " + tcls;
     r.sub.textContent =
-      `${(dq[idx] || 0).toFixed(2)} rad/s · ${t ? t.toFixed(0) : "—"}°C`;
+      `${z(dq[idx] || 0).toFixed(2)} rad/s · ${t ? t.toFixed(0) : "—"}°C`;
   }
 }
 
@@ -219,7 +235,9 @@ function updateTop() {
   es.className = state.estop ? "resume" : "";
   const banner = $("banner");
   if (PREVIEW) { banner.className = "preview";
-    banner.textContent = "PREVIEW — recorded telemetry, no robot attached";
+    banner.textContent = "PREVIEW — a recording plays back, controls are " +
+      "disabled, meshes are simplified · run the local server for the real " +
+      "cockpit";
   } else if (!state.live) { banner.className = "dampened";
     banner.textContent = state.estop
       ? "DAMPENED — press RESUME to enable motion"
@@ -264,8 +282,18 @@ function connectWS() {
 
 function startPlayback() {
   const frames = window.PREVIEW_DATA.frames;
-  let i = 0;
-  setInterval(() => { onState(frames[i]); i = (i + 1) % frames.length; }, 50);
+  const FRAME_MS = 100;                       // recorded at 10 Hz
+  const t0 = performance.now();
+  const lerp = (a, b, t) =>
+    a && b ? a.map((v, i) => v + (b[i] - v) * t) : a || b;
+  setInterval(() => {
+    const x = ((performance.now() - t0) / FRAME_MS) % frames.length;
+    const i = Math.floor(x), t = x - i, j = (i + 1) % frames.length;
+    const a = frames[i], b = frames[j];
+    onState({ ...a, q: lerp(a.q, b.q, t), dq: lerp(a.dq, b.dq, t),
+              temps: lerp(a.temps, b.temps, t),
+              targ: lerp(a.targ, b.targ, t) });
+  }, 33);                                     // smooth 30 fps interpolation
 }
 
 // ---------------------------------------------------------------- boot
@@ -274,5 +302,13 @@ function startPlayback() {
         : await (await fetch("/api/model")).json();
   buildRobot();
   buildPanel();
-  PREVIEW ? startPlayback() : connectWS();
+  if (PREVIEW) {
+    for (const id of ["btn-estop", "btn-home"]) {
+      $(id).disabled = true;
+      $(id).title = "preview is a recording — run the local server to control";
+    }
+    startPlayback();
+  } else {
+    connectWS();
+  }
 })();
