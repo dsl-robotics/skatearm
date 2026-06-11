@@ -10,7 +10,7 @@ First community tool from the [SkateArm](../../README.md) project.
 ![wire demo](../../docs/img/ros2_wire_demo.gif)
 
 *A scripted client teleoperates the MuJoCo endpoint over real UDP packets —
-60 Hz commands in, ~200 telemetry pkt/s out. At t=11 s the client goes silent
+60 Hz commands in, ~190 telemetry pkt/s out. At t=11 s the client goes silent
 and the firmware-style deadman watchdog dampens the robot in 0.3 s.*
 
 ## Why
@@ -89,7 +89,12 @@ python3 examples/wave_no_ros.py --host 127.0.0.1
 Anything written against `127.0.0.1` here talks to the real robot by swapping
 the host for `r.local`. That's the whole point.
 
-## Quick start — ROS 2 (tested layout: Jazzy)
+## Quick start — ROS 2 (target: Jazzy)
+
+> **Honesty note:** the wire protocol, sim endpoint, and all driver safety
+> logic are verified by tests that run without ROS (rclpy is stubbed). A
+> `colcon build` on a live ROS 2 install has **not** been run yet — that's
+> the first task once a ROS 2 machine enters the loop.
 
 ```bash
 mkdir -p ~/skate_ws/src
@@ -120,6 +125,10 @@ ros2 launch skate_ros2 skate_bridge.launch.py robot_host:=127.0.0.1
 
 * Nothing is commanded until telemetry arrives; the driver then **arms at the
   robot's own measured pose** — a fresh bridge can never jump the robot.
+  Joint commands received before arming are ignored (with a warning), so a
+  robot that comes online late can't jump to a guessed base pose either.
+* A stale `skate/cmd_vel` decays to zero after `cmd_timeout` — joint commands
+  can't keep an old base velocity alive.
 * Deadman flags are `(1,1,1)` only while your commands are fresher than
   `cmd_timeout` (0.3 s default). Stop publishing → the robot dampens, exactly
   like releasing the deadman button in the official VR teleop.
@@ -152,7 +161,7 @@ python3 test/test_driver_logic.py       # arming/deadman/estop/overtemp logic
 SKATE_MJCF=.../skt_v3_control.xml python3 test/test_e2e_sim.py  # full e2e
 ```
 
-Verified end-to-end in CI-like conditions: 60 Hz commands, ~200 telemetry
+Verified end-to-end in CI-like conditions: 60 Hz commands, ~190 telemetry
 pkt/s, elbow tracking error 0.015 rad, watchdog dampen < 0.3 s
 ([stats plot](../../docs/img/ros2_wire_stats.png)).
 
