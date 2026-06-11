@@ -14,7 +14,7 @@
 </head>
 <body>
   <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.4</em></div>
     <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
@@ -23,7 +23,12 @@
     <div class="chip" id="chip-armed">ARMED</div>
     <div class="chip" id="chip-live">DAMPENED</div>
     <div class="chip" id="chip-temp">TEMP</div>
+    <div class="chip" id="chip-guard" style="display:none"
+         title="Self-collision guard: impossible poses are rejected before being sent">GUARD</div>
+    <span class="vsep"></span>
     <button id="btn-home" title="Glide to the documented safe pose">HOME</button>
+    <button id="btn-trace" title="Record wrist (TCP) trajectories in the viewport">TRACE: ON</button>
+    <button id="btn-clear-trace" title="Erase recorded trajectories">CLEAR TRACE</button>
     <button id="btn-estop">E-STOP</button>
   </div>
 
@@ -38,6 +43,7 @@
         <div data-group="right">RIGHT ARM</div>
         <div data-group="head">HEAD</div>
         <div data-group="legs">LEGS</div>
+        <div data-group="seq">SEQ</div>
       </div>
       <div id="joints"></div>
       <div id="footer">

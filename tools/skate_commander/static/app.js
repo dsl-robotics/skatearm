@@ -6,6 +6,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
 
 const PREVIEW = typeof window.PREVIEW_DATA !== "undefined";
 const $ = (id) => document.getElementById(id);
@@ -23,25 +24,35 @@ let model, ws = null, state = null, curGroup = "left";
 let jointGroups = {};       // protocol index -> THREE.Group + meta
 let limits = {};            // idx -> [lo, hi]
 let rows = {};              // idx -> row elements
+let eeObjs = {};            // "left"/"right" -> THREE.Object3D (wrist link)
+const markers = {};         // "left"/"right" -> gizmo sphere
+let draggingArm = null;
+let traceOn = true;
 
 // ---------------------------------------------------------------- three.js
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0d1117);
+const scene = new THREE.Scene();          // transparent: CSS gradient shows
+const FLOOR_Z = -0.95;                    // wheel contact plane of skt_v3
 const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 50);
 camera.up.set(0, 0, 1);
-camera.position.set(1.9, -1.9, 1.3);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+camera.position.set(2.0, -2.0, 0.55);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 $("viewport").appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0, 0.45);
+controls.target.set(0, 0, -0.15);         // frame the whole robot
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.1));
 const dir = new THREE.DirectionalLight(0xffffff, 1.4);
 dir.position.set(2, -3, 4);
 scene.add(dir);
-const grid = new THREE.GridHelper(4, 24, 0x30363d, 0x21262d);
+const grid = new THREE.GridHelper(4, 24, 0x2a3240, 0x1b212b);
 grid.rotation.x = Math.PI / 2;
+grid.position.z = FLOOR_Z;                 // floor under the wheels
 scene.add(grid);
+const axes = new THREE.AxesHelper(0.22);   // world frame triad on the floor
+axes.material.transparent = true;
+axes.material.opacity = 0.55;
+axes.position.z = FLOOR_Z;
+scene.add(axes);
 
 function resize() {
   const w = $("viewport").clientWidth, h = $("viewport").clientHeight;
@@ -107,7 +118,115 @@ function buildRobot() {
     }
     if (PREVIEW) stickFigure(name, g);
   }
+
+  // wrist (end-effector) objects = child links of the a6 joints
+  for (const [arm, lastIdx] of [["left", 14], ["right", 22]]) {
+    const j = model.joints.find((j) => j.index === lastIdx);
+    if (j) eeObjs[arm] = g(j.child);
+  }
+  setupGizmo();
+  setupTraces();
   resize();
+}
+
+// ---- drag-gizmo (cartesian IK teleop) --------------------------------------
+let tc = null;
+function setupGizmo() {
+  if (PREVIEW) return;
+  const colors = { left: 0x58a6ff, right: 0xffa657 };
+  for (const arm of ["left", "right"]) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.028, 16, 16),
+      new THREE.MeshBasicMaterial({ color: colors[arm], transparent: true,
+                                    opacity: 0.65, depthTest: false }));
+    m.userData.arm = arm;
+    scene.add(m);
+    markers[arm] = m;
+  }
+  tc = new TransformControls(camera, renderer.domElement);
+  tc.setMode("translate");
+  tc.setSize(0.55);
+  tc.setSpace("world");
+  scene.add(tc);
+  tc.addEventListener("dragging-changed", (e) => {
+    controls.enabled = !e.value;
+    if (e.value) {
+      draggingArm = tc.object ? tc.object.userData.arm : null;
+    } else {
+      if (draggingArm) send({ type: "ik_clear", arm: draggingArm });
+      draggingArm = null;
+    }
+  });
+  let lastSend = 0;
+  tc.addEventListener("objectChange", () => {
+    if (!draggingArm || !state || !state.live) return;
+    const now = performance.now();
+    if (now - lastSend < 50) return;          // 20 Hz target stream
+    lastSend = now;
+    const p = tc.object.position;
+    send({ type: "ik_target", arm: draggingArm, pos: [p.x, p.y, p.z] });
+  });
+  // click a sphere to attach the gizmo; click elsewhere to detach
+  const ray = new THREE.Raycaster();
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    if (tc.dragging) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - r.left) / r.width) * 2 - 1,
+      -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(Object.values(markers), false)[0];
+    if (hit) tc.attach(hit.object);
+  });
+}
+
+// ---- TCP traces -------------------------------------------------------------
+const traces = {};
+function setupTraces() {
+  const colors = { left: 0x58a6ff, right: 0xffa657 };
+  for (const arm of ["left", "right"]) {
+    const N = 800;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position",
+      new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+    geo.setDrawRange(0, 0);
+    const line = new THREE.Line(geo,
+      new THREE.LineBasicMaterial({ color: colors[arm], transparent: true,
+                                    opacity: 0.8 }));
+    line.frustumCulled = false;
+    scene.add(line);
+    traces[arm] = { line, n: 0, N, last: new THREE.Vector3(1e9, 0, 0) };
+  }
+}
+
+function clearTraces() {
+  for (const t of Object.values(traces)) {
+    t.n = 0;
+    t.line.geometry.setDrawRange(0, 0);
+    t.last.set(1e9, 0, 0);
+  }
+}
+
+const _wp = new THREE.Vector3();
+function updateEE() {
+  for (const arm of ["left", "right"]) {
+    if (!eeObjs[arm]) continue;
+    eeObjs[arm].getWorldPosition(_wp);
+    if (markers[arm] && draggingArm !== arm) markers[arm].position.copy(_wp);
+    const t = traces[arm];
+    if (t && traceOn && _wp.distanceTo(t.last) > 0.004) {
+      const a = t.line.geometry.attributes.position;
+      if (t.n < t.N) {
+        a.setXYZ(t.n++, _wp.x, _wp.y, _wp.z);
+      } else {                                   // ring: shift left
+        a.array.copyWithin(0, 3);
+        a.setXYZ(t.N - 1, _wp.x, _wp.y, _wp.z);
+      }
+      a.needsUpdate = true;
+      t.line.geometry.setDrawRange(0, t.n);
+      t.last.copy(_wp);
+    }
+  }
 }
 
 function stickFigure(name, g) {   // mesh-less degradation (preview mode)
@@ -138,36 +257,130 @@ function setAngles(q) {
 (function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  updateEE();
   renderer.render(scene, camera);
 })();
 
 // ---------------------------------------------------------------- panel
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
 
+let seqLoopWanted = false;
+let lastSeqSig = "";
+
+function buildSeqPanel() {
+  const wrap = $("joints");
+  rows = {};
+  wrap.innerHTML = `
+    <div class="panel-head"><span>SEQUENCE</span>
+      <small>record poses · play them back</small></div>
+    <div class="seq-controls">
+      <button id="sq-add" title="Record the current pose">● ADD POSE</button>
+      <button id="sq-play">▶ PLAY</button>
+      <button id="sq-loop">LOOP: OFF</button>
+      <button id="sq-stop">■ STOP</button>
+    </div>
+    <div class="seq-controls">
+      <button id="sq-save">SAVE…</button>
+      <select id="sq-files"></select>
+      <button id="sq-load">LOAD</button>
+      <button id="sq-clear">CLEAR ALL</button>
+    </div>
+    <div id="seq-list"></div>
+    <div class="seq-hint">Jog or drag the robot into a pose, press
+    <b>● ADD POSE</b>, repeat. <b>▶ PLAY</b> glides through the list
+    (any manual input or E-STOP interrupts playback). Sequences are saved
+    on the server in <code>sequences/</code>.</div>`;
+  $("sq-add").onclick = () => send({ type: "wp_add" });
+  $("sq-play").onclick = () => send({ type: "wp_play", loop: seqLoopWanted });
+  $("sq-stop").onclick = () => send({ type: "wp_stop" });
+  $("sq-loop").onclick = () => {
+    seqLoopWanted = !seqLoopWanted;
+    $("sq-loop").textContent = `LOOP: ${seqLoopWanted ? "ON" : "OFF"}`;
+  };
+  $("sq-clear").onclick = () => send({ type: "wp_clear" });
+  $("sq-save").onclick = () => {
+    const name = prompt("Sequence name (letters/digits/_-):");
+    if (name) { send({ type: "wp_save", name }); setTimeout(refreshSeqFiles, 400); }
+  };
+  $("sq-load").onclick = () => {
+    const sel = $("sq-files");
+    if (sel.value) send({ type: "wp_load", name: sel.value });
+  };
+  refreshSeqFiles();
+  lastSeqSig = "";
+}
+
+async function refreshSeqFiles() {
+  if (PREVIEW) return;
+  try {
+    const names = await (await fetch("/api/sequences")).json();
+    const sel = $("sq-files");
+    if (sel) sel.innerHTML =
+      names.map((n) => `<option value="${n}">${n}</option>`).join("");
+  } catch (e) { /* server down; banner already shows it */ }
+}
+
+function updateSeqPanel() {
+  const seq = state && state.seq;
+  if (!seq) return;
+  const sig = JSON.stringify([seq.names, seq.idx, seq.playing, seq.active]);
+  if (sig === lastSeqSig) return;
+  lastSeqSig = sig;
+  const play = $("sq-play");
+  if (play) play.className = seq.playing ? "playing" : "";
+  const list = $("seq-list");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!seq.names.length) {
+    list.innerHTML = `<div class="seq-empty">No poses recorded yet.<br>
+      Jog or drag the robot into a pose, then press <b>● ADD POSE</b>.</div>`;
+    return;
+  }
+  seq.names.forEach((nm, i) => {
+    const row = document.createElement("div");
+    row.className = "seqrow" + (seq.active && seq.idx === i ? " active" : "");
+    row.innerHTML = `<span class="nm">${i + 1}. ${nm}</span>
+      <button data-a="goto" title="Glide to this pose">▶</button>
+      <button data-a="del" title="Delete">✕</button>`;
+    row.querySelector('[data-a="goto"]').onclick =
+      () => send({ type: "wp_goto", idx: i });
+    row.querySelector('[data-a="del"]').onclick =
+      () => send({ type: "wp_delete", idx: i });
+    list.appendChild(row);
+  });
+}
+
 function buildPanel() {
+  if (curGroup === "seq") { buildSeqPanel(); return; }
   const wrap = $("joints");
   wrap.innerHTML = "";
   rows = {};
+  const head = document.createElement("div");
+  head.className = "panel-head";
+  head.innerHTML = `<span>${GROUPS[curGroup].label}</span>
+    <small>${GROUPS[curGroup].idx.length} joints · hold ± or drag the thumb</small>`;
+  wrap.appendChild(head);
   const legsLockedReal = curGroup === "legs" && state && state.mode === "real";
-  for (const idx of GROUPS[curGroup].idx) {
+  for (const [k, idx] of GROUPS[curGroup].idx.entries()) {
     const jname = model.joint_names[idx];
     const [lo, hi] = limits[idx] || [-3.14, 3.14];
     const row = document.createElement("div");
     row.className = "jrow";
+    const human = `J${k + 1}${ROLE[idx] ? " · " + ROLE[idx] : ""}`;
     row.innerHTML = `
-      <div class="jname"><b>${jname.split("_")[0]}·${idx}</b>${ROLE[idx] || jname}</div>
+      <div class="jname" title="protocol index ${idx}"><b>${human}</b>${jname}</div>
       <button class="jbtn" data-d="-1">−</button>
-      <div class="jbar"><div class="jfill"></div><div class="jmark"></div></div>
+      <div class="jbar"><div class="jfill"></div><div class="jthumb"></div></div>
       <button class="jbtn" data-d="1">+</button>
       <div class="jval"><span class="ang">—</span><small class="sub">—</small></div>`;
     wrap.appendChild(row);
+    const locked = PREVIEW || legsLockedReal;
     for (const b of row.querySelectorAll(".jbtn")) {
-      if (PREVIEW) {
+      if (locked) {
         b.disabled = true;
-        b.title = "preview is a recording — run the local server to control";
+        if (PREVIEW) b.title = "preview is a recording — run the local server";
         continue;
       }
-      if (legsLockedReal) { b.disabled = true; continue; }
       const d = parseInt(b.dataset.d);
       const stop = () => send({ type: "jog_stop", idx });
       b.addEventListener("pointerdown", (e) => {
@@ -176,14 +389,49 @@ function buildPanel() {
       b.addEventListener("pointerleave", stop);
       b.addEventListener("pointercancel", stop);
     }
-    rows[idx] = { fill: row.querySelector(".jfill"),
-                  mark: row.querySelector(".jmark"),
-                  ang: row.querySelector(".ang"),
-                  sub: row.querySelector(".sub"), lo, hi };
+    // draggable slider: thumb = commanded target, fill = actual position
+    const bar = row.querySelector(".jbar");
+    const r = { fill: row.querySelector(".jfill"),
+                thumb: row.querySelector(".jthumb"),
+                ang: row.querySelector(".ang"),
+                sub: row.querySelector(".sub"), lo, hi, dragging: false };
+    if (locked) {
+      bar.classList.add("disabled");
+    } else {
+      const valAt = (e) => {
+        const rect = bar.getBoundingClientRect();
+        const f = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+        return lo + f * (hi - lo);
+      };
+      let lastSend = 0;
+      const sendVal = (e, force) => {
+        const now = performance.now();
+        if (!force && now - lastSend < 40) return;
+        lastSend = now;
+        const v = valAt(e);
+        send({ type: "set_joint", idx, value: v });
+        r.thumb.style.left = `${(100 * (v - lo)) / (hi - lo)}%`;
+      };
+      bar.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        r.dragging = true;
+        bar.setPointerCapture(e.pointerId);
+        sendVal(e, true);
+      });
+      bar.addEventListener("pointermove", (e) => {
+        if (r.dragging) sendVal(e);
+      });
+      const end = (e) => {
+        if (r.dragging) { r.dragging = false; sendVal(e, true); }
+      };
+      bar.addEventListener("pointerup", end);
+      bar.addEventListener("pointercancel", end);
+    }
+    rows[idx] = r;
   }
   if (legsLockedReal) {
     const note = document.createElement("div");
-    note.style.cssText = "padding:10px;color:var(--warn);font-size:12px";
+    note.className = "panel-note";
     note.textContent = "Lower chain locked in REAL mode — balance belongs to the firmware.";
     wrap.prepend(note);
   }
@@ -194,20 +442,20 @@ const deg = (r) => (z(r) * 180 / Math.PI).toFixed(1) + "°";
 
 function updatePanel() {
   if (!state) return;
+  if (curGroup === "seq") { updateSeqPanel(); return; }
   const q = state.q || [], dq = state.dq || [], temps = state.temps || [];
   for (const [idx, r] of Object.entries(rows)) {
     const a = q[idx], t = temps[idx], targ = state.targ && state.targ[idx];
     if (a === undefined || a === null) continue;
     const span = r.hi - r.lo || 1;
-    r.fill.style.left = "0";
     r.fill.style.width = `${(100 * (a - r.lo)) / span}%`;
-    if (targ !== null && targ !== undefined)
-      r.mark.style.left = `${(100 * (targ - r.lo)) / span}%`;
+    if (!r.dragging && targ !== null && targ !== undefined)
+      r.thumb.style.left = `${(100 * (targ - r.lo)) / span}%`;
     r.ang.textContent = deg(a);
     const tcls = t > 50 ? "temp-bad" : t > 40 ? "temp-warn" : "temp-ok";
     r.sub.className = "sub " + tcls;
     r.sub.textContent =
-      `${z(dq[idx] || 0).toFixed(2)} rad/s · ${t ? t.toFixed(0) : "—"}°C`;
+      `${z(dq[idx] || 0).toFixed(2)} r/s · ${t ? t.toFixed(0) : "—"}°C`;
   }
 }
 
@@ -220,9 +468,15 @@ function chip(id, on, txtOn, txtOff, badWhenOff = true) {
 
 function updateTop() {
   if (!state) return;
-  chip("chip-link", state.connected, "LINK ●", "NO LINK");
+  chip("chip-link", state.connected, "LINK", "NO LINK");
   chip("chip-armed", state.armed, "ARMED", "ARMING…", false);
   chip("chip-live", state.live, "LIVE", "DAMPENED");
+  const gc = $("chip-guard");
+  if (gc && state.guard) {
+    gc.style.display = state.guard.on ? "" : "none";
+    gc.textContent = state.guard.blocking ? "LIMIT" : "GUARD";
+    gc.className = "chip " + (state.guard.blocking ? "warn" : "on");
+  }
   const tmax = state.temps ? Math.max(...state.temps) : 0;
   const tc = $("chip-temp");
   tc.textContent = `T ${tmax.toFixed(0)}°C`;
@@ -233,6 +487,7 @@ function updateTop() {
   const es = $("btn-estop");
   es.textContent = state.estop ? "RESUME" : "E-STOP";
   es.className = state.estop ? "resume" : "";
+  if (tc && tc.object && !state.live) tc.detach();   // no gizmo while dampened
   const banner = $("banner");
   if (PREVIEW) { banner.className = "preview";
     banner.textContent = "PREVIEW — a recording plays back, controls are " +
@@ -249,6 +504,14 @@ function updateTop() {
 $("btn-estop").onclick = () =>
   send({ type: state && state.estop ? "resume" : "estop" });
 $("btn-home").onclick = () => send({ type: "home" });
+if ($("btn-trace")) {
+  $("btn-trace").onclick = () => {
+    traceOn = !traceOn;
+    $("btn-trace").textContent = `TRACE: ${traceOn ? "ON" : "OFF"}`;
+    for (const t of Object.values(traces)) t.line.visible = traceOn;
+  };
+  $("btn-clear-trace").onclick = clearTraces;
+}
 $("mode-sim").onclick = () => send({ type: "set_mode", mode: "sim" });
 $("mode-real").onclick = () => {
   if (confirm("Switch to REAL robot? It will stay DAMPENED until you press RESUME."))
@@ -277,7 +540,13 @@ function onState(s) {
 function connectWS() {
   ws = new WebSocket(`ws://${location.host}/ws`);
   ws.onmessage = (e) => onState(JSON.parse(e.data));
-  ws.onclose = () => setTimeout(connectWS, 1000);
+  ws.onclose = () => {
+    const banner = $("banner");
+    banner.className = "dampened";
+    banner.textContent = "no connection to the server — retrying… " +
+      "(server down, or missing: pip install websockets)";
+    setTimeout(connectWS, 1000);
+  };
 }
 
 function startPlayback() {
