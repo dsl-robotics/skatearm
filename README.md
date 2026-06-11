@@ -31,13 +31,20 @@
 - ✅ **GRAFCET SEQUENCER — full automatic cycle** — soft-PLC step engine with sensor-based receptivities (no timers, per the spec): parts check → grasp → carry → align → guarded insert → QC verify → ACCEPT/REJECT bin → home. **Cycle time 42.4 s** (takt target ≤ 60 s); every transition logged to [logs/cycle_001.json](logs/cycle_001.json) — the seed of the SCADA dashboard ([sim/sequencer.py](sim/sequencer.py), [sim/demo_cell_cycle.py](sim/demo_cell_cycle.py))
 - ✅ **QC CAMERA PIPELINE** — two fixed inspection cameras (overhead + lateral) with classical CV: color segmentation in a fixed inspection window, pocket-rim alignment reference, px→mm from camera geometry. Camera verdict drives the sequencer's accept/reject; the sim pose oracle stays as a logged cross-check — **residuals: alignment ±1.3 mm, depth ±3.4 mm** ([sim/qc.py](sim/qc.py), annotated views in [docs/img/14_qc_top_annotated.png](docs/img/14_qc_top_annotated.png))
 - ✅ **CELL DASHBOARD** — Flask + SQLite SCADA monitor over the sequencer logs: accept rate, cycle-time trend vs takt, camera-vs-oracle QC residuals, per-cycle GRAFCET timeline ([dashboard/](dashboard/) · **[live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/dashboard/preview_overview.html)** · [cycle detail](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/dashboard/preview_cycle.html))
-- ⬜ `skate_ros2` bridge — the first standalone community tool, see [docs/ROADMAP.md](docs/ROADMAP.md)
+- ✅ **`skate_ros2` — the first standalone community tool** ([tools/skate_ros2/](tools/skate_ros2/)): ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, deadman semantics, 26-DoF ordering) + a **MuJoCo sim endpoint speaking the same protocol** — develop your ROS 2 stack before the robot arrives, then swap `127.0.0.1` for `r.local`. Safety mirrored from firmware: arm-at-measured-pose, command-freshness deadman, 58 °C overtemp latch. 15 unit tests run without ROS (stubbed rclpy); e2e verified over real sockets: 60 Hz commands, ~200 telemetry pkt/s, 0.015 rad tracking, watchdog dampen < 0.3 s
 
 <div align="center">
   <img src="docs/img/cell_cycle_demo.gif" width="480px" alt="Full automatic GRAFCET cycle with HMI overlay: grasp, carry, align, insert, QC, place to bin">
   <br>
   <em>Phase 1: the full automatic cycle under the GRAFCET sequencer — HMI overlay shows the live step and sensor metrics; QC verdict ACCEPT, unit placed on the green bin.
   HD video: <a href="docs/video/cell_cycle_demo.mp4">cell_cycle_demo.mp4</a> · <a href="docs/video/cell_assemble_demo.mp4">cell_assemble_demo.mp4</a></em>
+</div>
+
+<div align="center">
+  <img src="docs/img/ros2_wire_demo.gif" width="480px" alt="skate_ros2 wire demo: a client teleoperates the MuJoCo endpoint over real UDP; at t=11s the client goes silent and the watchdog dampens the robot">
+  <br>
+  <em><code>skate_ros2</code>: a scripted client drives the MuJoCo endpoint over <strong>real UDP packets</strong> — the exact wire format the physical Skate accepts. At t=11 s the client goes silent; the firmware-style watchdog dampens the robot in 0.3 s.
+  HD video: <a href="docs/video/ros2_wire_demo.mp4">ros2_wire_demo.mp4</a> · wire stats: <a href="docs/img/ros2_wire_stats.png">rates & tracking</a></em>
 </div>
 
 <div align="center">
@@ -100,7 +107,7 @@ Tools get built because SkateArm needs them — then released standalone:
 
 | Tool | What it is | Status |
 |---|---|---|
-| `skate_ros2` | ROS 2 / MoveIt bridge over Skate's native UDP | planned — first up |
+| [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified; MoveIt config next) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |
 | MuJoCo benchmark suite | Repeatable bimanual tasks for policy comparison | planned |
