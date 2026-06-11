@@ -1,3 +1,3 @@
 """skate_commander — web cockpit for the R.Botic Skate digital twin & robot."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

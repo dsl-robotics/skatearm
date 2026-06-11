@@ -39,7 +39,20 @@ def build_app(model_dir, real_host="r.local", sim_port=2000):
         raise FileNotFoundError(f"{urdf_path} not found — point --model-dir "
                                 "at the skt_v3 folder of your skate_teleop clone")
     model = parse_urdf(urdf_path)
-    allowed_meshes = set(model["mesh_files"])
+    # resolve every mesh against both known layouts of the official clone
+    mesh_dirs = [model_dir / "skt_v3_meshes" / "scaled_stl_files",
+                 model_dir / "skt_v3_meshes"]
+    mesh_paths = {}
+    for name in model["mesh_files"]:
+        for d in mesh_dirs:
+            if (d / name).exists():
+                mesh_paths[name] = d / name
+                break
+    missing = set(model["mesh_files"]) - set(mesh_paths)
+    if missing:
+        print(f"[commander] WARNING: {len(missing)} URDF meshes not found "
+              f"under {model_dir} — the viewer will fall back to a stick "
+              f"figure for those links: {sorted(missing)[:3]}...")
 
     bridge = RobotBridge(real_host=real_host, sim_port=sim_port,
                          limits=joint_limits(model))
@@ -57,10 +70,10 @@ def build_app(model_dir, real_host="r.local", sim_port=2000):
 
     @app.get("/meshes/{name}")
     async def mesh(name: str):
-        if name not in allowed_meshes:        # whitelist, no traversal
+        path = mesh_paths.get(name)           # whitelist, no traversal
+        if path is None:
             return JSONResponse({"error": "unknown mesh"}, status_code=404)
-        return FileResponse(mesh_dir / name,
-                            media_type="application/octet-stream")
+        return FileResponse(path, media_type="application/octet-stream")
 
     @app.websocket("/ws")
     async def ws(sock: WebSocket):
