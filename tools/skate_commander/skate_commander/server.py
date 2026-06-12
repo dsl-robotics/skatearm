@@ -18,16 +18,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from .bridge import RobotBridge
 from .kinematics import ArmKinematics
+from .program import ProgramRunner
 from .urdf import joint_limits, parse_urdf
+
+from skate_ros2 import names  # noqa: E402  (path set up by .bridge)
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 SEQ_DIR = Path(__file__).resolve().parents[1] / "sequences"
+PROG_DIR = Path(__file__).resolve().parents[1] / "programs"
+TOOLS_FILE = Path(__file__).resolve().parents[1] / "tcp_tools.json"
 
 
 def _seq_name_ok(name):
@@ -36,6 +42,54 @@ def _seq_name_ok(name):
 
 TX_HZ = 60.0          # bridge tick / command rate
 WS_HZ = 20.0          # UI telemetry rate
+
+# manual UI inputs interrupt a running program (same rule as the sequencer)
+_MANUAL = {"jog_start", "jog_step", "set_joint", "ik_target", "cart_step",
+           "wp_goto", "wp_play", "home"}
+
+
+def compute_mirror_map(kin):
+    """Derive the left<->right mirror convention numerically from FK.
+
+    Returns ``(signs[8], axis)``: flipping world coordinate ``axis`` maps
+    the left wrist onto the right at the neutral pose, and ``signs[k]``
+    makes arm-slot ``k`` of one arm reproduce the mirrored motion of the
+    other. Measured from the model, not guessed from the URDF convention.
+    """
+    q0 = np.zeros(names.N_JOINTS)
+    pL, pR = kin["left"].fk(q0), kin["right"].fk(q0)
+    axis = int(np.argmax(np.abs(pL - pR)))
+
+    def mirr(v):
+        v = v.copy()
+        v[axis] = -v[axis]
+        return v
+
+    signs = np.ones(8)
+    for k in range(7):                      # slot 7 = gripper, sign +1
+        qa = q0.copy()
+        qa[8 + k] = 0.3
+        dl = kin["left"].fk(qa) - pL
+        qb = q0.copy()
+        qb[16 + k] = 0.3
+        dr = kin["right"].fk(qb) - pR
+        signs[k] = (1.0 if np.linalg.norm(dr - mirr(dl))
+                    <= np.linalg.norm(dr + mirr(dl)) else -1.0)
+    return signs, axis
+
+
+def _load_tools():
+    tools = {"flange": [0.0, 0.0, 0.0]}
+    if TOOLS_FILE.exists():
+        try:
+            data = json.loads(TOOLS_FILE.read_text())
+            for k, v in data.items():
+                if (_seq_name_ok(k) and isinstance(v, list) and len(v) == 3
+                        and all(abs(float(x)) <= 500.0 for x in v)):
+                    tools[k] = [float(x) for x in v]
+        except Exception as e:
+            print(f"[commander] WARNING: bad {TOOLS_FILE.name}: {e}")
+    return tools
 
 
 def make_collision_guard(collision_xml):
@@ -137,12 +191,23 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     kin = {arm: ArmKinematics(model, arm) for arm in ("left", "right")}
     bridge = RobotBridge(real_host=real_host, sim_port=sim_port,
                          limits=joint_limits(model), kin=kin)
+    bridge.mirror_signs, bridge.mirror_axis = compute_mirror_map(kin)
+    print(f"[commander] mirror map: axis={'xyz'[bridge.mirror_axis]} "
+          f"signs={[int(s) for s in bridge.mirror_signs]}")
     if collision_model:
         bridge.guard = make_collision_guard(collision_model)
         print("[commander] collision guard ON — self-colliding targets are "
               "rejected before they reach the robot")
+    runner = ProgramRunner(bridge)
+    tools = _load_tools()
+
+    def save_tools():
+        TOOLS_FILE.write_text(json.dumps(tools, indent=1))
+
     app = FastAPI(title="Skate Commander")
     app.state.bridge = bridge
+    app.state.runner = runner
+    app.state.tools = tools
     app.state.clients = 0
 
     @app.get("/")
@@ -158,6 +223,23 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         if not SEQ_DIR.exists():
             return JSONResponse([])
         return JSONResponse(sorted(p.stem for p in SEQ_DIR.glob("*.json")))
+
+    @app.get("/api/tools")
+    async def api_tools():
+        return JSONResponse(tools)
+
+    @app.get("/api/programs")
+    async def api_programs():
+        if not PROG_DIR.exists():
+            return JSONResponse([])
+        return JSONResponse(sorted(p.stem for p in PROG_DIR.glob("*.py")))
+
+    @app.get("/api/programs/{name}")
+    async def api_program(name: str):
+        path = PROG_DIR / f"{name}.py"
+        if not _seq_name_ok(name) or not path.exists():
+            return JSONResponse({"error": "unknown program"}, status_code=404)
+        return PlainTextResponse(path.read_text(encoding="utf-8"))
 
     @app.get("/meshes/{name}")
     async def mesh(name: str):
@@ -175,11 +257,13 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                 try:
                     raw = await asyncio.wait_for(sock.receive_text(),
                                                  timeout=1.0 / WS_HZ)
-                    handle_command(bridge, json.loads(raw))
+                    handle_command(bridge, json.loads(raw), runner=runner,
+                                   tools=tools, save_tools=save_tools)
                 except asyncio.TimeoutError:
                     pass
-                await sock.send_text(json.dumps(bridge.snapshot(
-                    ui_attached=app.state.clients > 0)))
+                snap = bridge.snapshot(ui_attached=app.state.clients > 0)
+                snap["prog"] = runner.snapshot()
+                await sock.send_text(json.dumps(snap))
         except WebSocketDisconnect:
             pass
         finally:
@@ -205,9 +289,64 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     return app
 
 
-def handle_command(bridge: RobotBridge, cmd: dict):
+def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
+                   save_tools=None):
     t = cmd.get("type")
-    if t == "jog_start":
+    if runner is not None and runner.running and t in _MANUAL:
+        runner.stop("manual input")        # the human at the panel wins
+    if t == "cart_step":
+        delta = cmd.get("delta", ())
+        if isinstance(delta, (list, tuple)) and len(delta) == 3:
+            d = [max(-0.2, min(0.2, float(x))) for x in delta]
+            bridge.cart_step(cmd.get("arm"), d)
+    elif t == "mirror":
+        bridge.mirror = bool(cmd.get("on"))
+        if not bridge.mirror:
+            bridge.jog_stop()              # don't leave a ghost jog running
+    elif t == "tool_set":
+        if tools and cmd.get("name") in tools:
+            off_m = [v / 1000.0 for v in tools[cmd["name"]]]
+            bridge.set_tool(cmd.get("arm"), cmd["name"], off_m)
+    elif t == "tool_def":
+        name, xyz = cmd.get("name", ""), cmd.get("xyz_mm", ())
+        if (tools is not None and _seq_name_ok(name) and name != "flange"
+                and isinstance(xyz, (list, tuple)) and len(xyz) == 3):
+            try:
+                vals = [float(x) for x in xyz]
+            except (TypeError, ValueError):
+                return
+            if all(abs(v) <= 500.0 for v in vals):
+                tools[name] = vals
+                if save_tools:
+                    save_tools()
+                for arm, nm in list(bridge.tool_names.items()):
+                    if nm == name:         # live-update an attached tool
+                        bridge.set_tool(arm, name, [v / 1000 for v in vals])
+    elif t == "tool_del":
+        name = cmd.get("name", "")
+        if tools and name in tools and name != "flange":
+            del tools[name]
+            if save_tools:
+                save_tools()
+            for arm, nm in list(bridge.tool_names.items()):
+                if nm == name:
+                    bridge.set_tool(arm, "flange", [0.0, 0.0, 0.0])
+    elif t == "prog_run":
+        if runner:
+            runner.run(cmd.get("code"))
+    elif t == "prog_step":
+        if runner:
+            runner.step(cmd.get("code"))
+    elif t == "prog_stop":
+        if runner:
+            runner.stop()
+    elif t == "prog_save":
+        name = cmd.get("name", "")
+        if _seq_name_ok(name) and isinstance(cmd.get("code"), str):
+            PROG_DIR.mkdir(exist_ok=True)
+            (PROG_DIR / f"{name}.py").write_text(cmd["code"],
+                                                 encoding="utf-8")
+    elif t == "jog_start":
         bridge.jog_start(int(cmd["idx"]), int(cmd["dir"]))
     elif t == "jog_stop":
         bridge.jog_stop(cmd.get("idx"))
