@@ -43,7 +43,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
 
 <div align="center">
-  <img src="docs/img/commander_ui_preview.gif" width="640px" alt="Skate Commander UI: digital twin viewport, joint sliders, sequencer panel">
+  <img src="docs/img/commander_ui_live.png" width="640px" alt="Skate Commander UI: full-color digital twin, joint sliders, status chips, collision guard">
   <br>
   <em>The cockpit UI. <strong><a href="https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
 </div>
