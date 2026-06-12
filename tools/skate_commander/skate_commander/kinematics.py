@@ -10,6 +10,10 @@ The IK is deliberately conservative for teleop:
 * one damped-least-squares step per call, error capped at ``step_m`` and
   joint motion capped at ``dq_max`` — the arm *glides* toward the target;
 * joint limits clamped every step.
+
+Tool (TCP) offsets: ``self.tool`` is a 3-vector in the wrist-link frame
+(meters). FK returns the offset point and the numeric Jacobian/IK follow it
+automatically — switch tools and every cartesian feature speaks TCP.
 """
 
 from __future__ import annotations
@@ -54,6 +58,7 @@ class ArmKinematics:
             raise ValueError(arm)
         self.arm = arm
         self.idx = ARM_JOINTS[arm]
+        self.tool = np.zeros(3)            # TCP offset, wrist-link frame (m)
         # chain of joints from root to the arm's last wrist joint (a6)
         joints = {j["child"]: j for j in model["joints"]}
         last = next(j for j in model["joints"] if j["index"] == self.idx[-1])
@@ -73,7 +78,7 @@ class ArmKinematics:
                             for i in self.idx])
 
     def fk(self, q26):
-        """World position of the arm's wrist (end of the a6 link frame)."""
+        """World position of the TCP (wrist-link origin + tool offset)."""
         x = np.zeros(3)
         R = np.eye(3)
         for j in self.chain:
@@ -82,7 +87,7 @@ class ArmKinematics:
             if j["index"] is not None:
                 Rj = Rj @ _axis_rot(j["axis"], q26[j["index"]])
             R = R @ Rj
-        return x
+        return x + R @ self.tool
 
     def jacobian(self, q26, eps=1e-5):
         """3x7 numeric Jacobian of the wrist position wrt this arm's joints."""

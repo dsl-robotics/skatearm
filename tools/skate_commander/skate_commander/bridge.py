@@ -61,6 +61,18 @@ class RobotBridge:
         self.guard_blocking = False
         self.ik_targets = {"left": None, "right": None}
         self.ik_err = {"left": None, "right": None}
+        # cartesian-step targets auto-clear on arrival (or stall); drag-gizmo
+        # targets are cleared by the UI on release
+        self.ik_auto = {"left": False, "right": False}
+        self._ik_prev = {"left": None, "right": None}
+        self._ik_stall = {"left": 0.0, "right": 0.0}
+        # mirror mode: commands to one arm are reflected onto the other.
+        # signs/axis are derived numerically from FK by the server (no
+        # guessing about the URDF's mirroring convention).
+        self.mirror = False
+        self.mirror_signs = None           # per-arm-slot sign array, len 8
+        self.mirror_axis = 1               # world axis flipped by the mirror
+        self.tool_names = {"left": "flange", "right": "flange"}
         # waypoint sequencer
         self.waypoints = []                # list of np[26] (commanded poses)
         self.wp_names = []
@@ -187,49 +199,132 @@ class RobotBridge:
             else:
                 self.seq_idx = nxt
 
+    # -- mirror mode -----------------------------------------------------------
+    def _mirror_joint(self, idx):
+        """(other_idx, sign) if idx is an arm joint and mirroring is ready."""
+        if self.mirror_signs is None:
+            return None
+        if 8 <= idx < 16:
+            other = idx + 8
+        elif 16 <= idx < 24:
+            other = idx - 8
+        else:
+            return None
+        return other, float(self.mirror_signs[idx % 8])
+
+    def _mirror_vec(self, v):
+        v = np.asarray(v, dtype=float).copy()
+        v[self.mirror_axis] = -v[self.mirror_axis]
+        return v
+
+    def _joint_locked(self, idx):
+        """Lower chain is untouchable in REAL mode — balance belongs to the
+        firmware. (The UI greys it out; this enforces it for programs too.)"""
+        return self.mode == "real" and 0 <= idx < 8
+
     # -- jog input from the UI -----------------------------------------------
     def jog_start(self, idx, direction):
-        if 0 <= idx < names.N_JOINTS:
+        if 0 <= idx < names.N_JOINTS and not self._joint_locked(idx):
             self.seq_stop()                # manual input overrides playback
-            self.jog_dir[idx] = 1.0 if direction > 0 else -1.0
+            d = 1.0 if direction > 0 else -1.0
+            self.jog_dir[idx] = d
+            if self.mirror and (m := self._mirror_joint(idx)):
+                self.jog_dir[m[0]] = m[1] * d
 
     def jog_stop(self, idx=None):
         if idx is None:
             self.jog_dir[:] = 0
         elif 0 <= idx < names.N_JOINTS:
             self.jog_dir[idx] = 0
+            if self.mirror and (m := self._mirror_joint(idx)):
+                self.jog_dir[m[0]] = 0
 
     def jog_step(self, idx, delta):
         """Single click: move target by delta radians."""
-        if self.targ is None or self.estop:
+        if self.targ is None or self.estop or self._joint_locked(idx):
             return
         self.seq_stop()
         prev = self.targ.copy()
         self.targ[idx] = float(np.clip(self.targ[idx] + delta,
                                        self.lo[idx], self.hi[idx]))
+        if self.mirror and (m := self._mirror_joint(idx)):
+            o, s = m
+            self.targ[o] = float(np.clip(self.targ[o] + s * delta,
+                                         self.lo[o], self.hi[o]))
         self._guard_ok(prev)
 
     def set_joint(self, idx, value):
         """Absolute target for one joint (slider input)."""
-        if self.targ is None or self.estop:
+        if self.targ is None or self.estop or self._joint_locked(idx):
             return
         self.seq_stop()
         prev = self.targ.copy()
         self.targ[idx] = float(np.clip(value, self.lo[idx], self.hi[idx]))
+        if self.mirror and (m := self._mirror_joint(idx)):
+            o, s = m
+            self.targ[o] = float(np.clip(s * value, self.lo[o], self.hi[o]))
         self._guard_ok(prev)
 
-    def set_ik_target(self, arm, pos):
+    def _ik_one(self, arm, pos, auto):
+        self.ik_targets[arm] = np.asarray(pos, dtype=float)
+        self.ik_auto[arm] = bool(auto)
+        self._ik_prev[arm] = None
+        self._ik_stall[arm] = 0.0
+
+    def set_ik_target(self, arm, pos, auto=False):
         """Drag-gizmo target (world meters); ignored unless armed & resumed."""
         if (arm in self.kin and self.targ is not None and not self.estop
                 and len(pos) == 3):
             self.seq_stop()                # manual input overrides playback
-            self.ik_targets[arm] = np.asarray(pos, dtype=float)
+            self._ik_one(arm, pos, auto)
+            if self.mirror:
+                other = "right" if arm == "left" else "left"
+                if other in self.kin:
+                    self._ik_one(other, self._mirror_vec(pos), auto)
+
+    def cart_step(self, arm, delta):
+        """Cartesian nudge: glide the TCP by ``delta`` (world meters) via IK.
+        The target auto-clears once reached (or once it stops improving, e.g.
+        out of reach / blocked by the guard)."""
+        if (arm not in self.kin or self.targ is None or self.estop
+                or len(delta) != 3):
+            return
+        self.seq_stop()
+        delta = np.asarray(delta, dtype=float)
+        self._cart_one(arm, delta)
+        if self.mirror:
+            other = "right" if arm == "left" else "left"
+            if other in self.kin:
+                self._cart_one(other, self._mirror_vec(delta))
+
+    def _cart_one(self, arm, delta):
+        base = self.ik_targets[arm]
+        if base is None:
+            base = self.kin[arm].fk(self.targ)
+        self._ik_one(arm, np.asarray(base, dtype=float) + delta, auto=True)
+
+    def _clear_one(self, arm):
+        if arm in self.ik_targets:
+            self.ik_targets[arm] = None
+            self.ik_err[arm] = None
+            self.ik_auto[arm] = False
+            self._ik_prev[arm] = None
+            self._ik_stall[arm] = 0.0
 
     def clear_ik_target(self, arm=None):
+        if self.mirror:
+            arm = None                     # mirrored arms stop together
         for a in ([arm] if arm else ["left", "right"]):
-            if a in self.ik_targets:
-                self.ik_targets[a] = None
-                self.ik_err[a] = None
+            self._clear_one(a)
+
+    # -- tool / TCP offsets ----------------------------------------------------
+    def set_tool(self, arm, name, offset_m):
+        """Attach a named TCP offset (wrist-link frame, meters) to one arm.
+        Any active IK target is cleared — its meaning just changed."""
+        if arm in self.kin and len(offset_m) == 3:
+            self.kin[arm].tool = np.asarray(offset_m, dtype=float)
+            self.tool_names[arm] = str(name)
+            self._clear_one(arm)
 
     def home(self):
         """Glide the target to the documented default pose (handled by the
@@ -271,6 +366,15 @@ class RobotBridge:
                         self.targ, err = self.kin[arm].ik_step(self.targ,
                                                                target)
                         self.ik_err[arm] = err
+                        if self.ik_auto.get(arm):      # cart-step target
+                            p = self._ik_prev[arm]
+                            if p is not None and p - err < 1e-5:
+                                self._ik_stall[arm] += dt    # not improving
+                            else:
+                                self._ik_stall[arm] = 0.0
+                            self._ik_prev[arm] = err
+                            if err < 0.003 or self._ik_stall[arm] > 0.8:
+                                self._clear_one(arm)         # arrived/stuck
                 self._seq_tick(dt)
                 if not np.array_equal(self.targ, prev):
                     self._guard_ok(prev)
@@ -304,6 +408,11 @@ class RobotBridge:
                     "loop": self.seq_loop, "active": self.seq_active},
             "guard": {"on": self.guard is not None,
                       "blocking": self.guard_blocking},
+            "mirror": self.mirror,
+            "tools": {a: {"name": self.tool_names.get(a, "flange"),
+                          "offset_mm": [round(v * 1000, 1)
+                                        for v in self.kin[a].tool]}
+                      for a in self.kin},
         }
 
     def close(self):
