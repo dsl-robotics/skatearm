@@ -300,6 +300,14 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
 #pg-run { border-color: rgba(56,160,255,.5); color: var(--accent); }
 #pg-run:hover { background: var(--accent-soft); }
 #pg-run.playing { background: #2c9e47; border-color: #5fd57b; color: #fff; }
+#pg-rec { border-color: rgba(244,86,76,.45); color: var(--bad); }
+#pg-rec:hover { background: var(--bad-soft); border-color: var(--bad); }
+#pg-rec.recording { background: var(--bad); border-color: #ff968e;
+  color: #fff; animation: rec-pulse 1.2s ease-in-out infinite; }
+@keyframes rec-pulse {
+  50% { box-shadow: 0 0 0 4px var(--bad-soft); }
+}
+#chip-rec { animation: rec-pulse 1.2s ease-in-out infinite; }
 .prog-state { font: 500 10.5px var(--mono); color: var(--dim);
   margin-left: auto; max-width: 46%; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; }

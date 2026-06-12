@@ -390,6 +390,7 @@ function buildProgPanel() {
       <button id="pg-run" title="Run the program (releases a paused one)">▶ RUN</button>
       <button id="pg-step" title="Click to Step — execute exactly one motion command">⏭ STEP</button>
       <button id="pg-stop">■ STOP</button>
+      <button id="pg-rec" title="Teach-in: move the robot (sliders / gizmo / cartesian), every settled pose becomes a line of code">● REC</button>
       <span id="pg-state" class="prog-state">idle</span>
     </div>
     <textarea id="pg-code" spellcheck="false"></textarea>
@@ -404,8 +405,8 @@ function buildProgPanel() {
   ta.value = progCode;
   ta.oninput = () => (progCode = ta.value);
   if (PREVIEW) {
-    for (const id of ["pg-run", "pg-step", "pg-stop", "pg-save", "pg-load",
-                      "pg-demo"]) {
+    for (const id of ["pg-run", "pg-step", "pg-stop", "pg-rec", "pg-save",
+                      "pg-load", "pg-demo"]) {
       $(id).disabled = true;
       $(id).title = "preview is a recording — run the local server";
     }
@@ -415,6 +416,25 @@ function buildProgPanel() {
     $("pg-run").onclick = () => send({ type: "prog_run", code: progCode });
     $("pg-step").onclick = () => send({ type: "prog_step", code: progCode });
     $("pg-stop").onclick = () => send({ type: "prog_stop" });
+    $("pg-rec").onclick = async () => {
+      const rec = state && state.prog && state.prog.rec;
+      if (rec && rec.on) {
+        send({ type: "rec_stop" });
+        setTimeout(async () => {
+          try {
+            const code = await (await fetch("/api/recording")).text();
+            if (code.trim()) {
+              progCode = (progCode.trim() ? progCode.replace(/\s+$/, "")
+                + "\n\n" : "") + code;
+              ta.value = progCode;
+              ta.scrollTop = ta.scrollHeight;
+            }
+          } catch (e) { /* server down */ }
+        }, 400);
+      } else {
+        send({ type: "rec_start" });
+      }
+    };
     $("pg-demo").onclick = () => { progCode = DEMO_PROGRAM; ta.value = progCode; };
     $("pg-save").onclick = () => {
       const name = prompt("Program name (letters/digits/_-):");
@@ -451,9 +471,15 @@ function updateProgPanel() {
   if (!p) return;
   const sig = JSON.stringify([p.running, p.paused, p.line, p.n,
                               p.log && p.log.length,
-                              p.log && p.log[p.log.length - 1]]);
+                              p.log && p.log[p.log.length - 1],
+                              p.rec && p.rec.on, p.rec && p.rec.n]);
   if (sig === progSig) return;
   progSig = sig;
+  const rec = $("pg-rec");
+  if (rec && p.rec) {
+    rec.textContent = p.rec.on ? `■ REC · ${p.rec.n}` : "● REC";
+    rec.className = p.rec.on ? "recording" : "";
+  }
   const st = $("pg-state");
   if (st) {
     st.textContent = !p.running ? "idle"
@@ -719,6 +745,13 @@ function updateTop() {
     gc.style.display = state.guard.on ? "" : "none";
     gc.textContent = state.guard.blocking ? "LIMIT" : "GUARD";
     gc.className = "chip " + (state.guard.blocking ? "warn" : "on");
+  }
+  const rc = $("chip-rec");
+  if (rc) {
+    const rec = state.prog && state.prog.rec;
+    rc.style.display = rec && rec.on ? "" : "none";
+    if (rec && rec.on) rc.textContent = `REC · ${rec.n}`;
+    rc.className = "chip bad";
   }
   const tmax = state.temps ? Math.max(...state.temps) : 0;
   const tEl = $("chip-temp");
