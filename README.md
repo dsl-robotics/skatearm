@@ -5,10 +5,11 @@
 > Two arms, one cell: AI-driven two-handed small-parts assembly with in-cell quality inspection — built sim-first in MuJoCo, then deployed on the real Skate. Along the way, every reusable piece is released as an open tool for the Skate community.
 
 <div align="center">
-  <img src="docs/img/04_open_front.png" width="320px" alt="Skate digital twin (MuJoCo, skt_v3) — front">
-  <img src="docs/img/03_bimanual_pose_3quarter.png" width="320px" alt="Skate digital twin — bimanual pose">
+  <img src="docs/img/cell_cycle_demo.gif" width="420px" alt="Autonomous GRAFCET assembly cycle with camera QC and HMI overlay">
+  <img src="docs/img/commander_v04_live.gif" width="420px" alt="Skate Commander web cockpit: sliders, drag-IK, collision guard LIMIT chip — live">
   <br>
-  <em>The official skt_v3 digital twin running in MuJoCo (Phase 0 — sim is up).</em>
+  <em>Left: <strong>Phase 1 complete</strong> — the autonomous bimanual assembly cycle (GRAFCET sequencer, camera QC).
+  Right: <strong>Skate Commander v0.4</strong> — the web cockpit driving the twin live; note the collision guard flipping to LIMIT.</em>
 </div>
 
 ---
