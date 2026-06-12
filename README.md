@@ -39,7 +39,8 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Cartesian jog | Step the TCP along world X/Y/Z in mm — server-side IK, auto-stops on arrival |
 | Drag-IK | Grab a wrist sphere in 3D — server-side DLS IK (damped least squares inverse kinematics) glides all 7 arm joints |
 | Mirror mode | Bimanual: jog/slider/IK on one arm is reflected onto the other — the sign map is *measured* from the model's FK, not guessed |
-| Python programs | Built-in editor + `rbt` API (`movej`/`movel`/`home`/waypoints); **Click-to-Step** runs one motion at a time; E-STOP or any manual input kills the program |
+| Python programs | Built-in editor + `rbt` API (`movej`/`pose`/`movel`/`home`/waypoints); **Click-to-Step** runs one motion at a time; E-STOP or any manual input kills the program |
+| Teach-in recording | Press **● REC**, move the robot by hand — every settled pose becomes a line of `rbt` code, ready to replay |
 | Waypoint sequencer | Record poses, play with pause/loop, save/load named sequences |
 | Tool / TCP offsets | Named end-of-arm tools (mm offsets); FK, IK, traces and the gizmo all follow the active TCP |
 | TCP traces | Colored tool-center-point trajectories drawn in the viewport |
@@ -155,7 +156,7 @@ Tools get built because SkateArm needs them — then released standalone:
 | Tool | What it is | Status |
 |---|---|---|
 | [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified; MoveIt config next) |
-| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, cartesian jog, **mirror mode**, **Python programs with Click-to-Step**, waypoint **sequencer**, TCP tools & traces, **collision guard** · [live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.5** (camera passthrough waits for hardware) |
+| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, cartesian jog, **mirror mode**, **Python programs with Click-to-Step**, **teach-in recording**, waypoint **sequencer**, TCP tools & traces, **collision guard** · [live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.6** (camera passthrough waits for hardware) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |
 | MuJoCo benchmark suite | Repeatable bimanual tasks for policy comparison | planned |

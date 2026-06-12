@@ -157,8 +157,51 @@ def test_estop_kills_program_and_sandbox_holds():
     rig.close()
 
 
+def test_teach_in_record_and_replay():
+    """REC full circle: manual moves -> settled keyposes -> generated rbt
+    code -> replay reproduces the pose (through the same safe bridge)."""
+    if not Path(MODEL).exists():
+        print("SKIP: no control model"); return
+    from skate_commander.program import PoseRecorder
+    rig = _Rig()
+    rec = PoseRecorder()
+    rig.br.recorder = rec                  # tick() now feeds it
+
+    rec.start(rig.br.targ)
+    rig.br.set_joint(11, 0.6)              # one joint -> movej line
+    time.sleep(1.0)                        # settle (0.6 s) + margin
+    rig.br.set_joint(11, 1.1)              # two joints inside one window
+    time.sleep(0.2)
+    rig.br.set_joint(19, 0.8)              # -> coordinated pose({...}) line
+    time.sleep(1.0)
+    code = rec.stop()
+    assert "rbt.movej('L4'" in code, code
+    assert "rbt.pose({" in code and "'R4'" in code, code
+    print("PASS teach-in generated:", " | ".join(rec.lines))
+
+    rig.br.home()                          # move away, then replay
+    time.sleep(0.5)
+    r = ProgramRunner(rig.br)
+    assert r.run(code)
+    assert _wait(lambda: not r.running, 30), "replay never finished"
+    assert "* program finished" in "\n".join(r.log), r.log
+    assert abs(rig.br.targ[11] - 1.1) < 0.03
+    assert abs(rig.br.targ[19] - 0.8) < 0.03
+    print("PASS replay reproduced the recorded pose")
+
+    # rbt.pose is one coordinated move with ONE guard check
+    r2 = ProgramRunner(rig.br)
+    assert r2.run("rbt.pose({'L4': 45, 'R4': 45})")
+    assert _wait(lambda: not r2.running, 15)
+    assert abs(rig.br.targ[11] - math.radians(45)) < 0.02
+    assert abs(rig.br.targ[19] - math.radians(45)) < 0.02
+    print("PASS rbt.pose moves both elbows in one command")
+    rig.close()
+
+
 if __name__ == "__main__":
     test_program_runs_moves_and_logs()
     test_click_to_step_and_stop()
     test_estop_kills_program_and_sandbox_holds()
+    test_teach_in_record_and_replay()
     print("ALL PROGRAM-RUNNER E2E GREEN")

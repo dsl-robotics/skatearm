@@ -10,7 +10,7 @@ recorded telemetry playback, no install (simplified stick-figure twin there:
 Rbotic's STL meshes are only loaded from your local clone, never
 redistributed).
 
-## Features (v0.5)
+## Features (v0.6)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -38,6 +38,11 @@ redistributed).
   releases the program. Every motion uses the same bridge paths as the UI —
   limits, collision guard, E-STOP — and any manual input kills the program.
   Save/load to `programs/*.py`
+* **Teach-in recording** — press **● REC** and just move the robot
+  (sliders, jog, gizmo, cartesian steps): every settled pose becomes a line
+  of `rbt` code — `movej` for one joint, a coordinated `pose({...})` for
+  several. Stop, and the generated program lands in the editor ready to
+  RUN. A red REC chip in the top bar shows the pose count from any tab
 * **Tool / TCP offsets** — named end-of-arm tools (mm offsets in the wrist
   frame, persisted in `tcp_tools.json`); FK, IK, the drag-gizmo, traces and
   the cartesian readout all follow the active TCP per arm
@@ -98,12 +103,16 @@ for joints, millimeters for cartesian, world axes):
 ```python
 rbt.home()
 rbt.movej("L4", 60)            # left elbow — "L1".."L8", "R…", "H…", or index
+rbt.pose({"L2": 25, "R2": 25}) # several joints as ONE coordinated move
 for d in (40, 80, 40):
     rbt.movej("R4", d)         # wave
 rbt.movel("right", dz=60)      # TCP up 60 mm (server-side IK)
 rbt.gripper("right", 30)
 print("tcp:", rbt.tcp("right"), "mm")
 ```
+
+Too lazy to type? Press **● REC**, drive the robot by hand, press it again —
+the program writes itself from your settled poses and appends to the editor.
 
 **⏭ STEP** (Click-to-Step) pauses before every motion command and shows the
 next call + its source line; **▶ RUN** releases it. The runner is a worker
