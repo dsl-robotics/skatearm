@@ -1,8 +1,15 @@
 # SkateArm
 
-**An open bimanual work-cell and tool ecosystem for the [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2) robot.**
+**An open bimanual work-cell and tool ecosystem for the [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2) robot — two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed on the real Skate.**
 
-> Two arms, one cell: AI-driven two-handed small-parts assembly with in-cell quality inspection — built sim-first in MuJoCo, then deployed on the real Skate. Along the way, every reusable piece is released as an open tool for the Skate community.
+<div align="center">
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat)](LICENSE)
+[![MuJoCo](https://img.shields.io/badge/sim-MuJoCo%203.x-orange?style=flat)](sim/)
+[![ROS 2](https://img.shields.io/badge/bridge-ROS%202-22314E?style=flat)](tools/skate_ros2/)
+[![Python](https://img.shields.io/badge/python-3.x-3776AB?style=flat)](sim/)
+
+</div>
 
 <div align="center">
   <img src="docs/img/cell_cycle_demo.gif" width="420px" alt="Autonomous GRAFCET assembly cycle with camera QC and HMI overlay">
@@ -12,60 +19,93 @@
   Right: <strong>Skate Commander v0.4</strong> — the web cockpit driving the twin live; note the collision guard flipping to LIMIT.</em>
 </div>
 
----
+## What are you here for?
 
-## Status
+| You want to… | Go to |
+|---|---|
+| Drive the robot (twin or real) from a browser | [🕹 Skate Commander](#-skate-commander--web-cockpit) |
+| Connect a ROS 2 stack to a Skate | [🔌 skate_ros2](#-skate_ros2--the-wire) |
+| See the autonomous assembly cell | [🏭 Work-cell](#-autonomous-work-cell-phase-1--complete) |
+| Get the control-ready model & collision layer | [🦾 Sim foundations](#-sim-foundations-phase-0) |
+| Run it yourself | [🚀 Quick start](#-quick-start-simulation) |
 
-**Phase 0 — complete** (sim foundations, no hardware needed):
-- ✅ Official `skt_v3` model (URDF + MJCF from [Rbotic/skate_teleop](https://github.com/Rbotic/skate_teleop)) loads and renders in MuJoCo 3.x — 16 arm DoF (8 per arm) + 2 head + lower chain, 26 joints total
-- ✅ Posable digital twin with floor/lighting scene patch ([sim/](sim/))
-- ✅ **Control-ready MJCF** — the converted model ships with no actuators (`nu=0`); [sim/make_control_model.py](sim/make_control_model.py) adds 26 position servos + damping, fixes the base, and holds poses under physics with < 0.03 rad error ([sim/](sim/#control-ready-model))
-- ✅ **Primitive collision geometry** — [sim/make_collision_model.py](sim/make_collision_model.py) replaces the jamming raw meshes with auto-generated collision boxes + home-pose excludes; self-collision works (hands meet and stop — see clip below)
-- ✅ **Sensors + telemetry** — joint pos/vel/torque + end-effector sites in the model; [sim/telemetry_demo.py](sim/telemetry_demo.py) logs and plots tracking/torques ([docs/img/sensor_tracking.png](docs/img/sensor_tracking.png)) — the schema seeds the future SCADA dashboard
-- ✅ **Demonstrator task spec v1 (approved)** — bimanual peg-in-hole + in-cell QC, GRAFCET cycle, metrics ([specs/demo_task_spec.md](specs/demo_task_spec.md))
+## 🕹 Skate Commander — web cockpit
 
-**Phase 1 — complete (sim work-cell):**
-- ✅ **Work-cell scene** — table, base part (60×40×25 mm, spec masses), peg Ø20×40, accept/reject bins as free bodies with physics ([sim/make_cell_scene.py](sim/make_cell_scene.py))
-- ✅ **Bimanual REACH primitive** — closed-loop weighted-DLS IK through the position actuators (no qpos teleports), smoothstep target gliding, collision-aware routes; motion-quality lessons documented in [sim/README.md](sim/README.md)
-- ✅ **PICK & PLACE** — both hands grasp the base part and peg, carry them off the table and place them back ([sim/demo_cell_pick.py](sim/demo_cell_pick.py)); grasp is a documented weld stand-in until the real gripper geometry is known
-- ✅ **FULL BIMANUAL ASSEMBLY** — the demonstrator task's manipulation core: left arm fixtures the base part in the air, right arm aligns the peg over the pocket by relative servoing and inserts it with a force-guarded descent (τ watchdog); insertion depth 18.5 mm, peg tilt ≤2°, the assembled unit is placed back on the table intact ([sim/demo_cell_assemble.py](sim/demo_cell_assemble.py))
-- ✅ **GRAFCET SEQUENCER — full automatic cycle** — soft-PLC step engine with sensor-based receptivities (no timers, per the spec): parts check → grasp → carry → align → guarded insert → QC verify → ACCEPT/REJECT bin → home. **Cycle time 42.4 s** (takt target ≤ 60 s); every transition logged to [logs/cycle_001.json](logs/cycle_001.json) — the seed of the SCADA dashboard ([sim/sequencer.py](sim/sequencer.py), [sim/demo_cell_cycle.py](sim/demo_cell_cycle.py))
-- ✅ **QC CAMERA PIPELINE** — two fixed inspection cameras (overhead + lateral) with classical CV: color segmentation in a fixed inspection window, pocket-rim alignment reference, px→mm from camera geometry. Camera verdict drives the sequencer's accept/reject; the sim pose oracle stays as a logged cross-check — **residuals: alignment ±1.3 mm, depth ±3.4 mm** ([sim/qc.py](sim/qc.py), annotated views in [docs/img/14_qc_top_annotated.png](docs/img/14_qc_top_annotated.png))
-- ✅ **CELL DASHBOARD** — Flask + SQLite SCADA monitor over the sequencer logs: accept rate, cycle-time trend vs takt, camera-vs-oracle QC residuals, per-cycle GRAFCET timeline ([dashboard/](dashboard/) · **[live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/dashboard/preview_overview.html)** · [cycle detail](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/dashboard/preview_cycle.html))
-- ✅ **`skate_ros2` — the first standalone community tool** ([tools/skate_ros2/](tools/skate_ros2/)): ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, deadman semantics, 26-DoF ordering) + a **MuJoCo sim endpoint speaking the same protocol** — develop your ROS 2 stack before the robot arrives, then swap `127.0.0.1` for `r.local`. Safety mirrored from firmware: arm-at-measured-pose, command-freshness deadman, 58 °C overtemp latch. 17 unit tests run without ROS (stubbed rclpy); e2e verified over real sockets: 60 Hz commands, ~190 telemetry pkt/s, 0.015 rad tracking, watchdog dampen < 0.3 s
+A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
+
+| Feature | What it does |
+|---|---|
+| Jog + sliders | Hold −/+ or drag the thumb; amber = your command, azure = actual position |
+| Drag-IK | Grab a wrist sphere in 3D — server-side DLS IK (damped least squares inverse kinematics) glides all 7 arm joints |
+| Waypoint sequencer | Record poses, play with pause/loop, save/load named sequences |
+| TCP traces | Colored tool-center-point trajectories drawn in the viewport |
+| Collision guard | Every target checked for self-collision *before* it is sent — including along interpolated paths |
+| SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
 
 <div align="center">
-  <img src="docs/img/cell_cycle_demo.gif" width="480px" alt="Full automatic GRAFCET cycle with HMI overlay: grasp, carry, align, insert, QC, place to bin">
+  <img src="docs/img/commander_ui_preview.gif" width="640px" alt="Skate Commander UI: digital twin viewport, joint sliders, sequencer panel">
   <br>
-  <em>Phase 1: the full automatic cycle under the GRAFCET sequencer — HMI overlay shows the live step and sensor metrics; QC verdict ACCEPT, unit placed on the green bin.
+  <em>The cockpit UI. <strong><a href="https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
+</div>
+
+## 🔌 skate_ros2 — the wire
+
+A ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, deadman semantics, 26-DoF ordering) plus a **MuJoCo sim endpoint speaking the same protocol** — develop your stack before the robot arrives, then swap `127.0.0.1` for `r.local`. Safety mirrors the firmware: arm-at-measured-pose, command-freshness deadman, 58 °C overtemp latch. 17 unit tests run without ROS; end-to-end verified over real sockets.
+
+<div align="center">
+  <img src="docs/img/ros2_wire_demo.gif" width="560px" alt="skate_ros2 wire demo: client teleoperates the MuJoCo endpoint over real UDP; at t=11s the client goes silent and the watchdog dampens the robot">
+  <br>
+  <em>A scripted client drives the MuJoCo endpoint over <strong>real UDP packets</strong>. At t = 11 s it goes silent — the watchdog dampens the robot.
+  HD video: <a href="docs/video/ros2_wire_demo.mp4">ros2_wire_demo.mp4</a></em>
+</div>
+
+| Verified on the wire (sim endpoint) | Result |
+|---|---|
+| Command rate | 60 Hz sustained |
+| Telemetry | ~190 packets/s |
+| Tracking error | 0.015 rad |
+| Watchdog dampen after silence | < 0.3 s |
+
+<div align="center">
+  <img src="docs/img/ros2_wire_stats.png" width="560px" alt="Wire statistics: packet rates and joint tracking during the demo">
+  <br>
+  <em>Rates & tracking from the demo run · full docs: <a href="tools/skate_ros2/">tools/skate_ros2/</a></em>
+</div>
+
+## 🏭 Autonomous work-cell (Phase 1 — complete)
+
+The demonstrator task, end to end in simulation: the left arm fixtures a base part in the air, the right arm aligns a peg by relative servoing and inserts it with a force-guarded descent. A GRAFCET sequencer (the IEC step-sequencer standard used in industrial soft-PLCs) runs the full cycle on sensor-based transitions — no timers — and two fixed cameras with classical CV deliver the accept/reject verdict that drives it. Every transition is logged to JSON and fed into a Flask + SQLite SCADA dashboard.
+
+<div align="center">
+  <img src="docs/img/cell_assemble_demo.gif" width="420px" alt="Bimanual assembly: left arm fixtures the base, right arm inserts the peg with a force-guarded descent">
+  <img src="docs/img/14_qc_top_annotated.png" width="420px" alt="Overhead QC camera view, annotated: inspection window, pocket-rim reference, measured alignment">
+  <br>
+  <em>Left: the bimanual insert (τ-watchdog guarded, depth 18.5 mm, peg tilt ≤ 2°). Right: the overhead QC camera's annotated verdict.
   HD video: <a href="docs/video/cell_cycle_demo.mp4">cell_cycle_demo.mp4</a> · <a href="docs/video/cell_assemble_demo.mp4">cell_assemble_demo.mp4</a></em>
 </div>
 
-<div align="center">
-  <img src="docs/img/ros2_wire_demo.gif" width="480px" alt="skate_ros2 wire demo: a client teleoperates the MuJoCo endpoint over real UDP; at t=11s the client goes silent and the watchdog dampens the robot">
-  <br>
-  <em><code>skate_ros2</code>: a scripted client drives the MuJoCo endpoint over <strong>real UDP packets</strong> — the exact wire format the physical Skate accepts. At t=11 s the client goes silent; the firmware-style watchdog dampens the robot in 0.3 s.
-  HD video: <a href="docs/video/ros2_wire_demo.mp4">ros2_wire_demo.mp4</a> · wire stats: <a href="docs/img/ros2_wire_stats.png">rates & tracking</a></em>
-</div>
+| Key number | Result |
+|---|---|
+| Cycle time | **42.4 s** (takt target ≤ 60 s) |
+| QC residual, alignment (camera vs sim oracle) | ±1.3 mm |
+| QC residual, insertion depth | ±3.4 mm |
+| Accept rate | 100 % so far (2 logged cycles — small sample, tracked live on the dashboard) |
+
+Dashboard live previews: **[overview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/dashboard/preview_overview.html)** · **[cycle detail](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/dashboard/preview_cycle.html)** — code in [dashboard/](dashboard/), sequencer in [sim/sequencer.py](sim/sequencer.py), QC in [sim/qc.py](sim/qc.py).
+
+## 🦾 Sim foundations (Phase 0)
+
+The converted official `skt_v3` model ships with no actuators — [sim/make_control_model.py](sim/make_control_model.py) adds 26 position servos and holds poses under physics with < 0.03 rad error; [sim/make_collision_model.py](sim/make_collision_model.py) replaces the jamming raw meshes with auto-generated collision boxes, so self-collision actually works. Joint/torque sensors and end-effector sites seed the telemetry schema ([tracking plot](docs/img/sensor_tracking.png)). Honest limitations documented in [sim/README.md](sim/README.md).
 
 <div align="center">
-  <img src="docs/img/control_demo.gif" width="400px" alt="Closed-loop control demo: independent arm trajectories under physics">
-  <img src="docs/img/collision_demo.gif" width="400px" alt="Self-collision demo: hands meet and stop; orange boxes are the generated collision layer">
+  <img src="docs/img/control_demo.gif" width="360px" alt="Closed-loop control demo: independent arm trajectories under physics">
+  <img src="docs/img/collision_demo.gif" width="360px" alt="Self-collision demo: hands meet and stop; orange boxes are the generated collision layer">
   <br>
-  <em>Left: closed-loop control — independent arm trajectories under physics.
-  Right: self-collision — hands meet and <strong>stop</strong>; orange boxes are the auto-generated collision layer.<br>
+  <em>Left: closed-loop control under physics. Right: hands meet and <strong>stop</strong> — orange boxes are the collision layer.
   HD video: <a href="docs/video/control_demo.mp4">control_demo.mp4</a> · <a href="docs/video/collision_demo.mp4">collision_demo.mp4</a></em>
 </div>
 
-The real Skate (assembled, 16 DoF, span 1615 mm, RPi 5 on board, UDP control) is en route to Riga — Phase 2 starts when it arrives. The `skate_ros2` bridge is already waiting for it: swap the sim endpoint's IP for `r.local` and the same stack drives the real robot.
-
-## Why this project
-
-1. **Level up in robotics** — from a single SO-101 arm ([previous project](https://github.com/Lavs-Daniels-Skots-231RMC173/so101-native-ubuntu-ros2-moveit)) to a bimanual humanoid: two-arm coordination, complex manipulation, sim-to-real.
-2. **Learn by building** — ROS 2, MuJoCo, policy learning (ACT/SmolVLA), classical control, all embedded in one system.
-3. **Give back to the Skate community** — Skate is brand-new; first-mover window to publish open tools, datasets and guides other enthusiasts can build on.
-
-## Architecture
+## 🏗 Architecture
 
 ```mermaid
 flowchart TB
@@ -83,11 +123,11 @@ flowchart TB
     CAM --> QC
 ```
 
-**Demonstrator task:** one arm holds/fixtures a part, the other inserts (peg-in-hole class), then in-cell measurement decides accept/reject and logs to the dashboard.
+**Demonstrator task:** one arm holds/fixtures a part, the other inserts (peg-in-hole class), then in-cell measurement decides accept/reject and logs to the dashboard. The real Skate (16 DoF, span 1615 mm, RPi 5, UDP control) is en route to Riga — Phase 2 starts on arrival; `skate_ros2` is already waiting for it.
 
-Full architecture and the mapping of all 12 prior portfolio projects onto subsystems: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Phased plan: [docs/ROADMAP.md](docs/ROADMAP.md).
+Full architecture & mapping of all 12 prior portfolio projects onto subsystems: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Phased plan: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Quick start (simulation)
+## 🚀 Quick start (simulation)
 
 ```bash
 git clone https://github.com/Rbotic/skate_teleop.git   # official model (skt_v3)
@@ -100,9 +140,11 @@ python sim/demo_selfcollision.py --model path/to/skate_teleop/skt_v3   # self-co
 python sim/telemetry_demo.py --model path/to/skate_teleop/skt_v3       # tracking/torque plot
 ```
 
-Each script is documented in [sim/README.md](sim/README.md), including what the generated models contain and the honest limitations (AABB collision boxes, contacts vs mount overlaps).
+> **Windows:** use `py` instead of `python`/`python3` (the bare names may open the Microsoft Store stub).
 
-## Community tools track
+Each script is documented in [sim/README.md](sim/README.md). To drive the twin from a browser, follow the [Commander quick start](tools/skate_commander/#quick-start-no-hardware).
+
+## 🧰 Community tools
 
 Tools get built because SkateArm needs them — then released standalone:
 
@@ -117,6 +159,11 @@ Tools get built because SkateArm needs them — then released standalone:
 | Getting-started handbook | From unboxing to first teleop | planned |
 
 Ideas and requests from other Skate owners are welcome — open an issue.
+
+**Why this project:**
+1. **Level up in robotics** — from a single SO-101 arm ([previous project](https://github.com/Lavs-Daniels-Skots-231RMC173/so101-native-ubuntu-ros2-moveit)) to a bimanual humanoid: two-arm coordination, sim-to-real.
+2. **Learn by building** — ROS 2, MuJoCo, policy learning (ACT/SmolVLA), classical control, embedded in one system.
+3. **Give back to the Skate community** — first-mover window to publish open tools, datasets and guides others can build on.
 
 ## Author
 
