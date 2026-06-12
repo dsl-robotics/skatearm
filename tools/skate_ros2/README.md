@@ -49,8 +49,10 @@ Skate docs. Everything is UDP to/from port **2000** on the robot (`r.local`):
 
 ```python
 (targ_pos,        # np.float64[26], radians, see ordering below
- vel_cmd,         # np.float64[3]: x vel, y vel, angular vel (base)
- height_cmd,      # float: crouch height
+ vel_cmd,         # np.float64[3]: base x, y, yaw rate — the driver feeds
+                  #   skate/cmd_vel (Twist) straight through, i.e. m/s & rad/s
+ height_cmd,      # float: stance height factor, official default 1.0
+                  #   (lower = crouch; treated as dimensionless upstream)
  (wb, la, ra))    # deadman flags: 0 = dampen (whole body / left / right arm)
 ```
 
@@ -133,11 +135,14 @@ ros2 launch skate_ros2 skate_bridge.launch.py robot_host:=127.0.0.1
   `cmd_timeout` (0.3 s default). Stop publishing → the robot dampens, exactly
   like releasing the deadman button in the official VR teleop.
 * Any motor over `overtemp_c` (58 °C, the PETG limit from the official docs)
-  latches a whole-body dampen with 5 °C release hysteresis.
+  latches a whole-body dampen with 5 °C release hysteresis. Temperatures are
+  evaluated on the 1 Hz slow tick, so a spike can take **up to ~1 s** to
+  latch — the thermal time constant of the motors is far longer than that.
 * `skate/estop` `true` dampens immediately and stays latched until `false`.
 
 Parameters: `robot_host`, `robot_port`, `tx_rate` (60), `rx_rate` (60),
-`cmd_timeout` (0.3), `auto_deadman` (true), `overtemp_c` (58.0).
+`cmd_timeout` (0.3), `auto_deadman` (true), `overtemp_c` (58.0) — all
+exposed as launch arguments of `skate_bridge.launch.py` too.
 
 ## Sim endpoint: honest approximations
 

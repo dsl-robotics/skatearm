@@ -17,7 +17,14 @@ def generate_launch_description():
                                           "(127.0.0.1 for the sim endpoint)"),
         DeclareLaunchArgument("robot_port", default_value="2000"),
         DeclareLaunchArgument("tx_rate", default_value="60.0"),
+        DeclareLaunchArgument("rx_rate", default_value="60.0"),
         DeclareLaunchArgument("auto_deadman", default_value="true"),
+        DeclareLaunchArgument("cmd_timeout", default_value="0.3",
+                              description="s without fresh commands before "
+                                          "the deadman drops"),
+        DeclareLaunchArgument("overtemp_c", default_value="58.0",
+                              description="motor °C that latches a "
+                                          "whole-body dampen"),
         Node(
             package="skate_ros2",
             executable="driver",
@@ -27,7 +34,10 @@ def generate_launch_description():
                 "robot_host": LaunchConfiguration("robot_host"),
                 "robot_port": LaunchConfiguration("robot_port"),
                 "tx_rate": LaunchConfiguration("tx_rate"),
+                "rx_rate": LaunchConfiguration("rx_rate"),
                 "auto_deadman": LaunchConfiguration("auto_deadman"),
+                "cmd_timeout": LaunchConfiguration("cmd_timeout"),
+                "overtemp_c": LaunchConfiguration("overtemp_c"),
             }],
         ),
     ])

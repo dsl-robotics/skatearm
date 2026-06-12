@@ -13,10 +13,10 @@
 
 <div align="center">
   <img src="docs/img/cell_cycle_demo.gif" width="420px" alt="Autonomous GRAFCET assembly cycle with camera QC and HMI overlay">
-  <img src="docs/img/commander_v04_live.gif" width="420px" alt="Skate Commander web cockpit: sliders, drag-IK, collision guard LIMIT chip — live">
+  <img src="docs/img/commander_v05_live.gif" width="420px" alt="Skate Commander web cockpit: mirror-mode bimanual jog, cartesian TCP steps, and a Python program running with Click-to-Step — live">
   <br>
   <em>Left: <strong>Phase 1 complete</strong> — the autonomous bimanual assembly cycle (GRAFCET sequencer, camera QC).
-  Right: <strong>Skate Commander v0.4</strong> — the web cockpit driving the twin live; note the collision guard flipping to LIMIT.</em>
+  Right: <strong>Skate Commander</strong> — the web cockpit driving the twin live; note the collision guard flipping to LIMIT.</em>
 </div>
 
 ## What are you here for?
@@ -35,17 +35,21 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 
 | Feature | What it does |
 |---|---|
-| Jog + sliders | Hold −/+ or drag the thumb; amber = your command, azure = actual position |
+| Jog + sliders | Hold −/+, drag the thumb, or jump straight to a limit; amber = your command, azure = actual position |
+| Cartesian jog | Step the TCP along world X/Y/Z in mm — server-side IK, auto-stops on arrival |
 | Drag-IK | Grab a wrist sphere in 3D — server-side DLS IK (damped least squares inverse kinematics) glides all 7 arm joints |
+| Mirror mode | Bimanual: jog/slider/IK on one arm is reflected onto the other — the sign map is *measured* from the model's FK, not guessed |
+| Python programs | Built-in editor + `rbt` API (`movej`/`movel`/`home`/waypoints); **Click-to-Step** runs one motion at a time; E-STOP or any manual input kills the program |
 | Waypoint sequencer | Record poses, play with pause/loop, save/load named sequences |
+| Tool / TCP offsets | Named end-of-arm tools (mm offsets); FK, IK, traces and the gizmo all follow the active TCP |
 | TCP traces | Colored tool-center-point trajectories drawn in the viewport |
-| Collision guard | Every target checked for self-collision *before* it is sent — including along interpolated paths |
+| Collision guard | Every target checked for self-collision *before* it is sent — including along interpolated paths; capsule-fitted collision model |
 | SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
 
 <div align="center">
-  <img src="docs/img/commander_showcase.gif" width="720px" alt="Skate Commander in action: RESUME, slider jog on the full-color twin, recording waypoints, sequencer playback with TCP traces">
+  <img src="docs/img/commander_v05_live.gif" width="720px" alt="Skate Commander v0.5 in action: RESUME, mirror-mode bimanual jog, cartesian TCP steps, then a Python program executed with Click-to-Step — the collision guard blocks two of its moves">
   <br>
-  <em>The cockpit UI. <strong><a href="https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
+  <em>v0.5 live: mirror-mode jog, cartesian TCP steps, then a Python program stepped command-by-command — watch the guard veto two of its moves. <strong><a href="https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
 </div>
 
 ## 🔌 skate_ros2 — the wire
@@ -95,7 +99,7 @@ Dashboard live previews: **[overview](https://raw.githack.com/Lavs-Daniels-Skots
 
 ## 🦾 Sim foundations (Phase 0)
 
-The converted official `skt_v3` model ships with no actuators — [sim/make_control_model.py](sim/make_control_model.py) adds 26 position servos and holds poses under physics with < 0.03 rad error; [sim/make_collision_model.py](sim/make_collision_model.py) replaces the jamming raw meshes with auto-generated collision boxes, so self-collision actually works. Joint/torque sensors and end-effector sites seed the telemetry schema ([tracking plot](docs/img/sensor_tracking.png)). Honest limitations documented in [sim/README.md](sim/README.md).
+The converted official `skt_v3` model ships with no actuators — [sim/make_control_model.py](sim/make_control_model.py) adds 26 position servos and holds poses under physics with < 0.03 rad error; [sim/make_collision_model.py](sim/make_collision_model.py) replaces the jamming raw meshes with auto-fitted collision capsules (boxes via `--boxes`), so self-collision actually works. Joint/torque sensors and end-effector sites seed the telemetry schema ([tracking plot](docs/img/sensor_tracking.png)). Honest limitations documented in [sim/README.md](sim/README.md).
 
 <div align="center">
   <img src="docs/img/control_demo.gif" width="360px" alt="Closed-loop control demo: independent arm trajectories under physics">
@@ -134,7 +138,7 @@ git clone https://github.com/Rbotic/skate_teleop.git   # official model (skt_v3)
 pip install mujoco numpy imageio
 python sim/render_skate.py --model path/to/skate_teleop/skt_v3         # static renders
 python sim/make_control_model.py path/to/skate_teleop/skt_v3           # + actuators & sensors
-python sim/make_collision_model.py path/to/skate_teleop/skt_v3         # + collision boxes
+python sim/make_collision_model.py path/to/skate_teleop/skt_v3         # + collision capsules
 python sim/demo_wave.py --model path/to/skate_teleop/skt_v3            # control demo (mp4/gif)
 python sim/demo_selfcollision.py --model path/to/skate_teleop/skt_v3   # self-collision demo
 python sim/telemetry_demo.py --model path/to/skate_teleop/skt_v3       # tracking/torque plot
@@ -151,7 +155,7 @@ Tools get built because SkateArm needs them — then released standalone:
 | Tool | What it is | Status |
 |---|---|---|
 | [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified; MoveIt config next) |
-| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, waypoint **sequencer**, TCP traces, **collision guard** · [live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.4** (tool/TCP offsets & cameras wait for hardware) |
+| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, cartesian jog, **mirror mode**, **Python programs with Click-to-Step**, waypoint **sequencer**, TCP tools & traces, **collision guard** · [live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.5** (camera passthrough waits for hardware) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |
 | MuJoCo benchmark suite | Repeatable bimanual tasks for policy comparison | planned |

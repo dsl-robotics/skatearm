@@ -5,7 +5,7 @@
 - [x] Repo skeleton, architecture, roadmap
 - [x] Control-ready MJCF: 26 position actuators + damping, fixed base, contacts disabled (converted meshes jam at shoulder mounts); holds poses < 0.03 rad error, closed-loop demo GIF
 - [x] Primitive collision geometry: auto-generated boxes from compiled AABBs + home-pose excludes; contacts re-enabled, self-collision verified (hands meet & stop, arms block on hips instead of tunneling)
-- [ ] Tighter collision shapes (capsules / convex decomposition) — AABB boxes overestimate the wrists
+- [x] Tighter collision shapes: capsules auto-fitted from compiled AABBs (longest axis + covering radius, near-isotropic links become spheres) — the wrists stop reading as bricks; `--boxes` keeps the old layer; guard e2e re-verified on the capsule model
 - [x] Sensors: jointpos/jointvel/actuatorfrc ×26 + EE sites with framepos/framequat (82 sensors); telemetry demo plot
 - [x] Demonstrator task spec v1: bimanual peg-in-hole Ø20 H9/d9 (→H7/g6), GRAFCET cycle, takt ≤60 s, QC characteristics, success metrics (4 DECISIONs open for Daniels)
 - [ ] Decide thesis/capstone registration with RTU supervisor
@@ -23,7 +23,8 @@
 - [ ] `ros2_control` hardware interface + MoveIt 2 config over the bridge
 - [x] **`skate_commander` v0.1** (`tools/skate_commander/`) — web cockpit over the same UDP wire: in-browser URDF twin (FK validated vs MuJoCo < 0.001 mm), joint jog with live angle/vel/temp, SIM/REAL toggle, estop-first safety (starts dampened, arm-at-measured-pose, legs locked in REAL); FastAPI+WS backend, ws→UDP→MuJoCo e2e tested; functional reference: Waldo Commander (PAROL6), own design
 - [x] `skate_commander` v0.2–v0.4: cartesian drag-gizmo (pure-numpy DLS IK, FK = MuJoCo ±0; `lower or -π` on the elbow's 0.0 limit was the bug of the week), draggable command sliders, waypoint sequencer (glide/dwell/loop, save/load, manual input overrides), TCP traces, **collision guard** (guard-specific model re-enables 136 hand↔leg pairs the physics model excludes; interpolated-path check kills tunneling; verified on plain Windows/Py3.13), full design pass (graphite + azure/amber command semantics)
-- [ ] `skate_commander` v0.5+: tool/TCP-offset manager, camera passthrough (needs hardware)
+- [x] **`skate_commander` v0.5** — the rest of the Waldo feature catalog, bimanual-first: cartesian XYZ step-jog with live TCP readout (auto-clearing IK targets), jump-to-limit, **mirror mode** (sign map measured numerically from FK — turned out axis=x, all +1), **Python programs** (sandboxed `rbt` API, Click-to-Step with line tracking, E-STOP/manual-input abort, save/load), tool/TCP-offset manager (FK/IK/gizmo/traces follow the active tool), capsule collision layer, bridge-level REAL leg lock; +3 test suites (kinematics tool offsets, cart/mirror e2e, program runner e2e)
+- [ ] `skate_commander` v0.6+: camera passthrough, real-gripper tool presets (needs hardware)
 
 ## Phase 2 — Real Skate bring-up (hardware in Riga)
 - [ ] Unboxing → teleop → joint-by-joint validation (document as handbook chapters)
