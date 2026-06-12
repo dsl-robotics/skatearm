@@ -22,7 +22,8 @@
 - [x] First community tool shipped: **`skate_ros2`** (`tools/skate_ros2/`) — documented UDP wire protocol, pure-Python client, MuJoCo sim endpoint speaking the real protocol, rclpy driver with firmware-mirrored safety (arm-at-pose, deadman freshness, overtemp latch); 15 ROS-free unit tests + e2e over real sockets (60 Hz cmds, ~200 pkt/s telemetry, 0.015 rad tracking, watchdog < 0.3 s)
 - [ ] `ros2_control` hardware interface + MoveIt 2 config over the bridge
 - [x] **`skate_commander` v0.1** (`tools/skate_commander/`) — web cockpit over the same UDP wire: in-browser URDF twin (FK validated vs MuJoCo < 0.001 mm), joint jog with live angle/vel/temp, SIM/REAL toggle, estop-first safety (starts dampened, arm-at-measured-pose, legs locked in REAL); FastAPI+WS backend, ws→UDP→MuJoCo e2e tested; functional reference: Waldo Commander (PAROL6), own design
-- [ ] `skate_commander` v0.2: cartesian drag-gizmo (DLS IK), waypoint sequencer + playback, TCP trace, tool/TCP offsets
+- [x] `skate_commander` v0.2–v0.4: cartesian drag-gizmo (pure-numpy DLS IK, FK = MuJoCo ±0; `lower or -π` on the elbow's 0.0 limit was the bug of the week), draggable command sliders, waypoint sequencer (glide/dwell/loop, save/load, manual input overrides), TCP traces, **collision guard** (guard-specific model re-enables 136 hand↔leg pairs the physics model excludes; interpolated-path check kills tunneling; verified on plain Windows/Py3.13), full design pass (graphite + azure/amber command semantics)
+- [ ] `skate_commander` v0.5+: tool/TCP-offset manager, camera passthrough (needs hardware)
 
 ## Phase 2 — Real Skate bring-up (hardware in Riga)
 - [ ] Unboxing → teleop → joint-by-joint validation (document as handbook chapters)
