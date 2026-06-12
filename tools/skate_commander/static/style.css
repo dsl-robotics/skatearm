@@ -122,9 +122,12 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
 #banner.preview { display: block; background: var(--accent-soft);
   border: 1px solid rgba(56,160,255,.45); color: var(--accent); }
 
+#btn-mirror.mirror-on { border-color: rgba(240,177,61,.55);
+  color: var(--amber); background: var(--amber-soft); }
+
 /* ============ right panel ============ */
 #panel {
-  width: 392px; background: var(--panel);
+  width: 424px; background: var(--panel);
   border-left: 1px solid var(--line);
   display: flex; flex-direction: column; min-height: 0;
 }
@@ -155,18 +158,28 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
 
 /* joint rows — slider thumb = command (amber), fill = actual (azure) */
 .jrow {
-  display: grid; grid-template-columns: 86px 30px 1fr 30px 86px;
-  gap: 7px; align-items: center;
+  display: grid; grid-template-columns: 82px 20px 28px 1fr 28px 20px 84px;
+  gap: 6px; align-items: center;
   height: 48px; padding: 0 4px;
   border-bottom: 1px solid var(--line-soft);
   transition: background .12s;
 }
+.jlim {
+  height: 24px; width: 20px; padding: 0; font-size: 12px;
+  border: none; background: transparent; color: var(--dim);
+  border-radius: 5px; display: flex; align-items: center;
+  justify-content: center;
+}
+.jlim:hover:not(:disabled) { color: var(--amber);
+  background: var(--amber-soft); border: none; }
 .jrow:last-child { border-bottom: none; }
 .jrow:hover { background: rgba(255,255,255,.02); }
-.jname { font-size: 9.5px; color: var(--dim);
-  font-family: var(--mono); line-height: 1.3; }
-.jname b { display: block; color: var(--fg); font-size: 12px;
-  font-family: "Inter", sans-serif; font-weight: 600; }
+.jname { font-size: 9px; color: var(--dim);
+  font-family: var(--mono); line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jname b { display: block; color: var(--fg); font-size: 11.5px;
+  font-family: "Inter", sans-serif; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jbtn {
   height: 29px; width: 29px; padding: 0;
   font-size: 15px; border-radius: 7px;
@@ -246,3 +259,64 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
   padding: 12px 8px; line-height: 1.6; }
 .seq-empty { text-align: center; padding: 28px 18px; }
 .seq-empty b { color: var(--fg2); }
+
+/* ============ cartesian jog + tool ============ */
+.cart-row {
+  display: grid; grid-template-columns: 26px 30px 1fr 30px;
+  gap: 8px; align-items: center; height: 42px; padding: 0 4px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.cart-row b { font: 700 12px var(--mono); color: var(--fg2);
+  text-align: center; }
+.cart-row .ax-x { color: #ff7b72; }
+.cart-row .ax-y { color: #7ee787; }
+.cart-row .ax-z { color: var(--accent); }
+.cart-val { font: 600 13px var(--mono); text-align: center;
+  color: var(--fg); }
+.cart-foot {
+  display: flex; align-items: center; gap: 8px; padding: 11px 4px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.cart-foot label { font: 700 9.5px var(--mono); color: var(--dim);
+  letter-spacing: .1em; }
+.cart-foot select {
+  background: var(--panel2); color: var(--fg);
+  border: 1px solid var(--line); border-radius: var(--r);
+  padding: 5px 7px; font: 500 11.5px "Inter", sans-serif; min-width: 70px;
+}
+.cart-foot #tool-sel { flex: 1; min-width: 90px; }
+.cart-foot button { padding: 5px 10px; font-size: 12px; }
+
+/* ============ program tab ============ */
+.prog-controls { display: flex; gap: 7px; padding: 10px 2px;
+  align-items: center; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line-soft); }
+.prog-controls button { font-size: 11px; padding: 7px 11px; }
+.prog-controls select {
+  background: var(--panel2); color: var(--fg); flex: 1;
+  border: 1px solid var(--line); border-radius: var(--r);
+  padding: 6px 8px; font: 500 12px "Inter", sans-serif; min-width: 90px;
+}
+#pg-run { border-color: rgba(56,160,255,.5); color: var(--accent); }
+#pg-run:hover { background: var(--accent-soft); }
+#pg-run.playing { background: #2c9e47; border-color: #5fd57b; color: #fff; }
+.prog-state { font: 500 10.5px var(--mono); color: var(--dim);
+  margin-left: auto; max-width: 46%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.prog-state.on { color: var(--ok); }
+.prog-state.warn { color: var(--amber); }
+#pg-code {
+  width: 100%; height: 230px; margin: 10px 0 0; resize: vertical;
+  background: #0a0c0e; color: var(--fg);
+  border: 1px solid var(--line); border-radius: var(--r);
+  padding: 10px 12px; font: 12px/1.55 var(--mono); tab-size: 4;
+  white-space: pre; overflow-x: auto;
+}
+#pg-code:focus-visible { outline: 1px solid var(--accent-deep); }
+#pg-code[readonly] { opacity: .6; }
+#pg-log {
+  margin-top: 10px; padding: 9px 11px; max-height: 150px; overflow-y: auto;
+  background: #0a0c0e; border: 1px solid var(--line-soft);
+  border-radius: var(--r); font: 10.5px/1.6 var(--mono); color: var(--fg2);
+  white-space: pre-wrap;
+}

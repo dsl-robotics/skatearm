@@ -207,11 +207,19 @@ function clearTraces() {
   }
 }
 
+function tcpWorld(arm, out) {
+  // world position of the TCP: wrist link origin + active tool offset
+  const t = state && state.tools && state.tools[arm];
+  const o = t ? t.offset_mm : null;
+  out.set(o ? o[0] / 1000 : 0, o ? o[1] / 1000 : 0, o ? o[2] / 1000 : 0);
+  return eeObjs[arm].localToWorld(out);
+}
+
 const _wp = new THREE.Vector3();
 function updateEE() {
   for (const arm of ["left", "right"]) {
     if (!eeObjs[arm]) continue;
-    eeObjs[arm].getWorldPosition(_wp);
+    tcpWorld(arm, _wp);
     if (markers[arm] && draggingArm !== arm) markers[arm].position.copy(_wp);
     const t = traces[arm];
     if (t && traceOn && _wp.distanceTo(t.last) > 0.004) {
@@ -270,6 +278,7 @@ let lastSeqSig = "";
 function buildSeqPanel() {
   const wrap = $("joints");
   rows = {};
+  cartEls = null;
   wrap.innerHTML = `
     <div class="panel-head"><span>SEQUENCE</span>
       <small>record poses · play them back</small></div>
@@ -350,11 +359,126 @@ function updateSeqPanel() {
   });
 }
 
+// ---- program tab (python over the bridge) -----------------------------------
+const DEMO_PROGRAM = `# Skate program — drives the SAME safe bridge as the panel.
+# rbt.movej(joint, deg)   joint = "L4" (left J4) / "R2" / "H1" / index
+# rbt.movel(arm, dx=, dy=, dz=)   nudge the TCP in mm, world axes
+# rbt.home() · rbt.gripper(arm, deg) · rbt.waypoint(1) · rbt.wait(s)
+# rbt.tcp(arm) · rbt.q() · rbt.status() · print(...)
+rbt.home()
+rbt.movej("L4", 60)              # left elbow up
+for d in (40, 80, 40):           # wave the right forearm
+    rbt.movej("R4", d)
+rbt.movel("right", dz=60)        # square with the right TCP
+rbt.movel("right", dy=-80)
+rbt.movel("right", dz=-60)
+rbt.movel("right", dy=80)
+print("tcp right:", rbt.tcp("right"), "mm")
+rbt.home()
+`;
+let progCode = DEMO_PROGRAM;
+let progSig = "";
+
+function buildProgPanel() {
+  const wrap = $("joints");
+  rows = {};
+  cartEls = null;
+  wrap.innerHTML = `
+    <div class="panel-head"><span>PROGRAM</span>
+      <small>python · every move goes through the safe bridge</small></div>
+    <div class="prog-controls">
+      <button id="pg-run" title="Run the program (releases a paused one)">▶ RUN</button>
+      <button id="pg-step" title="Click to Step — execute exactly one motion command">⏭ STEP</button>
+      <button id="pg-stop">■ STOP</button>
+      <span id="pg-state" class="prog-state">idle</span>
+    </div>
+    <textarea id="pg-code" spellcheck="false"></textarea>
+    <div class="prog-controls">
+      <button id="pg-save">SAVE…</button>
+      <select id="pg-files"></select>
+      <button id="pg-load">LOAD</button>
+      <button id="pg-demo" title="Replace the editor with the demo program">DEMO</button>
+    </div>
+    <pre id="pg-log"></pre>`;
+  const ta = $("pg-code");
+  ta.value = progCode;
+  ta.oninput = () => (progCode = ta.value);
+  if (PREVIEW) {
+    for (const id of ["pg-run", "pg-step", "pg-stop", "pg-save", "pg-load",
+                      "pg-demo"]) {
+      $(id).disabled = true;
+      $(id).title = "preview is a recording — run the local server";
+    }
+    ta.readOnly = true;
+    $("pg-log").textContent = "> programs need the local server";
+  } else {
+    $("pg-run").onclick = () => send({ type: "prog_run", code: progCode });
+    $("pg-step").onclick = () => send({ type: "prog_step", code: progCode });
+    $("pg-stop").onclick = () => send({ type: "prog_stop" });
+    $("pg-demo").onclick = () => { progCode = DEMO_PROGRAM; ta.value = progCode; };
+    $("pg-save").onclick = () => {
+      const name = prompt("Program name (letters/digits/_-):");
+      if (name) {
+        send({ type: "prog_save", name, code: progCode });
+        setTimeout(refreshProgFiles, 400);
+      }
+    };
+    $("pg-load").onclick = async () => {
+      const sel = $("pg-files");
+      if (!sel.value) return;
+      try {
+        const code = await (await fetch(`/api/programs/${sel.value}`)).text();
+        progCode = code;
+        ta.value = code;
+      } catch (e) { /* server down */ }
+    };
+    refreshProgFiles();
+  }
+  progSig = "";
+}
+
+async function refreshProgFiles() {
+  try {
+    const names = await (await fetch("/api/programs")).json();
+    const sel = $("pg-files");
+    if (sel) sel.innerHTML =
+      names.map((n) => `<option value="${n}">${n}</option>`).join("");
+  } catch (e) { /* server down */ }
+}
+
+function updateProgPanel() {
+  const p = state && state.prog;
+  if (!p) return;
+  const sig = JSON.stringify([p.running, p.paused, p.line, p.n,
+                              p.log && p.log.length,
+                              p.log && p.log[p.log.length - 1]]);
+  if (sig === progSig) return;
+  progSig = sig;
+  const st = $("pg-state");
+  if (st) {
+    st.textContent = !p.running ? "idle"
+      : p.paused ? `paused → line ${p.line ?? "?"}: ${p.current ?? ""}`
+      : `running · cmd #${p.n}${p.line ? " · line " + p.line : ""}`;
+    st.className = "prog-state" + (p.running ? (p.paused ? " warn" : " on") : "");
+  }
+  const run = $("pg-run");
+  if (run) run.className = p.running && !p.paused ? "playing" : "";
+  const ta = $("pg-code");
+  if (ta && !PREVIEW) ta.readOnly = p.running;
+  const log = $("pg-log");
+  if (log && p.log) {
+    log.textContent = p.log.join("\n");
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
 function buildPanel() {
   if (curGroup === "seq") { buildSeqPanel(); return; }
+  if (curGroup === "prog") { buildProgPanel(); return; }
   const wrap = $("joints");
   wrap.innerHTML = "";
   rows = {};
+  cartEls = null;
   const head = document.createElement("div");
   head.className = "panel-head";
   head.innerHTML = `<span>${GROUPS[curGroup].label}</span>
@@ -369,12 +493,19 @@ function buildPanel() {
     const human = `J${k + 1}${ROLE[idx] ? " · " + ROLE[idx] : ""}`;
     row.innerHTML = `
       <div class="jname" title="protocol index ${idx}"><b>${human}</b>${jname}</div>
+      <button class="jlim" data-l="lo" title="Jump to the lower limit (guard permitting)">⇤</button>
       <button class="jbtn" data-d="-1">−</button>
       <div class="jbar"><div class="jfill"></div><div class="jthumb"></div></div>
       <button class="jbtn" data-d="1">+</button>
+      <button class="jlim" data-l="hi" title="Jump to the upper limit (guard permitting)">⇥</button>
       <div class="jval"><span class="ang">—</span><small class="sub">—</small></div>`;
     wrap.appendChild(row);
     const locked = PREVIEW || legsLockedReal;
+    for (const b of row.querySelectorAll(".jlim")) {
+      if (locked) { b.disabled = true; continue; }
+      b.onclick = () => send({ type: "set_joint", idx,
+                               value: b.dataset.l === "lo" ? lo : hi });
+    }
     for (const b of row.querySelectorAll(".jbtn")) {
       if (locked) {
         b.disabled = true;
@@ -435,14 +566,126 @@ function buildPanel() {
     note.textContent = "Lower chain locked in REAL mode — balance belongs to the firmware.";
     wrap.prepend(note);
   }
+  if (curGroup === "left" || curGroup === "right") buildCartBlock(wrap);
+}
+
+// ---- cartesian jog + tool (TCP) block --------------------------------------
+let cartEls = null;          // {x,y,z} readout spans for the open arm tab
+let cartStepMm = 5;
+let toolsCache = null;       // {name: [x,y,z] mm}
+let cartTimers = [];
+
+function stopCartTimers() {
+  for (const t of cartTimers) clearInterval(t);
+  cartTimers = [];
+}
+
+async function refreshTools(sel, arm) {
+  if (PREVIEW) return;
+  try {
+    toolsCache = await (await fetch("/api/tools")).json();
+  } catch (e) { return; }
+  if (!sel) return;
+  const cur = state && state.tools && state.tools[arm]
+    ? state.tools[arm].name : "flange";
+  sel.innerHTML = Object.keys(toolsCache).map((n) =>
+    `<option value="${n}"${n === cur ? " selected" : ""}>${n}</option>`).join("");
+}
+
+function buildCartBlock(wrap) {
+  const arm = curGroup;
+  const blk = document.createElement("div");
+  blk.innerHTML = `
+    <div class="panel-head"><span>CARTESIAN · TCP</span>
+      <small>step-jog the tool point · world axes</small></div>
+    <div id="cart"></div>
+    <div class="cart-foot">
+      <label>STEP</label>
+      <select id="cart-step">
+        ${[1, 5, 20, 50].map((v) => `<option value="${v}"${v === cartStepMm
+          ? " selected" : ""}>${v} mm</option>`).join("")}
+      </select>
+      <span class="vsep"></span>
+      <label>TOOL</label>
+      <select id="tool-sel"></select>
+      <button id="tool-def" title="Define a named TCP offset (mm, wrist frame)">+</button>
+      <button id="tool-del" title="Delete the selected tool">✕</button>
+    </div>`;
+  wrap.appendChild(blk);
+  const cart = blk.querySelector("#cart");
+  cartEls = {};
+  const axes = [["X", 0], ["Y", 1], ["Z", 2]];
+  for (const [nm, ax] of axes) {
+    const row = document.createElement("div");
+    row.className = "cart-row";
+    row.innerHTML = `<b class="ax-${nm.toLowerCase()}">${nm}</b>
+      <button class="jbtn" data-d="-1">−</button>
+      <span class="cart-val">—</span>
+      <button class="jbtn" data-d="1">+</button>`;
+    cart.appendChild(row);
+    cartEls[ax] = row.querySelector(".cart-val");
+    for (const b of row.querySelectorAll(".jbtn")) {
+      if (PREVIEW) { b.disabled = true; continue; }
+      const dir = parseInt(b.dataset.d);
+      const fire = () => {
+        const delta = [0, 0, 0];
+        delta[ax] = (dir * cartStepMm) / 1000;
+        send({ type: "cart_step", arm, delta });
+      };
+      b.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        fire();
+        cartTimers.push(setInterval(fire, 150));
+      });
+      for (const ev of ["pointerup", "pointerleave", "pointercancel"])
+        b.addEventListener(ev, stopCartTimers);
+    }
+  }
+  blk.querySelector("#cart-step").onchange = (e) =>
+    (cartStepMm = parseInt(e.target.value));
+  const sel = blk.querySelector("#tool-sel");
+  if (PREVIEW) {
+    sel.disabled = true;
+    blk.querySelector("#tool-def").disabled = true;
+    blk.querySelector("#tool-del").disabled = true;
+  } else {
+    refreshTools(sel, arm);
+    sel.onchange = () => send({ type: "tool_set", arm, name: sel.value });
+    blk.querySelector("#tool-def").onclick = () => {
+      const name = prompt("Tool name (letters/digits/_-):");
+      if (!name) return;
+      const xyz = prompt("TCP offset x,y,z in mm (wrist frame):", "0,0,120");
+      if (!xyz) return;
+      const v = xyz.split(",").map(Number);
+      if (v.length !== 3 || v.some(isNaN)) { alert("need three numbers"); return; }
+      send({ type: "tool_def", name, xyz_mm: v });
+      send({ type: "tool_set", arm, name });
+      setTimeout(() => refreshTools(sel, arm), 400);
+    };
+    blk.querySelector("#tool-del").onclick = () => {
+      if (sel.value === "flange") return;
+      send({ type: "tool_del", name: sel.value });
+      setTimeout(() => refreshTools(sel, arm), 400);
+    };
+  }
 }
 
 const z = (x) => (Math.abs(x) < 0.005 ? 0 : x);   // kill -0.0 flicker
 const deg = (r) => (z(r) * 180 / Math.PI).toFixed(1) + "°";
 
+const _tcp = new THREE.Vector3();
+function updateCartReadout() {
+  if (!cartEls || !eeObjs[curGroup]) return;
+  const p = tcpWorld(curGroup, _tcp);
+  for (const [ax, el] of Object.entries(cartEls))
+    el.textContent = `${(p.getComponent(+ax) * 1000).toFixed(0)} mm`;
+}
+
 function updatePanel() {
   if (!state) return;
   if (curGroup === "seq") { updateSeqPanel(); return; }
+  if (curGroup === "prog") { updateProgPanel(); return; }
+  updateCartReadout();
   const q = state.q || [], dq = state.dq || [], temps = state.temps || [];
   for (const [idx, r] of Object.entries(rows)) {
     const a = q[idx], t = temps[idx], targ = state.targ && state.targ[idx];
@@ -478,15 +721,21 @@ function updateTop() {
     gc.className = "chip " + (state.guard.blocking ? "warn" : "on");
   }
   const tmax = state.temps ? Math.max(...state.temps) : 0;
-  const tc = $("chip-temp");
-  tc.textContent = `T ${tmax.toFixed(0)}°C`;
-  tc.className = "chip " + (state.overtemp ? "bad" : tmax > 45 ? "warn" : "");
+  const tEl = $("chip-temp");
+  tEl.textContent = `T ${tmax.toFixed(0)}°C`;
+  tEl.className = "chip " + (state.overtemp ? "bad" : tmax > 45 ? "warn" : "");
+  const mb = $("btn-mirror");
+  if (mb) {
+    mb.textContent = `MIRROR: ${state.mirror ? "ON" : "OFF"}`;
+    mb.className = state.mirror ? "mirror-on" : "";
+  }
   $("mode-sim").className = state.mode === "sim" ? "active sim" : "";
   $("mode-real").className = state.mode === "real" ? "active real" : "";
   $("foot-mode").textContent = `mode: ${state.mode}`;
   const es = $("btn-estop");
   es.textContent = state.estop ? "RESUME" : "E-STOP";
   es.className = state.estop ? "resume" : "";
+  // v0.4 bug: a local `tc` (temp chip) shadowed the gizmo — detach never ran
   if (tc && tc.object && !state.live) tc.detach();   // no gizmo while dampened
   const banner = $("banner");
   if (PREVIEW) { banner.className = "preview";
@@ -504,6 +753,8 @@ function updateTop() {
 $("btn-estop").onclick = () =>
   send({ type: state && state.estop ? "resume" : "estop" });
 $("btn-home").onclick = () => send({ type: "home" });
+$("btn-mirror").onclick = () =>
+  send({ type: "mirror", on: !(state && state.mirror) });
 if ($("btn-trace")) {
   $("btn-trace").onclick = () => {
     traceOn = !traceOn;
@@ -572,7 +823,7 @@ function startPlayback() {
   buildRobot();
   buildPanel();
   if (PREVIEW) {
-    for (const id of ["btn-estop", "btn-home"]) {
+    for (const id of ["btn-estop", "btn-home", "btn-mirror"]) {
       $(id).disabled = true;
       $(id).title = "preview is a recording — run the local server to control";
     }
