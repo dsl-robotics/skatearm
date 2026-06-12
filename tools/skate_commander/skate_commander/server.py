@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .bridge import RobotBridge
 from .kinematics import ArmKinematics
-from .program import ProgramRunner
+from .program import PoseRecorder, ProgramRunner
 from .urdf import joint_limits, parse_urdf
 
 from skate_ros2 import names  # noqa: E402  (path set up by .bridge)
@@ -199,6 +199,7 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         print("[commander] collision guard ON — self-colliding targets are "
               "rejected before they reach the robot")
     runner = ProgramRunner(bridge)
+    bridge.recorder = PoseRecorder()      # teach-in: observed in tick()
     tools = _load_tools()
 
     def save_tools():
@@ -241,6 +242,10 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
             return JSONResponse({"error": "unknown program"}, status_code=404)
         return PlainTextResponse(path.read_text(encoding="utf-8"))
 
+    @app.get("/api/recording")
+    async def api_recording():
+        return PlainTextResponse(bridge.recorder.result)
+
     @app.get("/meshes/{name}")
     async def mesh(name: str):
         path = mesh_paths.get(name)           # whitelist, no traversal
@@ -263,6 +268,7 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                     pass
                 snap = bridge.snapshot(ui_attached=app.state.clients > 0)
                 snap["prog"] = runner.snapshot()
+                snap["prog"]["rec"] = bridge.recorder.snapshot()
                 await sock.send_text(json.dumps(snap))
         except WebSocketDisconnect:
             pass
@@ -346,6 +352,12 @@ def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
             PROG_DIR.mkdir(exist_ok=True)
             (PROG_DIR / f"{name}.py").write_text(cmd["code"],
                                                  encoding="utf-8")
+    elif t == "rec_start":
+        if bridge.recorder is not None:
+            bridge.recorder.start(bridge.targ)
+    elif t == "rec_stop":
+        if bridge.recorder is not None:
+            bridge.recorder.stop()
     elif t == "jog_start":
         bridge.jog_start(int(cmd["idx"]), int(cmd["dir"]))
     elif t == "jog_stop":
