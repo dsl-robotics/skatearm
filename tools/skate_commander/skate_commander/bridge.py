@@ -66,11 +66,13 @@ class RobotBridge:
         self.ik_auto = {"left": False, "right": False}
         self._ik_prev = {"left": None, "right": None}
         self._ik_stall = {"left": 0.0, "right": 0.0}
-        # posture anchor per arm: captured when an IK session starts, kept
-        # across consecutive cart steps, dropped on any manual joint input.
-        # Fed to ik_step as the null-space reference so back-and-forth TCP
-        # jogging returns the SAME arm pose instead of winding it up.
-        self.ik_ref = {"left": None, "right": None}
+        # comfort posture for the IK null space: the documented default pose
+        # nudged 30% toward each joint's range center. While an IK target is
+        # active the arm continuously relaxes toward this shape WITHOUT
+        # moving the TCP — the robot picks its own elbow configuration, no
+        # winding, no limit-hugging.
+        self.ik_comfort = (0.7 * np.array(names.DEFAULT_POSE)
+                           + 0.3 * 0.5 * (self.lo + self.hi))
         # mirror mode: commands to one arm are reflected onto the other.
         # signs/axis are derived numerically from FK by the server (no
         # guessing about the URDF's mirroring convention).
@@ -103,7 +105,6 @@ class RobotBridge:
         self.targ = None                   # re-arm from the new robot's pose
         self.jog_dir[:] = 0
         self.ik_targets = {"left": None, "right": None}
-        self.ik_ref = {"left": None, "right": None}
         self.estop = True                  # explicit resume required
 
     def trigger_estop(self):
@@ -167,14 +168,12 @@ class RobotBridge:
         """Glide to one waypoint, no auto-advance."""
         if 0 <= i < len(self.waypoints) and self.targ is not None \
                 and not self.estop:
-            self._posture_ref_reset()
             self.seq_idx = i
             self.seq_active = True
             self.seq_playing = False
 
     def wp_play(self, loop=False):
         if self.waypoints and self.targ is not None and not self.estop:
-            self._posture_ref_reset()
             self.seq_idx = 0
             self.seq_loop = bool(loop)
             self.seq_active = True
@@ -234,7 +233,6 @@ class RobotBridge:
     def jog_start(self, idx, direction):
         if 0 <= idx < names.N_JOINTS and not self._joint_locked(idx):
             self.seq_stop()                # manual input overrides playback
-            self._posture_ref_reset()
             d = 1.0 if direction > 0 else -1.0
             self.jog_dir[idx] = d
             if self.mirror and (m := self._mirror_joint(idx)):
@@ -253,7 +251,6 @@ class RobotBridge:
         if self.targ is None or self.estop or self._joint_locked(idx):
             return
         self.seq_stop()
-        self._posture_ref_reset()
         prev = self.targ.copy()
         self.targ[idx] = float(np.clip(self.targ[idx] + delta,
                                        self.lo[idx], self.hi[idx]))
@@ -268,7 +265,6 @@ class RobotBridge:
         if self.targ is None or self.estop or self._joint_locked(idx):
             return
         self.seq_stop()
-        self._posture_ref_reset()
         prev = self.targ.copy()
         self.targ[idx] = float(np.clip(value, self.lo[idx], self.hi[idx]))
         if self.mirror and (m := self._mirror_joint(idx)):
@@ -276,13 +272,7 @@ class RobotBridge:
             self.targ[o] = float(np.clip(s * value, self.lo[o], self.hi[o]))
         self._guard_ok(prev)
 
-    def _posture_ref_reset(self):
-        """Manual joint input = the human chose a new posture; re-anchor."""
-        self.ik_ref = {"left": None, "right": None}
-
     def _ik_one(self, arm, pos, auto):
-        if self.ik_ref.get(arm) is None and self.targ is not None:
-            self.ik_ref[arm] = self.targ.copy()    # anchor this IK session
         self.ik_targets[arm] = np.asarray(pos, dtype=float)
         self.ik_auto[arm] = bool(auto)
         self._ik_prev[arm] = None
@@ -333,7 +323,6 @@ class RobotBridge:
             arm = None                     # mirrored arms stop together
         for a in ([arm] if arm else ["left", "right"]):
             self._clear_one(a)
-            self.ik_ref[a] = None          # explicit stop ends the session
 
     # -- tool / TCP offsets ----------------------------------------------------
     def set_tool(self, arm, name, offset_m):
@@ -350,7 +339,6 @@ class RobotBridge:
         if self.targ is None or self.estop:
             return
         self.seq_stop()
-        self._posture_ref_reset()
         self.targ = np.array(names.DEFAULT_POSE)
 
     # -- periodic work (call at ~60 Hz from the server loop) -------------------
@@ -383,7 +371,7 @@ class RobotBridge:
                 for arm, target in self.ik_targets.items():
                     if target is not None and arm in self.kin:
                         self.targ, err = self.kin[arm].ik_step(
-                            self.targ, target, q_ref=self.ik_ref.get(arm))
+                            self.targ, target, q_ref=self.ik_comfort)
                         self.ik_err[arm] = err
                         if self.ik_auto.get(arm):      # cart-step target
                             p = self._ik_prev[arm]

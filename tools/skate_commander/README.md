@@ -22,10 +22,11 @@ redistributed).
   joints (pure numpy, 0.15 ms/step)
 * **Cartesian jog** — step the TCP along world X/Y/Z (1–50 mm, hold to
   repeat) with a live TCP readout; the IK target auto-clears on arrival, or
-  when it stops improving (out of reach / guard-blocked). A **null-space
-  posture anchor** holds the arm's shape while the TCP moves — out-and-back
-  jogging returns the same pose instead of slowly winding the 7-DoF arm up
-  (any manual joint input re-anchors to your new posture)
+  when it stops improving (out of reach / guard-blocked). While any IK
+  target is active the redundant arm **chooses its own elbow**: a null-space
+  comfort objective (documented default pose blended toward joint-range
+  centers) continuously relaxes the posture *without moving the TCP* — no
+  winding on out-and-back jogs, no limit-hugging
 * **Mirror mode** — bimanual jog: jog/slider/IK input on one arm is
   reflected onto the other. The per-joint sign map and the mirror axis are
   **measured numerically from the model's FK at startup**, not assumed from
