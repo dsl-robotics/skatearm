@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Generate skt_v3_collision.xml: control-ready model with primitive box collisions.
+"""Generate skt_v3_collision.xml: control-ready model with primitive collisions.
 
-- mesh geoms become visual-only; each body gets a box from the COMPILED
-  per-geom AABB (m.geom_aabb — respects MuJoCo's mesh re-centering)
+- mesh geoms become visual-only; each body gets a CAPSULE fitted to the
+  COMPILED per-geom AABB (m.geom_aabb — respects MuJoCo's mesh re-centering):
+  axis = the AABB's longest dimension, radius = the larger of the other two.
+  Near-isotropic AABBs degrade to spheres. Capsules hug elongated links far
+  better than boxes — the wrists stop reading as bricks. (``--boxes`` keeps
+  the old v0.4 box behavior.)
 - per-link shrink: L-shaped wrist links get 0.62 (their AABBs are badly
   overestimated and snag on the table edge during normal reaches), others 0.85
 - structural excludes: intra-arm pairs (grandparent links like
@@ -14,7 +18,7 @@
 
 Usage:
     python make_control_model.py /path/to/skate_teleop/skt_v3    # first
-    python make_collision_model.py /path/to/skate_teleop/skt_v3
+    python make_collision_model.py /path/to/skate_teleop/skt_v3 [--boxes]
 """
 import os
 import sys
@@ -34,7 +38,7 @@ def quat_mat(q):
     return R.reshape(3, 3)
 
 
-def make(model_dir, shrink=0.85, wrist_shrink=0.62):
+def make(model_dir, shrink=0.85, wrist_shrink=0.62, boxes=False):
     ctrl_path = os.path.join(model_dir, "skt_v3_control.xml")
     if not os.path.exists(ctrl_path):
         sys.exit("run make_control_model.py first")
@@ -56,7 +60,7 @@ def make(model_dir, shrink=0.85, wrist_shrink=0.62):
                 g.set("conaffinity", "0")
                 g.set("group", "1")
 
-    nboxes = 0
+    nprim = {"capsule": 0, "sphere": 0, "box": 0}
     for gid in range(m.ngeom):
         if m.geom_type[gid] != mujoco.mjtGeom.mjGEOM_MESH:
             continue
@@ -65,15 +69,31 @@ def make(model_dir, shrink=0.85, wrist_shrink=0.62):
         aabb = m.geom_aabb[gid]  # [center(3), half(3)] in geom frame
         center, half = aabb[:3], np.maximum(aabb[3:] * sh, 0.004)
         gpos, gquat = m.geom_pos[gid], m.geom_quat[gid]
-        bpos = gpos + quat_mat(gquat) @ center
-        ET.SubElement(body_el[bname], "geom", {
-            "type": "box", "group": "3",
-            "pos": " ".join(f"{x:.5f}" for x in bpos),
-            "quat": " ".join(f"{x:.6f}" for x in gquat),
-            "size": " ".join(f"{x:.5f}" for x in half),
-            "rgba": "0.8 0.4 0.1 0.35",
-        })
-        nboxes += 1
+        R = quat_mat(gquat)
+        bpos = gpos + R @ center
+        attrs = {"group": "3", "rgba": "0.8 0.4 0.1 0.35"}
+        ax = int(np.argmax(half))
+        r = float(np.delete(half, ax).max())   # covers the full cross-section
+        hl = float(half[ax]) - r               # half-length of the cylinder
+        if boxes:
+            attrs.update({
+                "type": "box",
+                "pos": " ".join(f"{x:.5f}" for x in bpos),
+                "quat": " ".join(f"{x:.6f}" for x in gquat),
+                "size": " ".join(f"{x:.5f}" for x in half)})
+        elif hl > 0.004:                       # elongated -> capsule
+            d = np.zeros(3)
+            d[ax] = hl
+            p1, p2 = bpos - R @ d, bpos + R @ d
+            attrs.update({
+                "type": "capsule", "size": f"{r:.5f}",
+                "fromto": " ".join(f"{x:.5f}" for x in (*p1, *p2))})
+        else:                                  # near-isotropic -> sphere
+            attrs.update({
+                "type": "sphere", "size": f"{float(half.max()):.5f}",
+                "pos": " ".join(f"{x:.5f}" for x in bpos)})
+        ET.SubElement(body_el[bname], "geom", attrs)
+        nprim[attrs["type"]] += 1
 
     # structural excludes
     structural = set()
@@ -107,9 +127,12 @@ def make(model_dir, shrink=0.85, wrist_shrink=0.62):
     for n1, n2 in sorted(all_pairs):
         ET.SubElement(contact_el, "exclude", {"body1": n1, "body2": n2})
     ET.ElementTree(root).write(out)
-    print(f"wrote {out}: {nboxes} boxes, {len(pairs)} home-pose + {len(structural)} structural excludes")
+    prim = ", ".join(f"{v} {k}s" for k, v in nprim.items() if v)
+    print(f"wrote {out}: {prim}, {len(pairs)} home-pose + "
+          f"{len(structural)} structural excludes")
     return out
 
 
 if __name__ == "__main__":
-    make(sys.argv[1] if len(sys.argv) > 1 else ".")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    make(args[0] if args else ".", boxes="--boxes" in sys.argv)
