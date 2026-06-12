@@ -68,5 +68,47 @@ def test_fk_matches_mujoco_and_ik_converges():
         print(f"PASS {arm}: FK exact, IK {ok}/8")
 
 
+def test_tool_offset_tracks_mujoco():
+    """FK with a TCP offset must equal MuJoCo xpos + xmat @ tool, and the
+    IK must drive the OFFSET point (not the wrist) onto the target."""
+    try:
+        import mujoco
+    except ImportError:
+        print("SKIP: mujoco not installed"); return
+    if not Path(MJCF).exists():
+        print("SKIP: no control model"); return
+    model = parse_urdf(SKT / "skt_v3.urdf")
+    mm = mujoco.MjModel.from_xml_path(MJCF)
+    dd = mujoco.MjData(mm)
+    rng = np.random.default_rng(7)
+    tool = np.array([0.02, -0.015, 0.12])     # an off-axis 12 cm "tool"
+
+    for arm in ("left", "right"):
+        kin = ArmKinematics(model, arm)
+        kin.tool = tool
+        ee_link = next(j for j in model["joints"]
+                       if j["index"] == kin.idx[-1])["child"]
+        bid = mm.body(ee_link).id
+        worst = 0.0
+        for _ in range(5):
+            q = _clamped_random(model, rng)
+            dd.qpos[:26] = q
+            mujoco.mj_forward(mm, dd)
+            want = dd.xpos[bid] + dd.xmat[bid].reshape(3, 3) @ tool
+            worst = max(worst, float(np.linalg.norm(want - kin.fk(q))))
+        assert worst < 1e-6, f"{arm}: tool FK diverges ({worst} m)"
+
+        target = kin.fk(_clamped_random(model, rng, 0.7))
+        q = np.zeros(26)
+        err = 1.0
+        for _ in range(300):
+            q, err = kin.ik_step(q, target)
+            if err < 0.005:
+                break
+        assert err < 0.005, f"{arm}: tool IK did not converge ({err} m)"
+        print(f"PASS {arm}: tool-offset FK exact ({worst:.2e} m), IK converges")
+
+
 if __name__ == "__main__":
     test_fk_matches_mujoco_and_ik_converges()
+    test_tool_offset_tracks_mujoco()
