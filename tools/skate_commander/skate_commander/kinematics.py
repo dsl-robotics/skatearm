@@ -102,11 +102,20 @@ class ArmKinematics:
             J[:, k] = (p_hi - p_lo) / (2 * eps)
         return J
 
-    def ik_step(self, q26, target, lam=0.05, step_m=0.04, dq_max=0.06):
+    def ik_step(self, q26, target, lam=0.05, step_m=0.04, dq_max=0.06,
+                q_ref=None, k_null=0.15):
         """One DLS step toward ``target`` (world, meters).
 
         Returns (new_q26 copy, err_m_before_step). Call repeatedly (e.g. each
         bridge tick) and the wrist glides to the target.
+
+        ``q_ref``: optional posture anchor (full 26-vector). The arm has 7
+        joints for a 3-DoF position task — without a secondary objective the
+        4 redundant DoF drift, and jogging back-and-forth slowly winds the
+        arm into contorted poses. The anchor term pulls toward ``q_ref``
+        **inside the null space only** (projected through I − J⁺J), so it
+        reshapes the elbow without moving the TCP: same target in = same
+        posture back.
         """
         q = np.array(q26, dtype=float)
         cur = self.fk(q)
@@ -119,6 +128,11 @@ class ArmKinematics:
         J = self.jacobian(q)
         JJt = J @ J.T + (lam ** 2) * np.eye(3)
         dq = J.T @ np.linalg.solve(JJt, e)
+        if q_ref is not None:
+            qa = np.array([q[i] for i in self.idx])
+            ra = np.array([q_ref[i] for i in self.idx])
+            N = np.eye(len(self.idx)) - J.T @ np.linalg.solve(JJt, J)
+            dq = dq + N @ np.clip(k_null * (ra - qa), -0.02, 0.02)
         dq = np.clip(dq, -dq_max, dq_max)
         for k, i in enumerate(self.idx):
             q[i] = np.clip(q[i] + dq[k], self.lo[k], self.hi[k])

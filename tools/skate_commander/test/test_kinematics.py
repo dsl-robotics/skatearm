@@ -109,6 +109,40 @@ def test_tool_offset_tracks_mujoco():
         print(f"PASS {arm}: tool-offset FK exact ({worst:.2e} m), IK converges")
 
 
+def test_posture_hold_no_winding():
+    """Jogging the TCP out and back must return (almost) the same joint
+    pose. Without the null-space posture anchor the 4 redundant DoF drift
+    and the arm slowly winds itself up (the v0.5.0 'выкручивает' bug)."""
+    if not Path(MJCF).exists():
+        print("SKIP: no control model"); return
+    model = parse_urdf(SKT / "skt_v3.urdf")
+    import numpy as np
+
+    for arm in ("left", "right"):
+        kin = ArmKinematics(model, arm)
+        q0 = np.zeros(26)
+        q0[11] = q0[19] = np.radians(90)            # elbows-bent home
+        p0 = kin.fk(q0)
+
+        def roundtrip(q_ref):
+            q = q0.copy()
+            for tgt in (p0 + [0, 0.15, 0], p0 + [0, 0, 0.12], p0):
+                for _ in range(250):
+                    q, err = kin.ik_step(q, tgt, q_ref=q_ref)
+                    if err < 1e-3:
+                        break
+            return float(np.max(np.abs(q - q0)))
+
+        anchored = roundtrip(q0)
+        free = roundtrip(None)
+        assert anchored < 0.06, \
+            f"{arm}: wound up {np.degrees(anchored):.1f} deg with anchor"
+        print(f"PASS {arm}: out-and-back posture drift "
+              f"{np.degrees(anchored):.2f} deg (anchored) vs "
+              f"{np.degrees(free):.1f} deg (free)")
+
+
 if __name__ == "__main__":
     test_fk_matches_mujoco_and_ik_converges()
     test_tool_offset_tracks_mujoco()
+    test_posture_hold_no_winding()
