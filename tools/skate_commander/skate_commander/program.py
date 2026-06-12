@@ -12,6 +12,7 @@ exactly one command, RUN releases the program to free-run.
 
 API (joints in degrees, cartesian in millimeters, world axes):
     rbt.movej(joint, deg)        joint = "L4" / "R2" / "H1", URDF name or index
+    rbt.pose({joint: deg, ...})  several joints as ONE coordinated move
     rbt.movel(arm, dx=, dy=, dz=)  glide the TCP; auto-stops when blocked
     rbt.home()                   glide to the documented safe pose
     rbt.gripper(arm, deg)        open/close one gripper
@@ -64,6 +65,97 @@ def _resolve_joint(joint):
                      "H1..H2, a URDF joint name, or a protocol index")
 
 
+def _joint_token(idx):
+    """Source-code token for a joint: 'L4' / 'R2' / 'H1' shorthands for the
+    arms and head, the bare protocol index for the lower chain."""
+    if 8 <= idx < 16:
+        return f"'L{idx - 7}'"
+    if 16 <= idx < 24:
+        return f"'R{idx - 15}'"
+    if 24 <= idx < 26:
+        return f"'H{idx - 23}'"
+    return str(idx)
+
+
+class PoseRecorder:
+    """Teach-in: watch the commanded pose and write the program yourself.
+
+    Hooked into ``bridge.tick``. Whenever the target settles for
+    ``SETTLE_S`` after moving, the diff against the previous keypose is
+    emitted as one line of ``rbt`` code — ``movej`` for a single joint,
+    ``pose({...})`` for a coordinated multi-joint move. Drive the robot with
+    sliders, jog, the gizmo or cartesian steps; stop recording and the
+    program is ready to RUN (through the same safe bridge, as always).
+    """
+
+    SETTLE_S = 0.6
+    MIN_DELTA = math.radians(1.0)
+
+    def __init__(self):
+        self.active = False
+        self._base = None                 # pose at the last emitted keypose
+        self._last = None                 # latest seen target
+        self._dirty = False
+        self._still = 0.0
+        self.lines = []
+        self.result = ""                  # finished program text
+
+    def start(self, targ):
+        self.active = True
+        self._base = None if targ is None else list(targ)
+        self._last = None if targ is None else list(targ)
+        self._dirty = False
+        self._still = 0.0
+        self.lines = []
+        self.result = ""
+
+    def observe(self, targ, dt):
+        if not self.active or targ is None:
+            return
+        t = list(targ)
+        if self._base is None:
+            self._base = t
+            self._last = t
+            return
+        if max(abs(a - b) for a, b in zip(t, self._last)) > 1e-4:
+            self._dirty = True
+            self._still = 0.0
+            self._last = t
+        elif self._dirty:
+            self._still += dt
+            if self._still >= self.SETTLE_S:
+                self._emit()
+
+    def _emit(self):
+        moved = [(i, self._last[i]) for i in range(len(self._last))
+                 if abs(self._last[i] - self._base[i]) > self.MIN_DELTA]
+        self._dirty = False
+        self._still = 0.0
+        if not moved:
+            return
+        if len(moved) == 1:
+            i, v = moved[0]
+            self.lines.append(
+                f"rbt.movej({_joint_token(i)}, {math.degrees(v):.1f})")
+        else:
+            body = ", ".join(f"{_joint_token(i)}: {math.degrees(v):.1f}"
+                             for i, v in moved)
+            self.lines.append(f"rbt.pose({{{body}}})")
+        self._base = list(self._last)
+
+    def stop(self):
+        if self._dirty:                   # flush a pose still settling
+            self._emit()
+        self.active = False
+        self.result = ("# recorded with REC — replays through the same "
+                       "safe bridge\n" + "\n".join(self.lines) + "\n"
+                       if self.lines else "")
+        return self.result
+
+    def snapshot(self):
+        return {"on": self.active, "n": len(self.lines)}
+
+
 class RobotAPI:
     """The ``rbt`` object visible to user programs."""
 
@@ -105,6 +197,28 @@ class RobotAPI:
         if not ok:
             self._r.emit(f"! movej {joint}: timeout (still "
                          f"tracking toward {deg:g} deg)")
+        return ok
+
+    def pose(self, joints, tol=3.0, timeout=12.0):
+        """Command several joints AT ONCE (dict joint -> deg) and wait for
+        all of them — one coordinated move, one guard check, no mirroring
+        (the pose already says where both arms go)."""
+        items = [(_resolve_joint(j), math.radians(d))
+                 for j, d in dict(joints).items()]
+        self._r._gate(f"pose({len(items)} joints)")
+        br = self._r.bridge
+        if not br.set_joints(items):
+            self._r.emit("! pose: blocked by the collision guard")
+            return False
+        goals = {idx: (None if br.targ is None else float(br.targ[idx]))
+                 for idx, _ in items}
+        ok = self._r._wait_until(
+            lambda: (q := br.link.state.dof_pos()) is not None
+                    and all(abs(q[i] - g) < math.radians(tol)
+                            for i, g in goals.items() if g is not None),
+            timeout)
+        if not ok:
+            self._r.emit("! pose: timeout while tracking")
         return ok
 
     def movel(self, arm, dx=0.0, dy=0.0, dz=0.0, timeout=15.0):

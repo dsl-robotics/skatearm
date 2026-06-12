@@ -83,6 +83,7 @@ class RobotBridge:
         # waypoint sequencer
         self.waypoints = []                # list of np[26] (commanded poses)
         self.wp_names = []
+        self.recorder = None               # optional teach-in PoseRecorder
         self.seq_active = False           # gliding toward waypoints[seq_idx]
         self.seq_playing = False          # auto-advance through the list
         self.seq_loop = False
@@ -272,6 +273,21 @@ class RobotBridge:
             self.targ[o] = float(np.clip(s * value, self.lo[o], self.hi[o]))
         self._guard_ok(prev)
 
+    def set_joints(self, items):
+        """Bulk absolute targets: [(idx, rad), ...] applied as ONE pose with
+        a single guard check. Deliberately NOT mirrored — an absolute
+        multi-joint pose (e.g. a recorded teach-in keypose) already says
+        where every joint goes. Returns False if the guard rejected it."""
+        if self.targ is None or self.estop:
+            return False
+        self.seq_stop()
+        prev = self.targ.copy()
+        for idx, value in items:
+            if 0 <= idx < names.N_JOINTS and not self._joint_locked(idx):
+                self.targ[idx] = float(np.clip(value,
+                                               self.lo[idx], self.hi[idx]))
+        return self._guard_ok(prev)
+
     def _ik_one(self, arm, pos, auto):
         self.ik_targets[arm] = np.asarray(pos, dtype=float)
         self.ik_auto[arm] = bool(auto)
@@ -390,6 +406,8 @@ class RobotBridge:
             deadman = (1, 1, 1) if live else (0, 0, 0)
             self.link.send_command(self.targ, deadman=deadman)
             self._last_tx = time.monotonic()
+        if self.recorder is not None:
+            self.recorder.observe(self.targ, dt)
         return self.snapshot(ui_attached)
 
     # -- state for the UI ------------------------------------------------------
