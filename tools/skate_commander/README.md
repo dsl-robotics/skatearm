@@ -42,7 +42,14 @@ dampen.
 
 ## Quick start (no hardware)
 
+> **Windows:** use `py` wherever you see `python3` (bare `python`/`python3`
+> may open the Microsoft Store stub).
+
 ```bash
+# the official robot model, if you don't have it yet:
+git clone https://github.com/Rbotic/skate_teleop.git
+
+cd tools/skate_commander       # commands below run from THIS folder
 pip install -r requirements.txt mujoco
 python3 ../../sim/make_control_model.py   /path/to/skate_teleop/skt_v3
 python3 ../../sim/make_collision_model.py /path/to/skate_teleop/skt_v3
