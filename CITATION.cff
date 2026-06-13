@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use SkateArm in your work, please cite this repository."
+title: "SkateArm — bimanual work-cell & Skate Commander cockpit"
+abstract: >-
+  Open-source bimanual work-cell and browser cockpit for the R.Botic Skate
+  robot: a 3D digital twin, drag-IK, mirror mode, teach-in, natural-language
+  programs and vision-guided picking — sim-first in MuJoCo and deployed over
+  the robot's native UDP wire.
+type: software
+# TODO: replace with the authors' real given/family names
+authors:
+  - name: "SkateArm contributors"
+url: "https://lavs-daniels-skots-231rmc173.github.io/skatearm/"
+repository-code: "https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm"
+license: MIT
+keywords:
+  - robotics
+  - bimanual manipulation
+  - humanoid robot
+  - MuJoCo
+  - ROS 2
+  - digital twin
+  - teleoperation
+  - vision-guided grasping
+  - inverse kinematics
