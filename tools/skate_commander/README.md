@@ -24,6 +24,12 @@ redistributed).
   <em>▶ <strong>Watch the 50-second product tour</strong> — captions, music, and zoom-to-control highlights (click to play on GitHub).</em>
 </div>
 
+<div align="center">
+  <img src="../../docs/img/commander_v06_pick.gif" width="680px" alt="Vision-guided pick: the work camera detects the magenta target and the right arm is driven to it by IK">
+  <br>
+  <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
+</div>
+
 ## Features (v0.6)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
