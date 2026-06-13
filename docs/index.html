@@ -90,19 +90,21 @@
     <h2>Skate Commander — the web cockpit</h2>
     <p class="sub">Drive the 3D digital twin from a browser; flip one switch and the same commands drive the real robot.</p>
     <figure>
-      <img src="img/commander_v06_overview.gif" alt="Skate Commander overview: mirror-mode bimanual jog raises both arms from one slider, then teach-in writes a program from hand-moved poses and replays it">
-      <figcaption><strong>v0.6 overview</strong> — mirror-mode bimanual jog, then teach-in: move the arm by hand and the cockpit writes the <code>rbt</code> program itself.</figcaption>
+      <video controls preload="metadata" poster="img/commander_v06_video_poster.png"
+             style="width:100%;max-width:900px;border:1px solid var(--line);border-radius:12px;background:#000;">
+        <source src="video/commander_v06_product.mp4" type="video/mp4">
+        Your browser can't play embedded video — <a href="video/commander_v06_product.mp4">watch the 50-second product video</a>.
+      </video>
+      <figcaption><strong>Product video</strong> — a 50-second tour of the cockpit: digital twin, drag-IK, mirror mode, teach-in and the vision-guided pick.</figcaption>
     </figure>
     <div class="grid">
       <figure style="margin:0">
-        <img src="img/commander_v06_pick.gif" alt="Vision-guided pick: the work camera detects the target and the right arm is driven to it by inverse kinematics">
-        <figcaption><strong>Vision-guided pick</strong> — camera detect → world pose (~2&nbsp;mm) → IK grasp.</figcaption>
+        <img src="img/commander_v06_overview.gif" alt="Skate Commander overview: mirror-mode bimanual jog raises both arms from one slider, then teach-in writes a program from hand-moved poses and replays it">
+        <figcaption><strong>v0.6 overview</strong> — mirror-mode bimanual jog, then teach-in: the cockpit writes the <code>rbt</code> program itself.</figcaption>
       </figure>
       <figure style="margin:0">
-        <a class="play" href="https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm/blob/main/docs/video/commander_v06_product.mp4">
-          <img src="img/commander_v06_video_poster.png" alt="Skate Commander product video">
-        </a>
-        <figcaption><strong>Product video</strong> — a 50-second tour of the cockpit.</figcaption>
+        <img src="img/commander_v06_pick.gif" alt="Vision-guided pick: the work camera detects the target and the right arm is driven to it by inverse kinematics">
+        <figcaption><strong>Vision-guided pick</strong> — camera detect → world pose (~2&nbsp;mm) → IK grasp.</figcaption>
       </figure>
     </div>
   </div>
