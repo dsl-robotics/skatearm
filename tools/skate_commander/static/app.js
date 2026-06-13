@@ -839,6 +839,37 @@ if ($("btn-trace")) {
   };
   $("btn-clear-trace").onclick = clearTraces;
 }
+
+// ---- rendered robot camera (MJPEG panel) --------------------------------
+if (!PREVIEW && $("btn-cam")) {
+  const pip = $("cam-pip"), img = $("cam-img"), sel = $("cam-sel");
+  let camOn = false;
+  const start = () =>
+    (img.src = "/camstream?cam=" + encodeURIComponent(sel.value) + "&t=" + Date.now());
+  const stop = () => img.removeAttribute("src");
+  fetch("/api/cameras").then((r) => r.json()).then((d) => {
+    sel.innerHTML = "";
+    for (const c of d.cameras || []) {
+      const o = document.createElement("option");
+      o.value = c; o.textContent = c;
+      if (c === d.current) o.selected = true;
+      sel.appendChild(o);
+    }
+    if (!(d.cameras && d.cameras.length)) $("btn-cam").disabled = true;
+  }).catch(() => ($("btn-cam").disabled = true));
+  $("btn-cam").onclick = () => {
+    camOn = !camOn;
+    $("btn-cam").textContent = "CAM: " + (camOn ? "ON" : "OFF");
+    $("btn-cam").classList.toggle("on", camOn);
+    pip.style.display = camOn ? "block" : "none";
+    camOn ? start() : stop();
+  };
+  sel.onchange = () => { if (camOn) start(); };
+} else if ($("btn-cam")) {
+  $("btn-cam").disabled = true;
+  $("btn-cam").title = "preview is a recording — run the local server";
+}
+
 $("mode-sim").onclick = () => send({ type: "set_mode", mode: "sim" });
 $("mode-real").onclick = () => {
   if (confirm("Switch to REAL robot? It will stay DAMPENED until you press RESUME."))

@@ -20,14 +20,15 @@ from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import (FileResponse, JSONResponse, PlainTextResponse,
+                               StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 
 from .bridge import RobotBridge
 from .kinematics import ArmKinematics
 from .program import PoseRecorder, ProgramRunner
 from .urdf import joint_limits, parse_urdf
-from . import nl
+from . import camera, nl
 
 from skate_ros2 import names  # noqa: E402  (path set up by .bridge)
 
@@ -212,6 +213,22 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     app.state.tools = tools
     app.state.clients = 0
 
+    def _cam_qpos():
+        try:
+            q = bridge.link.state.dof_pos()
+        except Exception:
+            q = None
+        if q is None and bridge.targ is not None:
+            q = list(bridge.targ)
+        return q
+
+    try:
+        app.state.camera = camera.CameraStreamer(
+            model_dir / "skt_v3_control.xml", _cam_qpos)
+    except Exception as exc:                       # camera is optional
+        print(f"[commander] camera disabled: {exc}")
+        app.state.camera = None
+
     @app.get("/")
     async def index():
         return FileResponse(STATIC_DIR / "index.html")
@@ -257,6 +274,30 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
             data = {}
         return JSONResponse(nl.generate((data or {}).get("text", "")))
 
+    @app.get("/api/cameras")
+    async def api_cameras():
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"cameras": [], "current": None})
+        return JSONResponse({"cameras": cam.cams, "current": cam.cam})
+
+    @app.get("/camstream")
+    async def camstream(cam: str = None):
+        streamer = app.state.camera
+        if streamer is None:
+            return JSONResponse({"error": "camera unavailable"}, status_code=503)
+        if cam:
+            streamer.set_cam(cam)
+
+        async def gen():
+            boundary = b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
+            while True:
+                yield boundary + streamer.jpeg() + b"\r\n"
+                await asyncio.sleep(1 / 15)
+
+        return StreamingResponse(
+            gen(), media_type="multipart/x-mixed-replace; boundary=frame")
+
     @app.get("/meshes/{name}")
     async def mesh(name: str):
         path = mesh_paths.get(name)           # whitelist, no traversal
@@ -301,6 +342,8 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     async def stop_tick():
         app.state.tick_task.cancel()
         bridge.close()
+        if getattr(app.state, "camera", None):
+            app.state.camera.close()
 
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     return app

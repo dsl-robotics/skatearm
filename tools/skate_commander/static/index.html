@@ -32,6 +32,7 @@
     <button id="btn-mirror" title="Bimanual mirror: commands to one arm are reflected onto the other (sign map measured from the model)">MIRROR: OFF</button>
     <button id="btn-trace" title="Record wrist (TCP) trajectories in the viewport">TRACE: ON</button>
     <button id="btn-clear-trace" title="Erase recorded trajectories">CLEAR TRACE</button>
+    <button id="btn-cam" title="Toggle the rendered robot camera view">CAM: OFF</button>
     <button id="btn-estop">E-STOP</button>
   </div>
 
@@ -39,6 +40,10 @@
     <div id="viewport">
       <div id="banner"></div>
       <div class="overlay" id="overlay"></div>
+      <div id="cam-pip">
+        <img id="cam-img" alt="rendered robot camera">
+        <div id="cam-bar"><span>CAM</span><select id="cam-sel"></select></div>
+      </div>
     </div>
     <div id="panel">
       <div id="tabs">

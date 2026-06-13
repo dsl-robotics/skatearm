@@ -125,6 +125,26 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
 #btn-mirror.mirror-on { border-color: rgba(240,177,61,.55);
   color: var(--amber); background: var(--amber-soft); }
 
+/* ============ camera PiP (rendered robot camera) ============ */
+#cam-pip {
+  position: absolute; right: 14px; bottom: 14px; width: 300px;
+  background: #0a0c0e; border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden; box-shadow: 0 10px 34px rgba(0,0,0,.55); display: none;
+}
+#cam-img { display: block; width: 100%; height: auto; background: #000; }
+#cam-bar {
+  display: flex; align-items: center; gap: 8px; padding: 6px 9px;
+  border-top: 1px solid var(--line-soft);
+  font: 700 9.5px var(--mono); letter-spacing: .14em; color: var(--dim);
+}
+#cam-bar select {
+  flex: 1; background: var(--panel2); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px;
+  font: 500 11px "Inter", sans-serif;
+}
+#btn-cam.on { border-color: rgba(56,160,255,.55); color: var(--accent);
+  background: var(--accent-soft); }
+
 /* ============ right panel ============ */
 #panel {
   width: 424px; background: var(--panel);
