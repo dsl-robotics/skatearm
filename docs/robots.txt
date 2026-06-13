@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lavs-daniels-skots-231rmc173.github.io/skatearm/sitemap.xml
