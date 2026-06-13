@@ -16,6 +16,14 @@ redistributed).
   <em><strong>v0.6 overview</strong> — mirror-mode bimanual jog (both arms from one slider), then <strong>teach-in</strong>: move the arm by hand and the program writes itself as <code>movej</code> lines; ▶ RUN replays it through the same collision-guarded bridge.</em>
 </div>
 
+<div align="center">
+  <a href="https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm/blob/main/docs/video/commander_v06_product.mp4">
+    <img src="../../docs/img/commander_v06_video_poster.png" width="680px" alt="Watch the Skate Commander product video">
+  </a>
+  <br>
+  <em>▶ <strong>Watch the 50-second product tour</strong> — captions, music, and zoom-to-control highlights (click to play on GitHub).</em>
+</div>
+
 ## Features (v0.6)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
