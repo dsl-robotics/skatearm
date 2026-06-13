@@ -49,7 +49,8 @@ https://github.com/user-attachments/assets/17f24a4b-4d1d-4e8d-809d-878e8110f901
 | Waypoint sequencer | Record poses, play with pause/loop, save/load named sequences |
 | Tool / TCP offsets | Named end-of-arm tools (mm offsets); FK, IK, traces and the gizmo all follow the active TCP |
 | TCP traces | Colored tool-center-point trajectories drawn in the viewport |
-| On-board camera | A camera view rendered from the model (MuJoCo) and streamed into the cockpit (MJPEG), switchable between viewpoints — the visual foundation for vision-guided work |
+| On-board camera | A camera view rendered from the model (MuJoCo) and streamed into the cockpit (MJPEG), switchable between viewpoints |
+| Vision-guided pick | **DETECT** finds the workspace target and back-projects its centroid to a world pose (validated to ~2 mm vs the simulator's ground truth); **PICK** drives the right arm to it through the same IK + collision guard and closes the gripper |
 | Collision guard | Every target checked for self-collision *before* it is sent — including along interpolated paths; capsule-fitted collision model |
 | SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
 

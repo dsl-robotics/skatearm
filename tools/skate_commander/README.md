@@ -58,6 +58,13 @@ redistributed).
   Click-to-Step or RUN it through the same guarded bridge. Runs fully offline
   (a deterministic intent parser + an AST validator that only ever emits known
   `rbt` calls); an optional LLM fallback engages only if an API key is set
+* **On-board camera + vision-guided pick** — the server renders a workspace
+  camera from the model (MuJoCo) and streams it into the cockpit (MJPEG,
+  switchable views). **DETECT** finds the magenta target and back-projects its
+  centroid to a world pose (camera intrinsics from `fovy`, extrinsics from
+  `cam_xpos`/`cam_xmat`, intersected with the table plane — validated to ~2 mm
+  against the simulator's true object position); **PICK** drives the right arm
+  to it via the same DLS-IK + collision guard and closes the gripper
 * **Teach-in recording** — press **● REC** and just move the robot
   (sliders, jog, gizmo, cartesian steps): every settled pose becomes a line
   of `rbt` code — `movej` for one joint, a coordinated `pose({...})` for

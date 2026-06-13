@@ -41,8 +41,16 @@
       <div id="banner"></div>
       <div class="overlay" id="overlay"></div>
       <div id="cam-pip">
-        <img id="cam-img" alt="rendered robot camera">
-        <div id="cam-bar"><span>CAM</span><select id="cam-sel"></select></div>
+        <div id="cam-stage">
+          <img id="cam-img" alt="rendered robot camera">
+          <div id="cam-mark"></div>
+        </div>
+        <div id="cam-bar">
+          <select id="cam-sel"></select>
+          <button id="cam-detect" title="Find the workspace target with the camera">⌖ DETECT</button>
+          <button id="cam-pick" title="Detect, then run a right-arm pick (needs RESUME)">▶ PICK</button>
+        </div>
+        <div id="cam-info">—</div>
       </div>
     </div>
     <div id="panel">

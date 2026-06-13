@@ -14,6 +14,7 @@ API (joints in degrees, cartesian in millimeters, world axes):
     rbt.movej(joint, deg)        joint = "L4" / "R2" / "H1", URDF name or index
     rbt.pose({joint: deg, ...})  several joints as ONE coordinated move
     rbt.movel(arm, dx=, dy=, dz=)  glide the TCP; auto-stops when blocked
+    rbt.moveto(arm, x, y, z)     glide the TCP to an absolute world point (mm)
     rbt.home()                   glide to the documented safe pose
     rbt.gripper(arm, deg)        open/close one gripper
     rbt.waypoint(i_or_name)      glide to a recorded sequencer pose
@@ -227,6 +228,20 @@ class RobotAPI:
         br.cart_step(arm, [dx / 1000.0, dy / 1000.0, dz / 1000.0])
         if br.ik_targets.get(arm) is None:
             self._r.emit(f"! movel {arm}: rejected (not armed / estopped?)")
+            return False
+        self._r._wait_until(lambda: br.ik_targets.get(arm) is None, timeout)
+        return self.tcp(arm)
+
+    def moveto(self, arm, x, y, z, timeout=15.0):
+        """Glide the TCP to an ABSOLUTE world point (mm). Auto-stops on arrival
+        or when blocked / out of reach (same IK path as the drag-gizmo)."""
+        if arm not in self._r.bridge.kin:
+            raise ValueError("arm must be 'left' or 'right'")
+        self._r._gate(f"moveto({arm!r}, {x:g}, {y:g}, {z:g})")
+        br = self._r.bridge
+        br.set_ik_target(arm, [x / 1000.0, y / 1000.0, z / 1000.0], auto=True)
+        if br.ik_targets.get(arm) is None:
+            self._r.emit(f"! moveto {arm}: rejected (not armed / estopped?)")
             return False
         self._r._wait_until(lambda: br.ik_targets.get(arm) is None, timeout)
         return self.tcp(arm)

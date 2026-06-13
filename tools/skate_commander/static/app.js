@@ -864,7 +864,46 @@ if (!PREVIEW && $("btn-cam")) {
     pip.style.display = camOn ? "block" : "none";
     camOn ? start() : stop();
   };
-  sel.onchange = () => { if (camOn) start(); };
+  const mark = $("cam-mark"), info = $("cam-info");
+  const CAM_W = 640, CAM_H = 480;
+  const showMark = (px) => {
+    if (px) {
+      mark.style.left = (px[0] / CAM_W * 100) + "%";
+      mark.style.top = (px[1] / CAM_H * 100) + "%";
+      mark.style.display = "block";
+    } else mark.style.display = "none";
+  };
+  const toWork = () => { sel.value = "cam_work"; if (camOn) start(); };
+  sel.onchange = () => { showMark(null); if (camOn) start(); };
+  $("cam-detect").onclick = async () => {
+    toWork();
+    info.textContent = "detecting…";
+    try {
+      const d = await (await fetch("/api/detect")).json();
+      if (d.found) {
+        showMark(d.pixel);
+        info.textContent = "target  " + d.world_mm.map((v) => v.toFixed(0)).join("  ") + " mm";
+      } else {
+        showMark(null);
+        info.textContent = "no target" + (d.error ? " (" + d.error + ")" : "");
+      }
+    } catch (e) { info.textContent = "detect failed"; }
+  };
+  $("cam-pick").onclick = async () => {
+    toWork();
+    info.textContent = "pick…";
+    try {
+      const d = await (await fetch("/api/pick", { method: "POST" })).json();
+      if (d.found) {
+        showMark(d.pixel);
+        info.textContent = "picking  " + d.world_mm.map((v) => v.toFixed(0)).join("  ") +
+          " mm" + (d.ran ? "" : " — press RESUME");
+      } else {
+        showMark(null);
+        info.textContent = "no target" + (d.error ? " (" + d.error + ")" : "");
+      }
+    } catch (e) { info.textContent = "pick failed"; }
+  };
 } else if ($("btn-cam")) {
   $("btn-cam").disabled = true;
   $("btn-cam").title = "preview is a recording — run the local server";

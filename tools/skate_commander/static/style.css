@@ -144,6 +144,19 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
 }
 #btn-cam.on { border-color: rgba(56,160,255,.55); color: var(--accent);
   background: var(--accent-soft); }
+#cam-stage { position: relative; line-height: 0; }
+#cam-mark { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+  border: 2px solid #38e0ff; border-radius: 50%;
+  box-shadow: 0 0 9px #38e0ff, inset 0 0 4px #38e0ff;
+  display: none; pointer-events: none; }
+#cam-bar button { padding: 4px 7px; font: 700 9px var(--mono); letter-spacing: .04em; }
+#cam-detect { border-color: rgba(56,160,255,.5); color: var(--accent); }
+#cam-detect:hover { background: var(--accent-soft); }
+#cam-pick { border-color: rgba(63,196,99,.5); color: var(--ok); }
+#cam-pick:hover { background: var(--ok-soft); }
+#cam-info { padding: 5px 9px; font: 600 10px var(--mono); color: var(--fg2);
+  border-top: 1px solid var(--line-soft); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
 
 /* ============ right panel ============ */
 #panel {

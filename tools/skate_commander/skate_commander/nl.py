@@ -26,7 +26,7 @@ import os
 import re
 
 # rbt methods the validator will accept (mirrors program.RobotAPI).
-ALLOWED = {"movej", "pose", "movel", "home", "gripper", "waypoint",
+ALLOWED = {"movej", "pose", "movel", "moveto", "home", "gripper", "waypoint",
            "wait", "tcp", "q", "status"}
 
 # Gripper open/close angles (deg); the bridge clamps to real limits anyway.

@@ -223,8 +223,8 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         return q
 
     try:
-        app.state.camera = camera.CameraStreamer(
-            model_dir / "skt_v3_control.xml", _cam_qpos)
+        scene_path = camera.build_scene_xml(model_dir)
+        app.state.camera = camera.CameraStreamer(scene_path, _cam_qpos)
     except Exception as exc:                       # camera is optional
         print(f"[commander] camera disabled: {exc}")
         app.state.camera = None
@@ -297,6 +297,37 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
 
         return StreamingResponse(
             gen(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+    @app.get("/api/detect")
+    async def api_detect():
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"found": False, "error": "camera unavailable"})
+        return JSONResponse(cam.detect())
+
+    @app.post("/api/pick")
+    async def api_pick():
+        """Detect the workspace target and run a pick program (right arm) through
+        the same guarded runner. Moves nothing unless armed + resumed."""
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"found": False, "error": "camera unavailable"})
+        det = cam.detect()
+        if not det.get("found"):
+            return JSONResponse({"found": False,
+                                 "error": det.get("error", "no target seen")})
+        x, y, z = det["world_mm"]
+        code = (
+            f"# pick: magenta target detected at ({x:.0f}, {y:.0f}, {z:.0f}) mm\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {z + 90:.0f})\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {z + 12:.0f})\n"
+            f"rbt.gripper('right', 0)\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {z + 130:.0f})\n"
+        )
+        ok = runner.run(code)
+        return JSONResponse({"found": True, "ran": bool(ok),
+                             "world_mm": det["world_mm"],
+                             "pixel": det.get("pixel"), "code": code})
 
     @app.get("/meshes/{name}")
     async def mesh(name: str):
