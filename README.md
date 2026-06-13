@@ -12,6 +12,14 @@
 </div>
 
 <div align="center">
+
+**▶ Watch the 50-second product video** — a full tour of the cockpit: digital twin, drag-IK, mirror mode, teach-in and the vision-guided pick.
+
+</div>
+
+https://github.com/user-attachments/assets/17f24a4b-4d1d-4e8d-809d-878e8110f901
+
+<div align="center">
   <img src="docs/img/cell_cycle_demo.gif" width="420px" alt="Autonomous GRAFCET assembly cycle with camera QC and HMI overlay">
   <img src="docs/img/commander_v06_overview.gif" width="420px" alt="Skate Commander overview: mirror-mode bimanual jog raises both arms from one slider, then teach-in writes a program from hand-moved poses and replays it">
   <br>
@@ -32,10 +40,6 @@
 ## 🕹 Skate Commander — web cockpit
 
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
-
-**Watch the product video** — a 50-second tour of the cockpit (captions, music, and zoom-to-control highlights):
-
-https://github.com/user-attachments/assets/17f24a4b-4d1d-4e8d-809d-878e8110f901
 
 | Feature | What it does |
 |---|---|
@@ -180,6 +184,11 @@ Ideas and requests from other Skate owners are welcome — open an issue.
 1. **Level up in robotics** — from a single SO-101 arm ([previous project](https://github.com/Lavs-Daniels-Skots-231RMC173/so101-native-ubuntu-ros2-moveit)) to a bimanual humanoid: two-arm coordination, sim-to-real.
 2. **Learn by building** — ROS 2, MuJoCo, policy learning (ACT/SmolVLA), classical control, embedded in one system.
 3. **Give back to the Skate community** — first-mover window to publish open tools, datasets and guides others can build on.
+
+## 🔗 Related projects
+
+- **[SO-101 · ROS 2 + MoveIt real-hardware bring-up](https://github.com/Lavs-Daniels-Skots-231RMC173/so101-native-ubuntu-ros2-moveit)** — a real SO-101 / SO-ARM101 arm pair brought up on ROS 2 Jazzy + MoveIt + LeRobot (a 2-camera ACT policy trained and published to Hugging Face).
+- **[Engineering Portfolio](https://github.com/Lavs-Daniels-Skots-231RMC173/engineering-portfolio)** — 11 academic & applied projects: industrial robotics, PLC, embedded systems, metrology, CNC, mechanical design.
 
 ## Author
 
