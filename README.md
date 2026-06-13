@@ -15,6 +15,8 @@
 
 **▶ Watch the 50-second product video** — a full tour of the cockpit: digital twin, drag-IK, mirror mode, teach-in and the vision-guided pick.
 
+🌐 **Live demo & write-up → [dsl-robotics.github.io/skatearm](https://dsl-robotics.github.io/skatearm/)**
+
 </div>
 
 https://github.com/user-attachments/assets/17f24a4b-4d1d-4e8d-809d-878e8110f901
