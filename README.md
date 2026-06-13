@@ -33,6 +33,10 @@
 
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
 
+**Watch the product video** — a 50-second tour of the cockpit (captions, music, and zoom-to-control highlights):
+
+https://github.com/user-attachments/assets/17f24a4b-4d1d-4e8d-809d-878e8110f901
+
 | Feature | What it does |
 |---|---|
 | Jog + sliders | Hold −/+, drag the thumb, or jump straight to a limit; amber = your command, azure = actual position |
