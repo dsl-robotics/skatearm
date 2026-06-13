@@ -182,4 +182,4 @@ pkt/s, elbow tracking error 0.015 rad, watchdog dampen < 0.3 s
 
 Wire classes and protocol from [Rbotic/skate_teleop](https://github.com/Rbotic/skate_teleop)
 (Apache-2.0, vendored with attribution in `skate_ros2/shared_classes_def.py`).
-Everything else MIT, part of [SkateArm](https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm).
+Everything else MIT, part of [SkateArm](https://github.com/dsl-robotics/skatearm).

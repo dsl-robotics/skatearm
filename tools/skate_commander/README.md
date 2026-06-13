@@ -5,7 +5,7 @@ the hardware lands, flip one switch and drive the real Skate over the exact
 same UDP wire. Functional reference: PAROL6's Waldo Commander; the design,
 the bimanual specifics and the safety model are our own.
 
-**[▶ Live preview](https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html)** —
+**[▶ Live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html)** —
 recorded telemetry playback, no install (simplified stick-figure twin there:
 Rbotic's STL meshes are only loaded from your local clone, never
 redistributed).
@@ -17,7 +17,7 @@ redistributed).
 </div>
 
 <div align="center">
-  <a href="https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm/blob/main/docs/video/commander_v06_product.mp4">
+  <a href="https://github.com/dsl-robotics/skatearm/blob/main/docs/video/commander_v06_product.mp4">
     <img src="../../docs/img/commander_v06_video_poster.png" width="680px" alt="Watch the Skate Commander product video">
   </a>
   <br>

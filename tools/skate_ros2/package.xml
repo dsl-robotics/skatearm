@@ -10,7 +10,7 @@
   </description>
   <maintainer email="porche121004@gmail.com">Daniels Skots-Lavs</maintainer>
   <license>MIT</license>
-  <url type="repository">https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm</url>
+  <url type="repository">https://github.com/dsl-robotics/skatearm</url>
 
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>

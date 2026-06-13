@@ -10,8 +10,8 @@ type: software
 # TODO: replace with the authors' real given/family names
 authors:
   - name: "SkateArm contributors"
-url: "https://lavs-daniels-skots-231rmc173.github.io/skatearm/"
-repository-code: "https://github.com/Lavs-Daniels-Skots-231RMC173/skatearm"
+url: "https://dsl-robotics.github.io/skatearm/"
+repository-code: "https://github.com/dsl-robotics/skatearm"
 license: MIT
 keywords:
   - robotics
