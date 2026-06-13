@@ -288,6 +288,17 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
 .cart-foot button { padding: 5px 10px; font-size: 12px; }
 
 /* ============ program tab ============ */
+.nl-row { display: flex; gap: 7px; padding: 10px 2px 2px; align-items: center; }
+.nl-row input {
+  flex: 1; min-width: 0; background: var(--panel2); color: var(--fg);
+  border: 1px solid var(--line); border-radius: var(--r);
+  padding: 8px 11px; font: 500 12.5px "Inter", sans-serif;
+}
+.nl-row input::placeholder { color: var(--dim); }
+.nl-row input:focus-visible { outline: none; border-color: var(--accent-deep); }
+#pg-gen { border-color: rgba(56,160,255,.5); color: var(--accent);
+  white-space: nowrap; font-weight: 700; }
+#pg-gen:hover { background: var(--accent-soft); border-color: var(--accent); }
 .prog-controls { display: flex; gap: 7px; padding: 10px 2px;
   align-items: center; flex-wrap: wrap;
   border-bottom: 1px solid var(--line-soft); }

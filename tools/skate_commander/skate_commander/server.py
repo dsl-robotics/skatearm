@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -27,6 +27,7 @@ from .bridge import RobotBridge
 from .kinematics import ArmKinematics
 from .program import PoseRecorder, ProgramRunner
 from .urdf import joint_limits, parse_urdf
+from . import nl
 
 from skate_ros2 import names  # noqa: E402  (path set up by .bridge)
 
@@ -245,6 +246,16 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     @app.get("/api/recording")
     async def api_recording():
         return PlainTextResponse(bridge.recorder.result)
+
+    @app.post("/api/nl")
+    async def api_nl(req: Request):
+        """Natural language -> rbt program. Returns code for the editor only;
+        it never moves the robot (the editor still runs through the safe bridge)."""
+        try:
+            data = await req.json()
+        except Exception:
+            data = {}
+        return JSONResponse(nl.generate((data or {}).get("text", "")))
 
     @app.get("/meshes/{name}")
     async def mesh(name: str):

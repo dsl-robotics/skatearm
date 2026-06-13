@@ -52,6 +52,12 @@ redistributed).
   releases the program. Every motion uses the same bridge paths as the UI —
   limits, collision guard, E-STOP — and any manual input kills the program.
   Save/load to `programs/*.py`
+* **Natural-language programs** — describe a task in plain English (e.g.
+  *"raise both arms, then home"*) and a safe parser writes the `rbt` program
+  into the editor; it never moves the robot directly — you review it, then
+  Click-to-Step or RUN it through the same guarded bridge. Runs fully offline
+  (a deterministic intent parser + an AST validator that only ever emits known
+  `rbt` calls); an optional LLM fallback engages only if an API key is set
 * **Teach-in recording** — press **● REC** and just move the robot
   (sliders, jog, gizmo, cartesian steps): every settled pose becomes a line
   of `rbt` code — `movej` for one joint, a coordinated `pose({...})` for

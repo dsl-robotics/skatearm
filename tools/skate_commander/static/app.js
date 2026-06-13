@@ -10,6 +10,7 @@ import { TransformControls } from "three/addons/controls/TransformControls.js";
 
 const PREVIEW = typeof window.PREVIEW_DATA !== "undefined";
 const $ = (id) => document.getElementById(id);
+const CLEAN = !PREVIEW && new URLSearchParams(location.search).has("clean");
 
 const GROUPS = {
   left:  { label: "LEFT ARM",  idx: [8, 9, 10, 11, 12, 13, 14, 15] },
@@ -39,6 +40,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 $("viewport").appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0, -0.15);         // frame the whole robot
+if (CLEAN) { camera.position.set(-0.5, 2.1, 0.72); controls.target.set(0, 0, 0.06); }
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.1));
 const dir = new THREE.DirectionalLight(0xffffff, 1.4);
@@ -47,12 +49,12 @@ scene.add(dir);
 const grid = new THREE.GridHelper(4, 24, 0x2a3240, 0x1b212b);
 grid.rotation.x = Math.PI / 2;
 grid.position.z = FLOOR_Z;                 // floor under the wheels
-scene.add(grid);
+if (!CLEAN) scene.add(grid);
 const axes = new THREE.AxesHelper(0.22);   // world frame triad on the floor
 axes.material.transparent = true;
 axes.material.opacity = 0.55;
 axes.position.z = FLOOR_Z;
-scene.add(axes);
+if (!CLEAN) scene.add(axes);
 
 function resize() {
   const w = $("viewport").clientWidth, h = $("viewport").clientHeight;
@@ -386,6 +388,11 @@ function buildProgPanel() {
   wrap.innerHTML = `
     <div class="panel-head"><span>PROGRAM</span>
       <small>python · every move goes through the safe bridge</small></div>
+    <div class="nl-row">
+      <input id="pg-nl" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Describe a task — &ldquo;raise both arms, then home&rdquo;">
+      <button id="pg-gen" title="Generate an rbt program from your description">✦ GEN</button>
+    </div>
     <div class="prog-controls">
       <button id="pg-run" title="Run the program (releases a paused one)">▶ RUN</button>
       <button id="pg-step" title="Click to Step — execute exactly one motion command">⏭ STEP</button>
@@ -406,7 +413,7 @@ function buildProgPanel() {
   ta.oninput = () => (progCode = ta.value);
   if (PREVIEW) {
     for (const id of ["pg-run", "pg-step", "pg-stop", "pg-rec", "pg-save",
-                      "pg-load", "pg-demo"]) {
+                      "pg-load", "pg-demo", "pg-nl", "pg-gen"]) {
       $(id).disabled = true;
       $(id).title = "preview is a recording — run the local server";
     }
@@ -416,6 +423,42 @@ function buildProgPanel() {
     $("pg-run").onclick = () => send({ type: "prog_run", code: progCode });
     $("pg-step").onclick = () => send({ type: "prog_step", code: progCode });
     $("pg-stop").onclick = () => send({ type: "prog_stop" });
+    {
+      const nlIn = $("pg-nl"), gen = $("pg-gen");
+      const genNL = async () => {
+        const text = nlIn.value.trim();
+        if (!text) return;
+        gen.disabled = true;
+        const label = gen.textContent;
+        gen.textContent = "…";
+        try {
+          const r = await fetch("/api/nl", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          const d = await r.json();
+          if (d.code) {
+            progCode = d.code;
+            ta.value = d.code;
+            $("pg-log").textContent =
+              "> generated (" + d.engine + ") — review, then ▶ RUN or ⏭ STEP";
+          } else {
+            $("pg-log").textContent =
+              "x " + (d.error || "could not parse") + (d.hint ? "\n" + d.hint : "");
+          }
+        } catch (e) {
+          $("pg-log").textContent = "x generate failed: " + e;
+        } finally {
+          gen.disabled = false;
+          gen.textContent = label;
+        }
+      };
+      gen.onclick = genNL;
+      nlIn.onkeydown = (e) => {
+        if (e.key === "Enter") { e.preventDefault(); genNL(); }
+      };
+    }
     $("pg-rec").onclick = async () => {
       const rec = state && state.prog && state.prog.rec;
       if (rec && rec.on) {
