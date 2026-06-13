@@ -10,6 +10,12 @@ recorded telemetry playback, no install (simplified stick-figure twin there:
 Rbotic's STL meshes are only loaded from your local clone, never
 redistributed).
 
+<div align="center">
+  <img src="../../docs/img/commander_v06_overview.gif" width="680px" alt="Commander overview: mirror-mode bimanual jog, then teach-in writes a movej program from hand-moved poses and replays it through the guarded bridge">
+  <br>
+  <em><strong>v0.6 overview</strong> — mirror-mode bimanual jog (both arms from one slider), then <strong>teach-in</strong>: move the arm by hand and the program writes itself as <code>movej</code> lines; ▶ RUN replays it through the same collision-guarded bridge.</em>
+</div>
+
 ## Features (v0.6)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`

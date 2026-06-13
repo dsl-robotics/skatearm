@@ -13,10 +13,10 @@
 
 <div align="center">
   <img src="docs/img/cell_cycle_demo.gif" width="420px" alt="Autonomous GRAFCET assembly cycle with camera QC and HMI overlay">
-  <img src="docs/img/commander_v05_live.gif" width="420px" alt="Skate Commander web cockpit: mirror-mode bimanual jog, cartesian TCP steps, and a Python program running with Click-to-Step — live">
+  <img src="docs/img/commander_v06_overview.gif" width="420px" alt="Skate Commander overview: mirror-mode bimanual jog raises both arms from one slider, then teach-in writes a program from hand-moved poses and replays it">
   <br>
   <em>Left: <strong>Phase 1 complete</strong> — the autonomous bimanual assembly cycle (GRAFCET sequencer, camera QC).
-  Right: <strong>Skate Commander</strong> — the web cockpit driving the twin live; note the collision guard flipping to LIMIT.</em>
+  Right: <strong>Skate Commander</strong> — mirror-mode bimanual jog, then teach-in: move the arms by hand and the cockpit writes the <code>rbt</code> program itself.</em>
 </div>
 
 ## What are you here for?
@@ -48,6 +48,10 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
 
 <div align="center">
+  <img src="docs/img/commander_v06_overview.gif" width="720px" alt="Skate Commander overview: mirror-mode bimanual jog raises both arms from one slider with TCP traces, then teach-in — move the arm by hand and every settled pose becomes a movej line; RUN replays the self-written program through the guarded bridge">
+  <br>
+  <em><strong>v0.6 overview</strong>: <strong>mirror mode</strong> drives both arms from one slider (note the symmetric TCP traces), then <strong>teach-in</strong> — press ● REC, move the arm by hand, and every settled pose becomes a <code>movej</code> line. ▶ RUN replays the self-written program through the same collision-guarded bridge.</em>
+  <br><br>
   <img src="docs/img/commander_v05_live.gif" width="720px" alt="Skate Commander v0.5 in action: RESUME, mirror-mode bimanual jog, cartesian TCP steps, then a Python program executed with Click-to-Step — the collision guard blocks two of its moves">
   <br>
   <em>v0.5 live: mirror-mode jog, cartesian TCP steps, then a Python program stepped command-by-command — watch the guard veto two of its moves. <strong><a href="https://raw.githack.com/Lavs-Daniels-Skots-231RMC173/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
