@@ -77,12 +77,17 @@
   <div class="wrap">
     <h2>Quick start</h2>
     <p class="sub">No hardware needed — it runs sim-first in MuJoCo.</p>
-    <pre><code>git clone https://github.com/Rbotic/skate_teleop.git   # the official model (once)
-cd tools/skate_commander
-pip install -r requirements.txt mujoco
+    <pre><code># 1. the cockpit
+git clone https://github.com/dsl-robotics/skatearm.git
+cd skatearm/tools/skate_commander
 
-python3 -m skate_commander                              # that's the whole launch</code></pre>
-    <p>On first run it auto-finds your <code>skate_teleop</code> clone, builds the sim + collision models once, starts the sim endpoint, and opens the cockpit at <code>http://127.0.0.1:8088</code> → press <b>RESUME</b>. <span class="note">Windows: use <code>py</code> instead of <code>python3</code>.</span></p>
+# 2. the official robot model — once (meshes aren't redistributed)
+git clone https://github.com/Rbotic/skate_teleop.git
+
+# 3. install + launch
+pip install -r requirements.txt mujoco
+python3 -m skate_commander</code></pre>
+    <p>On first run it auto-finds the <code>skate_teleop</code> model, builds the sim + collision models once, starts the sim endpoint, and opens the cockpit at <code>http://127.0.0.1:8088</code> → press <b>RESUME</b>. <span class="note"><b>Windows:</b> use <code>py -m pip install …</code> and <code>py -m skate_commander</code> — bare <code>python</code>/<code>python3</code>/<code>pip</code> may be missing or open the Microsoft Store stub.</span></p>
     <p>Drive a real Skate instead: <code>python3 -m skate_commander --real</code> (add <code>--real-host &lt;ip&gt;</code> if it isn't <code>r.local</code>).</p>
   </div>
 </section>

@@ -115,16 +115,21 @@ dampen.
 
 ## Quick start (no hardware)
 
-> **Windows:** use `py` instead of `python3` (bare `python`/`python3` may open
-> the Microsoft Store stub).
-
 ```bash
-git clone https://github.com/Rbotic/skate_teleop.git   # the official model (once)
-cd tools/skate_commander
-pip install -r requirements.txt mujoco
+# 1. the cockpit
+git clone https://github.com/dsl-robotics/skatearm.git
+cd skatearm/tools/skate_commander
 
-python3 -m skate_commander                              # ← that's the whole launch
+# 2. the official robot model — once (meshes aren't redistributed)
+git clone https://github.com/Rbotic/skate_teleop.git
+
+# 3. install + launch
+pip install -r requirements.txt mujoco
+python3 -m skate_commander
 ```
+
+> **Windows:** use `py -m pip install …` and `py -m skate_commander` — the bare
+> `python` / `python3` / `pip` names may be missing or open the Microsoft Store stub.
 
 On first run it auto-finds your `skate_teleop` clone, builds the control +
 collision models once, starts the sim endpoint, and opens the cockpit at
