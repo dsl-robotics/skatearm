@@ -4,6 +4,10 @@
 
 # Skate Commander — web cockpit for the Skate digital twin & robot
 
+![status: early access](https://img.shields.io/badge/status-early%20access-3AA0FF?style=flat)
+
+> 🚧 **Early access · under active development.** Sim-first today — drive the digital twin in your browser right now; real-Skate support flips on when the hardware reaches Riga.
+
 Drive the [SkateArm](../../README.md) digital twin from a browser — and, when
 the hardware lands, flip one switch and drive the real Skate over the exact
 same UDP wire. Functional reference: PAROL6's Waldo Commander; the design,
