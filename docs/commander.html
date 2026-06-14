@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skate Commander — Docs &amp; rbt API reference</title>
+<meta name="description" content="Skate Commander docs: one-command quick start, the web cockpit tour, the rbt program API reference, and the safety model — drive the R.Botic Skate digital twin from a browser.">
+<link rel="canonical" href="https://dsl-robotics.github.io/skatearm/commander.html">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta property="og:title" content="Skate Commander — Docs &amp; rbt API reference">
+<meta property="og:description" content="One-command quick start, cockpit tour, rbt API reference, safety model.">
+<meta property="og:image" content="https://dsl-robotics.github.io/skatearm/img/skate_commander_lockup.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://dsl-robotics.github.io/skatearm/img/skate_commander_lockup.png">
+<style>
+  :root{
+    --bg:#0e0f12; --panel:#15171b; --line:#262931; --fg:#ecedef; --fg2:#aab2bd;
+    --dim:#828a94; --accent:#38a0ff; --accent2:#1f5d99;
+    --mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 "Inter","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  a{color:var(--accent);text-decoration:none;} a:hover{text-decoration:underline;}
+  .wrap{max-width:900px;margin:0 auto;padding:0 22px;}
+  header{padding:54px 0 22px;text-align:center;background:radial-gradient(ellipse at 50% -10%, #161a20 0%, var(--bg) 70%);}
+  .kicker{font:600 13px var(--mono);letter-spacing:.28em;text-transform:uppercase;color:var(--dim);}
+  h1{font-size:46px;line-height:1.05;letter-spacing:-.02em;margin:12px 0 8px;}
+  h1 span{color:var(--accent);}
+  .tag{font-size:19px;color:var(--fg2);max-width:720px;margin:0 auto 16px;}
+  .cta{display:inline-flex;gap:8px;align-items:center;margin:6px 5px 0;border:1px solid var(--line);border-radius:10px;padding:10px 18px;font-weight:600;color:var(--fg);}
+  .cta.primary{background:var(--accent);color:#04121f;border-color:var(--accent);}
+  .cta:hover{text-decoration:none;border-color:var(--accent);}
+  .badge{display:inline-block;font:600 12px var(--mono);color:#04121f;background:var(--accent);border-radius:99px;padding:3px 10px;margin-top:12px;}
+  section{padding:34px 0;border-top:1px solid var(--line);}
+  h2{font-size:26px;letter-spacing:-.01em;margin-bottom:6px;}
+  h3{font-size:18px;margin:20px 0 6px;}
+  .sub{color:var(--dim);margin-bottom:18px;}
+  p{color:var(--fg2);margin:10px 0;}
+  .note{color:var(--fg2);font-size:14.5px;}
+  nav.toc{display:flex;flex-wrap:wrap;gap:8px 16px;font:600 13px var(--mono);margin:16px 0 0;justify-content:center;}
+  nav.toc a{color:var(--fg2);}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;font:13px/1.6 var(--mono);color:var(--fg);margin:14px 0;}
+  code{font:13px var(--mono);color:var(--accent);background:rgba(56,160,255,.09);padding:1px 5px;border-radius:5px;}
+  pre code{color:var(--fg);background:none;padding:0;}
+  table.api{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px;}
+  table.api th,table.api td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line);}
+  table.api th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;}
+  table.api td:first-child code{white-space:nowrap;color:var(--fg);}
+  ul.feat{list-style:none;margin:10px 0;} ul.feat li{color:var(--fg2);padding-left:20px;position:relative;margin:7px 0;}
+  ul.feat li::before{content:"▹";color:var(--accent);position:absolute;left:0;}
+  ul.feat b{color:var(--fg);}
+  footer{padding:30px 0 56px;border-top:1px solid var(--line);color:var(--dim);font-size:14px;text-align:center;}
+  @media(max-width:720px){h1{font-size:34px;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="kicker">Skate Commander · Docs</div>
+    <h1>Skate <span>Commander</span> docs</h1>
+    <p class="tag">Drive the R.Botic Skate digital twin from your browser — and, with one switch, the real robot.</p>
+    <div class="badge">early access · under active development</div>
+    <div style="margin-top:14px">
+      <a class="cta primary" href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">🕹 Live preview</a>
+      <a class="cta" href="https://github.com/dsl-robotics/skatearm/tree/main/tools/skate_commander">★ Source</a>
+      <a class="cta" href="index.html">← Project</a>
+    </div>
+    <nav class="toc">
+      <a href="#quickstart">Quick start</a><a href="#cockpit">The cockpit</a>
+      <a href="#programs">Programs (rbt API)</a><a href="#safety">Safety</a>
+    </nav>
+  </div>
+</header>
+
+<section id="quickstart">
+  <div class="wrap">
+    <h2>Quick start</h2>
+    <p class="sub">No hardware needed — it runs sim-first in MuJoCo.</p>
+    <pre><code>git clone https://github.com/Rbotic/skate_teleop.git   # the official model (once)
+cd tools/skate_commander
+pip install -r requirements.txt mujoco
+
+python3 -m skate_commander                              # that's the whole launch</code></pre>
+    <p>On first run it auto-finds your <code>skate_teleop</code> clone, builds the sim + collision models once, starts the sim endpoint, and opens the cockpit at <code>http://127.0.0.1:8088</code> → press <b>RESUME</b>. <span class="note">Windows: use <code>py</code> instead of <code>python3</code>.</span></p>
+    <p>Drive a real Skate instead: <code>python3 -m skate_commander --real</code> (add <code>--real-host &lt;ip&gt;</code> if it isn't <code>r.local</code>).</p>
+  </div>
+</section>
+
+<section id="cockpit">
+  <div class="wrap">
+    <h2>The cockpit</h2>
+    <p class="sub">Everything goes over the same UDP wire the robot speaks — the twin and the real robot are one switch apart.</p>
+    <ul class="feat">
+      <li><b>Jog &amp; sliders</b> — hold −/+, drag the thumb, or jump to a limit. Amber = your command, azure = the actual position.</li>
+      <li><b>Cartesian jog</b> — step the tool point (TCP) along world X/Y/Z in mm; server-side IK, auto-stops on arrival.</li>
+      <li><b>Drag-IK</b> — grab a wrist sphere in 3D; damped-least-squares IK glides all 7 arm joints.</li>
+      <li><b>Mirror mode</b> — one input drives both arms; the sign map is measured from the model, not guessed.</li>
+      <li><b>Teach-in (● REC)</b> — move the robot by hand; every settled pose becomes a line of <code>rbt</code> code in the PROG tab.</li>
+      <li><b>Sequencer</b> — record poses, play with pause/loop, save/load named sequences.</li>
+      <li><b>Tools &amp; traces</b> — named end-of-arm TCP offsets; colored tool-path traces in the viewport.</li>
+      <li><b>Vision pick</b> — the work camera detects a target (≈2 mm) and <code>PICK</code> drives the right arm to it.</li>
+      <li><b>SIM / REAL</b> — same protocol either way; switching always re-latches the E-STOP.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="programs">
+  <div class="wrap">
+    <h2>Programs — the <code>rbt</code> API</h2>
+    <p class="sub">Write Python in the PROG tab. Every motion runs through the same safe bridge as the panel — joint limits, the collision guard, E-STOP and overtemp all apply. <b>RUN</b> runs free; <b>Click-to-Step</b> pauses before each motion command; E-STOP or any manual panel input stops the program.</p>
+    <table class="api">
+      <tr><th>Call</th><th>What it does</th></tr>
+      <tr><td><code>rbt.movej(joint, deg)</code></td><td>Move one joint to an absolute angle (degrees). <code>joint</code> = "L1"–"L8", "R1"–"R8", "H1"/"H2", a URDF joint name, or a protocol index.</td></tr>
+      <tr><td><code>rbt.pose({joint: deg, …})</code></td><td>Move several joints together as one coordinated motion (one guard check, no mirroring).</td></tr>
+      <tr><td><code>rbt.movel(arm, dx=, dy=, dz=)</code></td><td>Glide the TCP a relative step in mm along world X/Y/Z. <code>arm</code> = "left"/"right". Auto-stops when blocked.</td></tr>
+      <tr><td><code>rbt.moveto(arm, x, y, z)</code></td><td>Glide the TCP to an absolute world point (mm) — same IK + guard as the drag-gizmo.</td></tr>
+      <tr><td><code>rbt.home()</code></td><td>Glide to the documented safe pose.</td></tr>
+      <tr><td><code>rbt.gripper(arm, deg)</code></td><td>Open/close one gripper (degrees). Same as <code>movej("R8"/"L8", deg)</code>.</td></tr>
+      <tr><td><code>rbt.waypoint(i_or_name)</code></td><td>Glide to a recorded sequencer pose (1-based index or saved name).</td></tr>
+      <tr><td><code>rbt.wait(seconds)</code></td><td>Dwell.</td></tr>
+      <tr><td><code>rbt.tcp(arm="right")</code></td><td>Read the current TCP position (world mm).</td></tr>
+      <tr><td><code>rbt.q()</code></td><td>Read all 26 commanded joint angles (degrees).</td></tr>
+      <tr><td><code>rbt.status()</code></td><td>Read the full state snapshot.</td></tr>
+    </table>
+    <p class="note"><b>Units:</b> joints in degrees, cartesian in millimeters, world axes. <b>Joints:</b> L1–L8 left arm, R1–R8 right arm, H1–H2 head. <b>Sandbox:</b> <code>rbt</code>, <code>math</code> and safe builtins (<code>range, len, min, max, abs, round, enumerate, zip, sum, sorted, print</code>…) — no imports or file access.</p>
+    <h3>Example</h3>
+    <pre><code>rbt.home()
+rbt.gripper("right", 30)            # open
+rbt.moveto("right", 130, 350, 35)   # above the part
+rbt.moveto("right", 130, 350, -43)  # down to it
+rbt.gripper("right", 0)             # close
+rbt.moveto("right", 130, 350, 75)   # lift
+rbt.home()</code></pre>
+    <p class="note">The PROG tab has <code>rbt.</code> autocomplete (or Ctrl-Space) and a menu of ready examples.</p>
+  </div>
+</section>
+
+<section id="safety">
+  <div class="wrap">
+    <h2>Safety</h2>
+    <ul class="feat">
+      <li><b>Starts E-stopped (dampened)</b> — nothing moves until you press <b>RESUME</b>.</li>
+      <li><b>Deadman</b> — motion stops within 0.3 s if the browser tab closes or the link goes silent.</li>
+      <li><b>Collision guard</b> — every target is checked for self-collision (incl. arm-vs-arm), along the interpolated path, before it is sent.</li>
+      <li><b>SIM / REAL</b> — switching modes always re-latches the E-STOP; the legs are locked in REAL.</li>
+      <li><b>Overtemp latch</b> — a joint over 58 °C dampens the robot.</li>
+    </ul>
+    <p class="note">The cockpit is a convenience tool for a trusted LAN, not a security boundary — see the repo for the full protocol and safety notes.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    MIT-licensed · part of <a href="index.html">SkateArm</a> by <a href="https://github.com/dsl-robotics">DSL Robotics</a> ·
+    <a href="https://github.com/dsl-robotics/skatearm">github.com/dsl-robotics/skatearm</a>
+  </div>
+</footer>
+</body>
+</html>
