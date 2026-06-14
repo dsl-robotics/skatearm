@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../docs/img/skate_commander_lockup.png" width="640" alt="Skate Commander — web cockpit, digital twin, real robot">
+</p>
+
 # Skate Commander — web cockpit for the Skate digital twin & robot
 
 Drive the [SkateArm](../../README.md) digital twin from a browser — and, when
