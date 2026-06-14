@@ -376,3 +376,12 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
 /* browser <-> server connection lost: dim + freeze so stale chips don't read as live */
 body.offline #topbar .chip { opacity: .35; filter: grayscale(1); }
 body.offline #panel { opacity: .5; pointer-events: none; }
+
+/* program-editor rbt autocomplete dropdown */
+#pg-ac { position: fixed; z-index: 50; min-width: 210px; max-height: 188px;
+  overflow-y: auto; background: var(--panel, #15171b);
+  border: 1px solid var(--line, #2a2e37); border-radius: 8px;
+  font: 12px/1.5 var(--mono, ui-monospace, monospace);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .45); }
+#pg-ac .ac-item { padding: 4px 11px; cursor: pointer; color: var(--fg2, #aab2bd); white-space: nowrap; }
+#pg-ac .ac-item.sel, #pg-ac .ac-item:hover { background: var(--accent2, #1f5d99); color: #fff; }

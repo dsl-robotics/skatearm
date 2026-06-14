@@ -381,13 +381,160 @@ rbt.movel("right", dy=80)
 print("tcp right:", rbt.tcp("right"), "mm")
 rbt.home()
 `;
+
+const EXAMPLES = {
+  "demo": DEMO_PROGRAM,
+  "wave right arm": `rbt.home()
+for d in (30, 80, 30, 80, 30):
+    rbt.movej("R4", d)
+rbt.home()
+`,
+  "raise both arms": `# one pose moves several joints together (no mirror needed)
+rbt.home()
+rbt.pose({"L2": 35, "R2": 35})     # shoulders out
+rbt.pose({"L4": 80, "R4": 80})     # elbows up
+rbt.wait(0.5)
+rbt.home()
+`,
+  "pick & place (right)": `# absolute world points in mm — same IK + guard as the gizmo
+rbt.home()
+rbt.gripper("right", 30)             # open
+rbt.moveto("right", 130, 350, 35)    # above the part
+rbt.moveto("right", 130, 350, -43)   # down to it
+rbt.gripper("right", 0)              # close
+rbt.moveto("right", 130, 350, 75)    # lift
+rbt.moveto("right", 60, 320, 75)     # over the bin
+rbt.gripper("right", 30)             # release
+rbt.home()
+`,
+  "gripper cycle": `for _ in range(3):
+    rbt.gripper("right", 30)
+    rbt.wait(0.4)
+    rbt.gripper("right", 0)
+    rbt.wait(0.4)
+`,
+};
+
+// [label shown, text inserted after "rbt.", first arg to auto-select]
+const RBT_API = [
+  ["movej(joint, deg)", 'movej("L4", 0)', '"L4"'],
+  ["pose({joint: deg, ...})", 'pose({"L4": 0})', '"L4"'],
+  ["movel(arm, dx=, dy=, dz=)", 'movel("right", dz=0)', '"right"'],
+  ["moveto(arm, x, y, z)", 'moveto("right", 0, 0, 0)', '"right"'],
+  ["home()", 'home()', null],
+  ["gripper(arm, deg)", 'gripper("right", 0)', '"right"'],
+  ["waypoint(i_or_name)", 'waypoint(1)', '1'],
+  ["wait(seconds)", 'wait(1.0)', '1.0'],
+  ["tcp(arm)", 'tcp("right")', '"right"'],
+  ["q()", 'q()', null],
+  ["status()", 'status()', null],
+];
+
 let progCode = DEMO_PROGRAM;
 let progSig = "";
+
+let acHide = () => {};        // closes the autocomplete dropdown (set on build)
+let progLastErr = null;       // last error log line we highlighted
+let progLastStep = null;      // last paused step line we highlighted
+
+function caretCoords(ta) {     // pixel position of the caret (mirror-div trick)
+  const div = document.createElement("div");
+  const cs = getComputedStyle(ta);
+  for (const p of ["fontFamily", "fontSize", "fontWeight", "lineHeight",
+      "letterSpacing", "paddingTop", "paddingLeft", "paddingRight",
+      "paddingBottom", "borderWidth", "boxSizing", "tabSize"]) div.style[p] = cs[p];
+  div.style.position = "absolute"; div.style.visibility = "hidden";
+  div.style.whiteSpace = "pre-wrap"; div.style.wordWrap = "break-word";
+  div.style.width = ta.clientWidth + "px";
+  div.textContent = ta.value.slice(0, ta.selectionStart);
+  const span = document.createElement("span");
+  span.textContent = "."; div.appendChild(span);
+  document.body.appendChild(div);
+  const x = span.offsetLeft, y = span.offsetTop;
+  document.body.removeChild(div);
+  const r = ta.getBoundingClientRect();
+  return { left: r.left + x - ta.scrollLeft, top: r.top + y - ta.scrollTop };
+}
+
+function setupProgAutocomplete(ta) {
+  let items = [], sel = 0, open = false;
+  const box = document.createElement("div");
+  box.id = "pg-ac"; box.style.display = "none";
+  document.body.appendChild(box);
+  const close = () => { open = false; box.style.display = "none"; };
+  acHide = close;
+  const tokenAt = () => {
+    const m = ta.value.slice(0, ta.selectionStart).match(/rbt\.(\w*)$/);
+    return m ? m[1] : null;
+  };
+  const render = () => {
+    box.innerHTML = "";
+    items.forEach((it, i) => {
+      const d = document.createElement("div");
+      d.className = "ac-item" + (i === sel ? " sel" : "");
+      d.textContent = it[0];
+      d.onmousedown = (e) => { e.preventDefault(); accept(i); };
+      box.appendChild(d);
+    });
+  };
+  const show = (prefix) => {
+    items = RBT_API.filter((a) => a[1].startsWith(prefix));
+    if (!items.length) { close(); return; }
+    sel = 0; render();
+    const c = caretCoords(ta);
+    box.style.left = c.left + "px"; box.style.top = (c.top + 18) + "px";
+    box.style.display = "block"; open = true;
+  };
+  const accept = (i) => {
+    const it = items[i]; if (!it) { close(); return; }
+    const start = ta.selectionStart;
+    const m = ta.value.slice(0, start).match(/rbt\.(\w*)$/);
+    const from = start - (m ? m[1].length : 0);
+    ta.value = ta.value.slice(0, from) + it[1] + ta.value.slice(start);
+    progCode = ta.value;
+    const rel = it[2] ? it[1].indexOf(it[2]) : -1;
+    if (rel >= 0) ta.setSelectionRange(from + rel, from + rel + it[2].length);
+    else { const c = from + it[1].length; ta.setSelectionRange(c, c); }
+    ta.focus(); close();
+  };
+  ta.addEventListener("input", () => {
+    const t = tokenAt(); if (t !== null) show(t); else close();
+  });
+  ta.addEventListener("keydown", (e) => {
+    if (!open) {
+      if ((e.ctrlKey || e.metaKey) && e.key === " ") {
+        const t = tokenAt(); if (t !== null) { e.preventDefault(); show(t); }
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") { e.preventDefault(); sel = (sel + 1) % items.length; render(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = (sel - 1 + items.length) % items.length; render(); }
+    else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); accept(sel); }
+    else if (e.key === "Escape") { e.preventDefault(); close(); }
+  });
+  ta.addEventListener("blur", () => setTimeout(close, 120));
+  ta.addEventListener("scroll", () => { if (open) close(); });
+}
+
+function highlightProgLine(ta, lineNo, focus) {
+  if (!ta || !lineNo || lineNo < 1) return;
+  const lines = ta.value.split("\n");
+  if (lineNo > lines.length) return;
+  let start = 0;
+  for (let i = 0; i < lineNo - 1; i++) start += lines[i].length + 1;
+  try {
+    ta.setSelectionRange(start, start + lines[lineNo - 1].length);
+    if (focus) ta.focus();
+  } catch (_) {}
+  const lh = parseFloat(getComputedStyle(ta).lineHeight) || 16;
+  ta.scrollTop = Math.max(0, (lineNo - 3) * lh);
+}
 
 function buildProgPanel() {
   const wrap = $("joints");
   rows = {};
   cartEls = null;
+  acHide(); document.getElementById("pg-ac")?.remove();
   wrap.innerHTML = `
     <div class="panel-head"><span>PROGRAM</span>
       <small>python · every move goes through the safe bridge</small></div>
@@ -408,7 +555,7 @@ function buildProgPanel() {
       <button id="pg-save">SAVE…</button>
       <select id="pg-files"></select>
       <button id="pg-load">LOAD</button>
-      <button id="pg-demo" title="Replace the editor with the demo program">DEMO</button>
+      <select id="pg-examples" title="Load an example program"></select>
     </div>
     <pre id="pg-log"></pre>`;
   const ta = $("pg-code");
@@ -416,7 +563,7 @@ function buildProgPanel() {
   ta.oninput = () => (progCode = ta.value);
   if (PREVIEW) {
     for (const id of ["pg-run", "pg-step", "pg-stop", "pg-rec", "pg-save",
-                      "pg-load", "pg-demo", "pg-nl", "pg-gen"]) {
+                      "pg-load", "pg-examples", "pg-nl", "pg-gen"]) {
       $(id).disabled = true;
       $(id).title = "preview is a recording — run the local server";
     }
@@ -481,7 +628,14 @@ function buildProgPanel() {
         send({ type: "rec_start" });
       }
     };
-    $("pg-demo").onclick = () => { progCode = DEMO_PROGRAM; ta.value = progCode; };
+    setupProgAutocomplete(ta);
+    const exSel = $("pg-examples");
+    exSel.innerHTML = '<option value="">examples…</option>' +
+      Object.keys(EXAMPLES).map((k) => `<option>${k}</option>`).join("");
+    exSel.onchange = () => {
+      if (EXAMPLES[exSel.value]) { progCode = EXAMPLES[exSel.value]; ta.value = progCode; }
+      exSel.value = "";
+    };
     $("pg-save").onclick = () => {
       const name = prompt("Program name (letters/digits/_-):");
       if (name) {
@@ -541,6 +695,19 @@ function updateProgPanel() {
   if (log && p.log) {
     log.textContent = p.log.join("\n");
     log.scrollTop = log.scrollHeight;
+  }
+  if (ta && !PREVIEW) {                       // mark the error / current step line
+    const lastLog = (p.log && p.log[p.log.length - 1]) || "";
+    const m = /line (\d+)/.exec(lastLog);
+    if (/^x/.test(lastLog) && m && lastLog !== progLastErr) {
+      progLastErr = lastLog; highlightProgLine(ta, +m[1], true);
+    } else if (!/^x/.test(lastLog)) {
+      progLastErr = null;
+      if (p.paused && p.line && p.line !== progLastStep) {
+        progLastStep = p.line; highlightProgLine(ta, p.line, false);
+      }
+      if (!p.paused) progLastStep = null;
+    }
   }
 }
 
