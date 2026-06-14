@@ -5,3 +5,7 @@ skt_v3_render.xml
 .venv/
 *.mp4
 .DS_Store
+
+# local clone of the official R.Botic model (meshes are NOT redistributed)
+skate_teleop/
+tools/skate_commander/skate_teleop/
