@@ -8,7 +8,7 @@
     sim endpoint that speaks the same protocol so the whole stack runs without
     hardware. Part of the SkateArm project.
   </description>
-  <maintainer email="porche121004@gmail.com">Daniels Skots-Lavs</maintainer>
+  <maintainer email="porche121004@gmail.com">Daniels Skots Lavs</maintainer>
   <license>MIT</license>
   <url type="repository">https://github.com/dsl-robotics/skatearm</url>
 

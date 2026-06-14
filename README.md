@@ -215,7 +215,7 @@ Ideas and requests from other Skate owners are welcome — open an issue.
 
 ## Author
 
-**Daniels Skots-Lavs** — mechatronics student (RTU), industrial electronics technician.
+**Daniels Skots Lavs** — mechatronics student (RTU), industrial electronics technician.
 [GitHub profile](https://github.com/Lavs-Daniels-Skots-231RMC173) · [Engineering portfolio](https://github.com/Lavs-Daniels-Skots-231RMC173/engineering-portfolio) · porche121004@gmail.com
 
 ## License

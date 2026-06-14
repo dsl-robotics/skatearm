@@ -7,9 +7,10 @@ abstract: >-
   programs and vision-guided picking — sim-first in MuJoCo and deployed over
   the robot's native UDP wire.
 type: software
-# TODO: replace with the authors' real given/family names
 authors:
-  - name: "SkateArm contributors"
+  - given-names: Daniels
+    family-names: Skots Lavs
+    email: porche121004@gmail.com
 url: "https://dsl-robotics.github.io/skatearm/"
 repository-code: "https://github.com/dsl-robotics/skatearm"
 license: MIT

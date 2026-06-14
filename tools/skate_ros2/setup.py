@@ -18,7 +18,7 @@ setup(
     ],
     install_requires=["setuptools", "numpy"],
     zip_safe=True,
-    maintainer="Daniels Skots-Lavs",
+    maintainer="Daniels Skots Lavs",
     maintainer_email="porche121004@gmail.com",
     description="ROS 2 bridge over the R.Botic Skate's native UDP protocol "
                 "+ MuJoCo sim endpoint speaking the same protocol.",
