@@ -494,36 +494,110 @@ def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
         bridge.set_mode(cmd["mode"])
 
 
+SIM_DIR = Path(__file__).resolve().parents[3] / "sim"
+SKT_TELEOP_URL = "https://github.com/Rbotic/skate_teleop.git"
+
+
+def _find_model_dir():
+    """Locate the skt_v3 model folder: $SKT_DIR, then common clone locations
+    near the current dir / repo / home. Returns a Path or None."""
+    import os
+    cands = []
+    if os.environ.get("SKT_DIR"):
+        cands.append(Path(os.environ["SKT_DIR"]))
+    here = Path.cwd()
+    root = Path(__file__).resolve().parents[3]
+    for base in (here, here.parent, here.parent.parent, root, root.parent,
+                 Path.home()):
+        cands += [base / "skt_v3", base / "skate_teleop" / "skt_v3"]
+    for c in cands:
+        if (c / "skt_v3.urdf").exists() or (c / "skt_v3_converted.xml").exists():
+            return c
+    return None
+
+
+def _ensure_collision_model(model_dir):
+    """Make sure skt_v3_collision.xml exists — generating the control then the
+    collision model from the official converted model on first run. The
+    collision model is used both as the sim-endpoint model and the guard model."""
+    md = Path(model_dir)
+    collision = md / "skt_v3_collision.xml"
+    if collision.exists():
+        return collision
+    if not (md / "skt_v3_control.xml").exists():
+        if not (md / "skt_v3_converted.xml").exists():
+            raise FileNotFoundError(
+                f"{md} has no skt_v3_converted.xml — point --model-dir at the "
+                "skt_v3 folder of your Rbotic/skate_teleop clone")
+        print("[commander] one-time setup: building control model…")
+        subprocess.run([sys.executable, str(SIM_DIR / "make_control_model.py"),
+                        str(md)], check=True)
+    print("[commander] one-time setup: building collision model…")
+    subprocess.run([sys.executable, str(SIM_DIR / "make_collision_model.py"),
+                    str(md)], check=True)
+    if not collision.exists():
+        raise RuntimeError(f"collision model generation did not produce {collision}")
+    return collision
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Skate Commander server")
-    ap.add_argument("--model-dir", required=True,
-                    help="skt_v3 folder of your Rbotic/skate_teleop clone")
+    ap = argparse.ArgumentParser(
+        description="Skate Commander — web cockpit for the Skate twin/robot")
+    ap.add_argument("--model-dir", default=None,
+                    help="skt_v3 folder of your Rbotic/skate_teleop clone "
+                         "(auto-detected from $SKT_DIR or a nearby clone if omitted)")
+    ap.add_argument("--real", action="store_true",
+                    help="drive a real Skate instead of the local sim endpoint")
     ap.add_argument("--real-host", default="r.local")
     ap.add_argument("--port", type=int, default=8088)
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--no-browser", action="store_true",
+                    help="don't open the cockpit in a browser on startup")
     ap.add_argument("--spawn-sim", metavar="MJCF_XML", default=None,
-                    help="also launch the skate_ros2 sim endpoint on UDP :2000 "
-                         "(use skt_v3_collision.xml so the twin physically "
-                         "stops at self-contact)")
+                    help="advanced: explicit sim-endpoint model "
+                         "(default: the auto-generated skt_v3_collision.xml)")
     ap.add_argument("--collision-model", metavar="COLLISION_XML", default=None,
-                    help="enable the collision guard: targets that would "
-                         "self-collide are rejected before being sent "
-                         "(generate with sim/make_collision_model.py)")
+                    help="advanced: explicit collision-guard model "
+                         "(default: the auto-generated skt_v3_collision.xml)")
     args = ap.parse_args(argv)
 
+    model_dir = Path(args.model_dir) if args.model_dir else _find_model_dir()
+    if not model_dir or not Path(model_dir).exists():
+        sys.exit("[commander] couldn't find the skt_v3 model.\n"
+                 f"  clone it once:  git clone {SKT_TELEOP_URL}\n"
+                 "  then re-run from that folder, or pass --model-dir <…>/skt_v3")
+
+    sim_mode = not args.real
+    collision_xml = None
+    if (sim_mode and not args.spawn_sim) or args.collision_model is None:
+        try:
+            collision_xml = _ensure_collision_model(model_dir)
+        except Exception as e:
+            if sim_mode and not args.spawn_sim:
+                sys.exit(f"[commander] setup failed (the sim needs the model): {e}")
+            print(f"[commander] WARNING: collision guard unavailable: {e}")
+
+    spawn = args.spawn_sim or (str(collision_xml) if sim_mode else None)
+    guard = args.collision_model or (str(collision_xml) if collision_xml else None)
+
     sim_proc = None
-    if args.spawn_sim:
+    if spawn:
         sim_proc = subprocess.Popen(
             [sys.executable, "-m", "skate_ros2.sim_endpoint",
-             "--model", args.spawn_sim, "--quiet"],
+             "--model", spawn, "--quiet"],
             cwd=str(Path(__file__).resolve().parents[2] / "skate_ros2"))
         print(f"[commander] sim endpoint spawned (pid {sim_proc.pid})")
 
     import uvicorn
-    app = build_app(args.model_dir, real_host=args.real_host,
-                    collision_model=args.collision_model)
-    print(f"[commander] http://{args.host}:{args.port}  (mode starts in SIM, "
-          "dampened — press RESUME in the UI)")
+    app = build_app(str(model_dir), real_host=args.real_host,
+                    collision_model=guard)
+    url = f"http://{args.host}:{args.port}"
+    mode = "REAL" if args.real else "SIM"
+    print(f"[commander] {url}  ({mode} — starts dampened, press RESUME in the UI)")
+    if not args.no_browser:
+        import threading
+        import webbrowser
+        threading.Timer(1.3, lambda: webbrowser.open(url)).start()
     try:
         uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     finally:

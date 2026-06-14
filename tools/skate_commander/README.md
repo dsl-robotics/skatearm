@@ -113,28 +113,31 @@ dampen.
 
 ## Quick start (no hardware)
 
-> **Windows:** use `py` wherever you see `python3` (bare `python`/`python3`
-> may open the Microsoft Store stub).
+> **Windows:** use `py` instead of `python3` (bare `python`/`python3` may open
+> the Microsoft Store stub).
 
 ```bash
-# the official robot model, if you don't have it yet:
-git clone https://github.com/Rbotic/skate_teleop.git
-
-cd tools/skate_commander       # commands below run from THIS folder
+git clone https://github.com/Rbotic/skate_teleop.git   # the official model (once)
+cd tools/skate_commander
 pip install -r requirements.txt mujoco
-python3 ../../sim/make_control_model.py   /path/to/skate_teleop/skt_v3
-python3 ../../sim/make_collision_model.py /path/to/skate_teleop/skt_v3
 
-python3 -m skate_commander.server \
-    --model-dir       /path/to/skate_teleop/skt_v3 \
-    --spawn-sim       /path/to/skate_teleop/skt_v3/skt_v3_collision.xml \
-    --collision-model /path/to/skate_teleop/skt_v3/skt_v3_collision.xml
-# open http://127.0.0.1:8088 → RESUME → jog / drag / record
+python3 -m skate_commander                              # ← that's the whole launch
 ```
 
-With a real Skate: leave out `--spawn-sim`, flip the toggle to REAL
-(`--real-host` overrides `r.local`). Keep `--collision-model` — it protects
-the real robot too.
+On first run it auto-finds your `skate_teleop` clone, builds the control +
+collision models once, starts the sim endpoint, and opens the cockpit at
+**http://127.0.0.1:8088** → press **RESUME** → jog / drag / record.
+
+Model not found automatically? Point at it (or set `$SKT_DIR`):
+
+```bash
+python3 -m skate_commander --model-dir /path/to/skate_teleop/skt_v3
+```
+
+**Real Skate:** `python3 -m skate_commander --real` (add `--real-host <ip>` if
+it isn't `r.local`) — no sim is spawned and the collision guard still protects
+the robot. Handy flags: `--port`, `--no-browser`, and the advanced overrides
+`--spawn-sim` / `--collision-model`.
 
 ## Programming the robot
 
