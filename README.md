@@ -64,6 +64,10 @@
 
 ## 🕹 Skate Commander — web cockpit
 
+<div align="center">
+  <img src="docs/img/skate_commander_lockup.png" width="560" alt="Skate Commander — web cockpit, digital twin, real robot">
+</div>
+
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
 
 | Feature | What it does |
