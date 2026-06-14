@@ -2,12 +2,15 @@
 
 **An open bimanual work-cell and tool ecosystem for the [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2) robot — two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed on the real Skate.**
 
+*In plain terms: a two-armed robot you can drive from your browser — first as a 3D simulation, then, with one switch, on the real machine.*
+
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat)](LICENSE)
 [![MuJoCo](https://img.shields.io/badge/sim-MuJoCo%203.x-orange?style=flat)](sim/)
 [![ROS 2](https://img.shields.io/badge/bridge-ROS%202-22314E?style=flat)](tools/skate_ros2/)
 [![Python](https://img.shields.io/badge/python-3.x-3776AB?style=flat)](sim/)
+[![tests](https://github.com/dsl-robotics/skatearm/actions/workflows/tests.yml/badge.svg)](https://github.com/dsl-robotics/skatearm/actions/workflows/tests.yml)
 
 </div>
 
@@ -16,6 +19,8 @@
 **▶ Watch the 50-second product video** — a full tour of the cockpit: digital twin, drag-IK, mirror mode, teach-in and the vision-guided pick.
 
 🌐 **Live demo & write-up → [dsl-robotics.github.io/skatearm](https://dsl-robotics.github.io/skatearm/)**
+
+🕹 **Try the cockpit in your browser — no install → [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html)** *(runs on recorded telemetry)*
 
 </div>
 
@@ -38,6 +43,20 @@ https://github.com/user-attachments/assets/17f24a4b-4d1d-4e8d-809d-878e8110f901
 | See the autonomous assembly cell | [🏭 Work-cell](#-autonomous-work-cell-phase-1--complete) |
 | Get the control-ready model & collision layer | [🦾 Sim foundations](#-sim-foundations-phase-0) |
 | Run it yourself | [🚀 Quick start](#-quick-start-simulation) |
+
+<details>
+<summary><strong>New to the jargon?</strong> A 20-second glossary (click to expand)</summary>
+
+- **MuJoCo** — a physics simulator; the robot "lives" here virtually before any real hardware exists.
+- **ROS 2** — the standard open-source middleware (the robot's "operating system").
+- **URDF** — the file describing the robot's links, joints and limits.
+- **FK / IK** — forward kinematics ("where the hand is for these joint angles") / inverse kinematics ("which joint angles put the hand there").
+- **TCP** — tool center point: the exact tip of the tool the robot controls.
+- **Jog** — nudging a joint or the tool one small step at a time (hold a button or drag a slider).
+- **Digital twin** — a 3D copy of the real robot, driven by the same commands.
+- **Deadman / E-STOP** — safety: motion stops if the connection goes silent or you hit emergency-stop.
+
+</details>
 
 ## 🕹 Skate Commander — web cockpit
 
@@ -67,7 +86,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
   <br><br>
   <img src="docs/img/commander_v05_live.gif" width="720px" alt="Skate Commander v0.5 in action: RESUME, mirror-mode bimanual jog, cartesian TCP steps, then a Python program executed with Click-to-Step — the collision guard blocks two of its moves">
   <br>
-  <em>v0.5 live: mirror-mode jog, cartesian TCP steps, then a Python program stepped command-by-command — watch the guard veto two of its moves. <strong><a href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
+  <em>More cockpit in action: mirror-mode jog, cartesian TCP steps, then a Python program stepped command-by-command — watch the guard veto two of its moves. <strong><a href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
 </div>
 
 ## 🔌 skate_ros2 — the wire
@@ -81,12 +100,14 @@ A ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, d
   HD video: <a href="docs/video/ros2_wire_demo.mp4">ros2_wire_demo.mp4</a></em>
 </div>
 
-| Verified on the wire (sim endpoint) | Result |
+| On the wire (sim endpoint) | Result |
 |---|---|
-| Command rate | 60 Hz sustained |
+| Command rate | 60 Hz sustained (configured target) |
 | Telemetry | ~190 packets/s |
-| Tracking error | 0.015 rad |
-| Watchdog dampen after silence | < 0.3 s |
+| Tracking error | 0.015 rad (vs the MuJoCo model) |
+| Watchdog dampen after silence | < 0.3 s (configured timeout) |
+
+*These are sim-endpoint figures: command rate and watchdog timeout are configured targets confirmed in simulation, and tracking error is against the MuJoCo model. Real-hardware numbers come once the Skate reaches Riga.*
 
 <div align="center">
   <img src="docs/img/ros2_wire_stats.png" width="560px" alt="Wire statistics: packet rates and joint tracking during the demo">
@@ -111,7 +132,7 @@ The demonstrator task, end to end in simulation: the left arm fixtures a base pa
 | Cycle time | **42.4 s** (takt target ≤ 60 s) |
 | QC residual, alignment (camera vs sim oracle) | ±1.3 mm |
 | QC residual, insertion depth | ±3.4 mm |
-| Accept rate | 100 % so far (2 logged cycles — small sample, tracked live on the dashboard) |
+| Accept rate | functional — only 2 cycles logged so far (sample too small for a true rate; tracked live on the dashboard) |
 
 Dashboard live previews: **[overview](https://raw.githack.com/dsl-robotics/skatearm/main/dashboard/preview_overview.html)** · **[cycle detail](https://raw.githack.com/dsl-robotics/skatearm/main/dashboard/preview_cycle.html)** — code in [dashboard/](dashboard/), sequencer in [sim/sequencer.py](sim/sequencer.py), QC in [sim/qc.py](sim/qc.py).
 
