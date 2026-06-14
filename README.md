@@ -24,7 +24,11 @@
 
 </div>
 
-https://github.com/user-attachments/assets/17f24a4b-4d1d-4e8d-809d-878e8110f901
+<div align="center">
+  <a href="https://github.com/dsl-robotics/skatearm/blob/main/docs/video/commander_v06_product.mp4">
+    <img src="docs/img/commander_v06_video_thumb.png" width="720" alt="Skate Commander — 50-second product video (click to play)">
+  </a>
+</div>
 
 <div align="center">
   <img src="docs/img/cell_cycle_demo.gif" width="420px" alt="Autonomous GRAFCET assembly cycle with camera QC and HMI overlay">
