@@ -1,8 +1,8 @@
 # SkateArm
 
-**An open bimanual work-cell and tool ecosystem for the [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2) robot — two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed on the real Skate.**
+**A two-armed robot you can drive from your browser — first as a 3D simulation, then, with one switch, the real [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2).**
 
-*In plain terms: a two-armed robot you can drive from your browser — first as a 3D simulation, then, with one switch, on the real machine.*
+*An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire.*
 
 <div align="center">
 
