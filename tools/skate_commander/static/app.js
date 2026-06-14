@@ -29,6 +29,9 @@ let eeObjs = {};            // "left"/"right" -> THREE.Object3D (wrist link)
 const markers = {};         // "left"/"right" -> gizmo sphere
 let draggingArm = null;
 let traceOn = true;
+let wsOnline = false;       // browser <-> server WebSocket up?
+let lastMsg = 0;            // perf-time (ms) of the last telemetry frame
+let reconnectMs = 1000;     // current reconnect backoff
 
 // ---------------------------------------------------------------- three.js
 const scene = new THREE.Scene();          // transparent: CSS gradient shows
@@ -934,17 +937,40 @@ function onState(s) {
   if (modeChanged) buildPanel();
 }
 
+function setOffline(off, msg) {
+  document.body.classList.toggle("offline", off);   // dims/freezes stale chips
+  if (off) {
+    const b = $("banner");
+    b.className = "dampened";
+    b.textContent = msg || "no connection to the server — retrying…";
+  }
+}
+
 function connectWS() {
   ws = new WebSocket(`ws://${location.host}/ws`);
-  ws.onmessage = (e) => onState(JSON.parse(e.data));
+  ws.onopen = () => { wsOnline = true; reconnectMs = 1000; lastMsg = performance.now(); };
+  ws.onmessage = (e) => {
+    lastMsg = performance.now();
+    if (document.body.classList.contains("offline")) setOffline(false);
+    onState(JSON.parse(e.data));
+  };
+  ws.onerror = () => { try { ws.close(); } catch (_) {} };   // -> onclose -> retry
   ws.onclose = () => {
-    const banner = $("banner");
-    banner.className = "dampened";
-    banner.textContent = "no connection to the server — retrying… " +
-      "(server down, or missing: pip install websockets)";
-    setTimeout(connectWS, 1000);
+    wsOnline = false;
+    setOffline(true, "no connection to the server — retrying… " +
+      "(server down, or missing: pip install websockets)");
+    setTimeout(connectWS, reconnectMs);
+    reconnectMs = Math.min(Math.round(reconnectMs * 1.6), 5000);   // gentle backoff
   };
 }
+
+// stale-telemetry watchdog: socket looks open but frames stopped -> force reconnect
+setInterval(() => {
+  if (!PREVIEW && wsOnline && performance.now() - lastMsg > 1500) {
+    setOffline(true, "telemetry stalled — reconnecting…");
+    try { ws.close(); } catch (_) {}
+  }
+}, 500);
 
 function startPlayback() {
   const frames = window.PREVIEW_DATA.frames;

@@ -372,3 +372,7 @@ button:disabled:hover { border-color: var(--line); color: var(--fg2);
   border-radius: var(--r); font: 10.5px/1.6 var(--mono); color: var(--fg2);
   white-space: pre-wrap;
 }
+
+/* browser <-> server connection lost: dim + freeze so stale chips don't read as live */
+body.offline #topbar .chip { opacity: .35; filter: grayscale(1); }
+body.offline #panel { opacity: .5; pointer-events: none; }

@@ -345,10 +345,14 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                 try:
                     raw = await asyncio.wait_for(sock.receive_text(),
                                                  timeout=1.0 / WS_HZ)
-                    handle_command(bridge, json.loads(raw), runner=runner,
-                                   tools=tools, save_tools=save_tools)
                 except asyncio.TimeoutError:
-                    pass
+                    raw = None
+                if raw is not None:                # one bad command must not
+                    try:                           # drop the whole connection
+                        handle_command(bridge, json.loads(raw), runner=runner,
+                                       tools=tools, save_tools=save_tools)
+                    except Exception as e:
+                        print(f"[commander] ignored bad command: {e}")
                 snap = bridge.snapshot(ui_attached=app.state.clients > 0)
                 snap["prog"] = runner.snapshot()
                 snap["prog"]["rec"] = bridge.recorder.snapshot()
