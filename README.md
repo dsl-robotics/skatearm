@@ -5,6 +5,10 @@
 *An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire.*
 
 <div align="center">
+  <a href="https://dsl-robotics.github.io/skatearm/"><img src="docs/img/og_card.png" width="820" alt="SkateArm — drive a two-armed robot from your browser"></a>
+</div>
+
+<div align="center">
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat)](LICENSE)
 [![MuJoCo](https://img.shields.io/badge/sim-MuJoCo%203.x-orange?style=flat)](sim/)
