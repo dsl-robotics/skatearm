@@ -11,7 +11,8 @@ Controller notes (tried and rejected): integrating the IK update on d.ctrl
 winds up (servo whip); a qfrc_bias/kp feedforward includes Coriolis terms =
 positive velocity feedback (unstable). Plain P on qpos is stable; the
 steady-state gravity sag (~2 cm) is handled by the settle phase and is an
-accepted v1 limitation. Future: gravity-only feedforward via mj_rne, qvel=0.
+accepted v1 limitation. Now available via reach(grav_ff=True): gravity-only feedforward via mj_rne
+(qvel=0, no Coriolis) applied to the hinge joints — cancels the standing sag.
 """
 import mujoco
 import numpy as np
@@ -136,7 +137,7 @@ class Arm:
 
 
 def reach(m, d, targets, seconds=4.0, settle_steps=4, tol=0.01, on_frame=None,
-          ease=True, settle_extra=3.0):
+          ease=True, settle_extra=3.0, grav_ff=False):
     """Servo one or both arms to Cartesian targets {'left': xyz, 'right': xyz}.
 
     With ease=True (default) the commanded target glides from the current EE
@@ -149,13 +150,24 @@ def reach(m, d, targets, seconds=4.0, settle_steps=4, tol=0.01, on_frame=None,
     dt = m.opt.timestep * settle_steps
     n_move = int(seconds / dt)
     n_settle = int(settle_extra / dt)
+    if grav_ff:
+        # gravity-only feed-forward (qvel=0 -> no Coriolis, stable): cancel the
+        # standing sag on the robot's hinge joints; free bodies (parts) still fall
+        _hinge = np.array([m.jnt_type[m.dof_jntid[i]] == mujoco.mjtJoint.mjJNT_HINGE
+                           for i in range(m.nv)], float)
+        _gff = np.zeros(m.nv)
     for i in range(n_move + n_settle):
         s = smoothstep(i / max(n_move, 1)) if ease else 1.0
         for side, arm in arms.items():
             now_target = starts[side] + (goals[side] - starts[side]) * s
             q, _ = arm.ik_step(now_target)
             arm.set_ctrl(q)
+        if grav_ff:
+            _qv = d.qvel.copy(); d.qvel[:] = 0.0
+            mujoco.mj_rne(m, d, 0, _gff); d.qvel[:] = _qv
         for _ in range(settle_steps):
+            if grav_ff:
+                d.qfrc_applied[:] = _gff * _hinge
             mujoco.mj_step(m, d)
         if on_frame:
             on_frame(i)
