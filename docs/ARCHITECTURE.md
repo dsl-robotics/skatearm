@@ -2,7 +2,7 @@
 
 ## The cell at a glance
 
-An AI-driven bimanual work-cell built around the R.Botic Skate (16 DoF, 8 per arm, ~3 kg bimanual payload, RPi 5 on board, UDP over Ethernet/Wi-Fi). Demonstrator task: **two-handed small-parts assembly + in-cell GD&T quality inspection**.
+An AI-driven bimanual work-cell built around the R.Botic Skate (16 arm DoF, 8 per arm; 26 controllable joints in total incl. head/torso/legs; RPi 5 on board, UDP over Ethernet/Wi-Fi). Demonstrator task: **two-handed small-parts assembly + in-cell GD&T quality inspection**.
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
     SEQ --> DASH
 ```
 
-Sim-first: everything runs against the MuJoCo twin until the real Skate arrives in Riga; the motion layer then switches target via the `skate_ros2` UDP bridge (shipped — `tools/skate_ros2/`, with the Skate Commander web cockpit on top).
+Sim-first: everything runs against the MuJoCo twin until the real Skate arrives in Riga; the motion layer then switches target via the `skate_ros2` UDP bridge (shipped — `tools/skate_ros2/`, with the Skate Commander web cockpit on top: drag-IK, mirror mode, dual-arm carry, jerk-limited motion, teach-in, natural-language programs and closed-loop visual servoing, all collision-guarded).
 
 ## Mapping: 12 portfolio projects → subsystems
 

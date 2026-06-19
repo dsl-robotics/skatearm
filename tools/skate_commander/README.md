@@ -73,8 +73,8 @@ redistributed).
   eases out on release) and waypoint/replay glides follow a trapezoidal
   profile; safety stops (E-STOP / mode switch) still drop motion instantly
 * **Python programs** — in-browser editor over a sandboxed `rbt` API
-  (`movej`, `movel`, `home`, `gripper`, `waypoint`, `wait`, `tcp`, `q`,
-  `status`; `print` goes to the cockpit log). **Click-to-Step** executes one
+  (`movej`, `pose`, `movel`, `moveto`, `home`, `gripper`, `waypoint`, `wait`,
+  `tcp`, `q`, `status`; `print` goes to the cockpit log). **Click-to-Step** executes one
   motion at a time, showing the next command and its source line; RUN
   releases the program. Every motion uses the same bridge paths as the UI —
   limits, collision guard, E-STOP — and any manual input kills the program.
@@ -114,7 +114,7 @@ redistributed).
   large jumps are checked along the interpolated path (no tunneling). The
   guard sees hand↔leg pairs the physics model deliberately excludes. The
   collision model now fits **capsules** instead of AABB boxes — far fewer
-  false positives on the slim wrist links (`--boxes` restores v0.4 behavior)
+  false positives on the slim wrist links (the model builder's `make_collision_model.py --boxes` flag restores the old AABB-box behavior)
 * **SIM / REAL toggle** — the same `skate_ros2` UDP protocol either way;
   switching always re-latches the E-STOP; the lower chain is locked in REAL
   **at the bridge**, not just greyed out in the UI
@@ -224,5 +224,6 @@ ROS anywhere in the stack.
 
 ## Roadmap
 
-Camera passthrough and real-gripper tool presets wait for the hardware
-(Phase 2). Graduates to its own repo once it's daily-drivable.
+Real-camera passthrough (the on-board sim camera already streams today) and
+real-gripper tool presets wait for the hardware (Commander v0.8). Graduates to
+its own repo once it's daily-drivable.

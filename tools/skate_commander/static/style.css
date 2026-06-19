@@ -219,6 +219,9 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
 #cam-detect:hover { background: var(--accent-soft); }
 #cam-pick { border-color: rgba(63,196,99,.5); color: var(--ok); }
 #cam-pick:hover { background: var(--ok-soft); }
+#cam-servo { border-color: rgba(240,177,61,.5); color: var(--amber); }
+#cam-servo:hover { background: var(--amber-soft); }
+.vsep { width: 1px; height: 20px; background: var(--line2); margin: 0 2px; flex: none; }
 #cam-info { padding: 5px 9px; font: 600 10px var(--mono); color: var(--fg2);
   border-top: 1px solid var(--line-soft); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; }

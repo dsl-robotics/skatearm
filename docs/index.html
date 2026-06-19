@@ -296,10 +296,10 @@
         <figcaption><b>The cockpit</b> — slim status bar, a floating control dock, and the MuJoCo twin; the whole UI in one visual language.</figcaption>
       </figure>
       <figure class="reveal">
-        <div class="frame"><span class="cap">MuJoCo · servo</span>
-          <img src="img/commander_v06_pick.gif" loading="lazy" decoding="async" alt="Closed-loop visual servoing: the work camera drives the gripper onto the target in image space as the arm descends">
+        <div class="frame"><span class="cap">MuJoCo · vision</span>
+          <img src="img/commander_v06_pick.gif" loading="lazy" decoding="async" alt="Vision-guided pick: the work camera detects the target and the right arm is driven to it by inverse kinematics">
         </div>
-        <figcaption><b>Closed-loop visual servoing</b> — the camera locks the gripper onto the target in image space as it descends; robust to camera miscalibration (open-loop ~43 mm vs IBVS ~5 mm in sim).</figcaption>
+        <figcaption><b>Vision-guided pick</b> — the work camera detects the target and the arm picks it. The new <b>SERVO</b> mode closes this loop in image space as it descends — robust to camera miscalibration (open-loop ~43 mm vs IBVS ~5 mm in sim).</figcaption>
       </figure>
     </div>
   </div>

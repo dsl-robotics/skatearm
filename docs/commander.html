@@ -100,11 +100,14 @@ python3 -m skate_commander</code></pre>
       <li><b>Jog &amp; sliders</b> — hold −/+, drag the thumb, or jump to a limit. Amber = your command, azure = the actual position.</li>
       <li><b>Cartesian jog</b> — step the tool point (TCP) along world X/Y/Z in mm; server-side IK, auto-stops on arrival.</li>
       <li><b>Drag-IK</b> — grab a wrist sphere in 3D; damped-least-squares IK glides all 7 arm joints.</li>
+      <li><b>Singularity awareness</b> — manipulability is tracked live; a <code>SING</code> chip warns near a near-straight pose where a small cartesian move would need huge joint speeds.</li>
       <li><b>Mirror mode</b> — one input drives both arms; the sign map is measured from the model, not guessed.</li>
+      <li><b>Dual-arm carry</b> — <code>CARRY</code> holds one object with both wrists and moves them together via an X/Y/Z pad, preserving their separation.</li>
+      <li><b>Jerk-limited motion</b> — jog and replay ease in and out (acceleration-limited / trapezoidal profiles); safety stops still drop motion instantly.</li>
       <li><b>Teach-in (● REC)</b> — move the robot by hand; every settled pose becomes a line of <code>rbt</code> code in the PROG tab.</li>
       <li><b>Sequencer</b> — record poses, play with pause/loop, save/load named sequences.</li>
       <li><b>Tools &amp; traces</b> — named end-of-arm TCP offsets; colored tool-path traces in the viewport.</li>
-      <li><b>Vision pick</b> — the work camera detects a target (≈2 mm) and <code>PICK</code> drives the right arm to it.</li>
+      <li><b>Vision-guided pick + visual servoing</b> — the work camera detects a target and <code>PICK</code> drives the right arm to it; <code>SERVO</code> closes the loop in image space as it descends — robust to camera miscalibration (open-loop ~43 mm vs IBVS ~5 mm in sim).</li>
       <li><b>SIM / REAL</b> — same protocol either way; switching always re-latches the E-STOP.</li>
     </ul>
   </div>

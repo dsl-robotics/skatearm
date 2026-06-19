@@ -26,6 +26,7 @@
 - [x] **`skate_commander` v0.5** — the rest of the Waldo feature catalog, bimanual-first: cartesian XYZ step-jog with live TCP readout (auto-clearing IK targets), jump-to-limit, **mirror mode** (sign map measured numerically from FK — turned out axis=x, all +1), **Python programs** (sandboxed `rbt` API, Click-to-Step with line tracking, E-STOP/manual-input abort, save/load), tool/TCP-offset manager (FK/IK/gizmo/traces follow the active tool), capsule collision layer, bridge-level REAL leg lock; +3 test suites (kinematics tool offsets, cart/mirror e2e, program runner e2e)
 - [x] **`skate_commander` v0.6** — teach-in: ● REC watches the commanded pose, every settle becomes a line of `rbt` code (`movej` / coordinated `pose({...})` — new bulk API with a single guard check, no mirror), generated program appends to the PROG editor and replays through the same safe bridge; null-space comfort objective in the IK (v0.5.1/2: the redundant arm picks its own elbow, no winding on out-and-back cartesian jogs)
 - [x] **`skate_commander` v0.7** — product hardening: one-command launcher (`python -m skate_commander` — auto-detects the model, builds the sim/guard models on first run, opens the browser); connection robustness (browser↔server offline + stalled-telemetry detection, WS auto-reconnect, backend ignores bad commands); program-editor UX (`rbt` autocomplete, example library, error/step line highlighting); docs site + `rbt` API reference (dsl-robotics.github.io/skatearm/commander.html)
+- [x] **`skate_commander` v0.7.1–v0.7.5** — Alloy-inspired feature run + UI redesign: dual-arm **CARRY** (v0.7.1), **singularity / SING** awareness (v0.7.2), **jerk-limited motion** profiles (v0.7.3), **closed-loop IBVS visual servoing** / SERVO pick (v0.7.4 — open-loop ~43 mm vs IBVS ~5 mm in sim), and a **cockpit UI redesign** retoned to the landing-site visual language: slim status topbar + floating control dock + CARRY popover (v0.7.5). Per-feature notes in the backlog below
 - [ ] `skate_commander` v0.8+ (camera passthrough, real-gripper presets) — detailed in **Road to Commander v1.0** below
 
 ## Road to Commander v1.0 — "the cockpit safely drives the real Skate"
@@ -72,8 +73,8 @@
 - [ ] Benchmark suite release
 - [ ] Technical report / thesis text assembled from repo docs
 
-## Research & integration backlog (post-1.0 — inspiration: @alloyrobotics)
-Techniques worth folding into the cockpit, from a survey of @alloyrobotics' MuJoCo explainers.
+## Research & integration backlog (inspiration: @alloyrobotics)
+Techniques worth folding into the cockpit, from a survey of @alloyrobotics' MuJoCo explainers. Shipped items landed in v0.7.x; the rest are post-1.0.
 
 - [x] **Dual-arm carry** — *shipped in the cockpit* (v0.7.1: a `CARRY` mode where both wrists hold one object and move together via the topbar X/Y/Z pad, guard-protected) + *sim co-lift demo* (`sim/demo_dual_carry.py`, `docs/img/dual_carry.gif`): both wrists weld-grasp one bar at the natural ~17 cm separation and co-lift it with a load-sharing term + gravity feed-forward. **Finding:** the arms can't squeeze in x (they self-collide), so "co-lift + balance the load" is the feasible bimanual primitive. Next: rotation + load-sharing on the held object; soft-weld A/B.
 - [ ] **Gravity feed-forward** (`mj_rne`, qvel=0 → gravity-only, stable) — cancels the ~2 cm arm sag; validated in the carry demo. Fold into `primitives.reach()` / the cockpit controller as a motion-quality upgrade.
