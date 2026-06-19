@@ -959,6 +959,13 @@ function updateTop() {
     gc.textContent = state.guard.blocking ? "LIMIT" : "GUARD";
     gc.className = "chip " + (state.guard.blocking ? "warn" : "on");
   }
+  const sc = $("chip-sing");
+  if (sc) {
+    const mv = state.manip ? Object.values(state.manip).filter(v => v != null) : [];
+    const lo = mv.length ? Math.min(...mv) : null;
+    sc.style.display = (lo != null && lo < 0.06) ? "" : "none";
+    sc.className = "chip warn";
+  }
   const rc = $("chip-rec");
   if (rc) {
     const rec = state.prog && state.prog.rec;

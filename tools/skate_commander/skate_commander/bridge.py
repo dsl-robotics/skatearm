@@ -61,6 +61,7 @@ class RobotBridge:
         self.guard_blocking = False
         self.ik_targets = {"left": None, "right": None}
         self.ik_err = {"left": None, "right": None}
+        self.ik_manip = {"left": None, "right": None}   # singularity awareness
         # cartesian-step targets auto-clear on arrival (or stall); drag-gizmo
         # targets are cleared by the UI on release
         self.ik_auto = {"left": False, "right": False}
@@ -333,6 +334,7 @@ class RobotBridge:
         if arm in self.ik_targets:
             self.ik_targets[arm] = None
             self.ik_err[arm] = None
+            self.ik_manip[arm] = None
             self.ik_auto[arm] = False
             self._ik_prev[arm] = None
             self._ik_stall[arm] = 0.0
@@ -424,6 +426,7 @@ class RobotBridge:
                         self.targ, err = self.kin[arm].ik_step(
                             self.targ, target, q_ref=self.ik_comfort)
                         self.ik_err[arm] = err
+                        self.ik_manip[arm] = self.kin[arm].manipulability(self.targ)
                         if self.ik_auto.get(arm):      # cart-step target
                             p = self._ik_prev[arm]
                             if p is not None and p - err < 1e-5:
@@ -463,6 +466,8 @@ class RobotBridge:
             "targ": None if self.targ is None else self.targ.tolist(),
             "ik": {a: (None if e is None else round(e, 4))
                    for a, e in self.ik_err.items()},
+            "manip": {a: (None if v is None else round(v, 3))
+                      for a, v in self.ik_manip.items()},
             "seq": {"n": len(self.waypoints), "names": list(self.wp_names),
                     "idx": self.seq_idx, "playing": self.seq_playing,
                     "loop": self.seq_loop, "active": self.seq_active},

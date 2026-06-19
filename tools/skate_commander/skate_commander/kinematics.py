@@ -102,6 +102,13 @@ class ArmKinematics:
             J[:, k] = (p_hi - p_lo) / (2 * eps)
         return J
 
+    def manipulability(self, q26):
+        """Reciprocal condition number of the position Jacobian in [0, 1]:
+        1 = isotropic, → 0 near a singularity (some cartesian direction needs
+        huge joint speed for a small wrist move). A cheap teleop warning."""
+        s = np.linalg.svd(self.jacobian(q26), compute_uv=False)
+        return float(s[-1] / s[0]) if s[0] > 1e-12 else 0.0
+
     def ik_step(self, q26, target, lam=0.05, step_m=0.04, dq_max=0.06,
                 q_ref=None, k_null=0.15):
         """One DLS step toward ``target`` (world, meters).
