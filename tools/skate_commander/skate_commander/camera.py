@@ -87,13 +87,16 @@ class CameraStreamer:
         with self._lock:
             return self._jpeg
 
-    def detect(self, grasp_z=GRASP_Z, timeout=2.5):
+    def detect(self, grasp_z=GRASP_Z, ee_world=None, timeout=2.5):
         """Render the work camera and find the target. Serviced on the render
-        thread (GL-safe). Returns vision.detect()'s dict."""
+        thread (GL-safe). Returns vision.detect()'s dict. When ``ee_world`` is
+        given (an EE world position), also returns that point's pixel and the
+        camera model — the observations an IBVS loop needs."""
         if not self.has_work:
             return {"found": False, "error": "no work camera"}
         self._det_evt.clear()
-        self._det_req = grasp_z
+        self._det_req = (grasp_z, None if ee_world is None
+                         else np.asarray(ee_world, float))
         if self._det_evt.wait(timeout):
             return self._det_res
         return {"found": False, "error": "timeout"}
@@ -121,15 +124,26 @@ class CameraStreamer:
                 with self._lock:
                     self._jpeg = buf.getvalue()
                 if self._det_req is not None:                  # serve detection
-                    gz = self._det_req
+                    gz, ee = self._det_req
                     self._det_req = None
                     try:
                         renderer.update_scene(d, camera=WORK_CAMERA)
                         wimg = renderer.render()
                         cid = self.m.camera(WORK_CAMERA).id
-                        self._det_res = vision.detect(
-                            wimg, d.cam_xpos[cid], d.cam_xmat[cid],
-                            float(self.m.cam_fovy[cid]), gz)
+                        cpos = np.asarray(d.cam_xpos[cid], float)
+                        cmat = np.asarray(d.cam_xmat[cid], float).reshape(3, 3)
+                        fovy = float(self.m.cam_fovy[cid])
+                        res = vision.detect(wimg, cpos, cmat, fovy, gz)
+                        if ee is not None:        # EE pixel + model for IBVS
+                            f, cx, cy = vision.intrinsics(fovy, self.width,
+                                                          self.height)
+                            u, v, _ = vision.project(ee, cpos, cmat, f, cx, cy)
+                            res["ee_pixel"] = [float(u), float(v)]
+                            res["cam"] = {"pos": cpos.tolist(),
+                                          "mat": cmat.reshape(-1).tolist(),
+                                          "fovy": fovy,
+                                          "W": self.width, "H": self.height}
+                        self._det_res = res
                     except Exception as exc:
                         self._det_res = {"found": False, "error": str(exc)}
                     self._det_evt.set()

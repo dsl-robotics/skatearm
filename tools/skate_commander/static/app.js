@@ -1097,6 +1097,21 @@ if (!PREVIEW && $("btn-cam")) {
       }
     } catch (e) { info.textContent = "pick failed"; }
   };
+  $("cam-servo").onclick = async () => {
+    toWork();
+    info.textContent = "visual servo…";
+    try {
+      const d = await (await fetch("/api/servo_pick", { method: "POST" })).json();
+      if (d.found) {
+        info.textContent = "servo pick  " +
+          (d.world_mm ? d.world_mm.map((v) => v.toFixed(0)).join("  ") + " mm" : "") +
+          " · img " + d.image_err_px + "px" + (d.ran ? "" : " — press RESUME");
+      } else {
+        showMark(null);
+        info.textContent = "no target" + (d.error ? " (" + d.error + ")" : "");
+      }
+    } catch (e) { info.textContent = "servo failed"; }
+  };
 } else if ($("btn-cam")) {
   $("btn-cam").disabled = true;
   $("btn-cam").title = "preview is a recording — run the local server";

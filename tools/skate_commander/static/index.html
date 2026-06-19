@@ -14,7 +14,7 @@
 </head>
 <body>
   <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.3</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.4</em></div>
     <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
@@ -57,6 +57,7 @@
           <select id="cam-sel"></select>
           <button id="cam-detect" title="Find the workspace target with the camera">⌖ DETECT</button>
           <button id="cam-pick" title="Detect, then run a right-arm pick (needs RESUME)">▶ PICK</button>
+          <button id="cam-servo" title="Closed-loop visual servo pick — re-aims as it descends, robust to camera miscalibration (needs RESUME)">◎ SERVO</button>
         </div>
         <div id="cam-info">—</div>
       </div>

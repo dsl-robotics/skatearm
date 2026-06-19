@@ -28,7 +28,7 @@ from .bridge import RobotBridge
 from .kinematics import ArmKinematics
 from .program import PoseRecorder, ProgramRunner
 from .urdf import joint_limits, parse_urdf
-from . import camera, nl
+from . import camera, ibvs, nl, vision
 
 from skate_ros2 import names  # noqa: E402  (path set up by .bridge)
 
@@ -329,6 +329,60 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         return JSONResponse({"found": True, "ran": bool(ok),
                              "world_mm": det["world_mm"],
                              "pixel": det.get("pixel"), "code": code})
+
+    @app.post("/api/servo_pick")
+    async def api_servo_pick():
+        """Closed-loop image-based visual servo pick (right arm). Detects the
+        static target once, then drives the gripper's image feature onto it
+        while descending — robust to camera-calibration error, unlike the
+        one-shot /api/pick. Moves nothing unless armed + resumed."""
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"found": False, "error": "camera unavailable"})
+        if runner.running:
+            return JSONResponse({"found": False, "error": "a program is running"})
+        kr = bridge.kin.get("right")
+        if bridge.targ is None or bridge.estop or kr is None:
+            return JSONResponse({"found": False,
+                                 "error": "right arm not armed / resumed"})
+        obs = cam.detect(ee_world=list(kr.fk(bridge.targ)))
+        if not obs.get("found") or "cam" not in obs:
+            return JSONResponse({"found": False,
+                                 "error": obs.get("error", "no target seen")})
+        s_cube = np.asarray(obs["pixel"], float)
+        C = obs["cam"]
+        f0, cx0, cy0 = vision.intrinsics(C["fovy"], C["W"], C["H"])
+        pos0 = np.asarray(C["pos"], float)
+        mat0 = np.asarray(C["mat"], float).reshape(3, 3)
+        servo = ibvs.ImageServo(pos0, mat0, C["fovy"], C["W"], C["H"],
+                                gain=0.7, max_step=0.03)
+        grasp_z = camera.GRASP_Z
+        z = grasp_z + 0.08
+        err_px = 999.0
+        for _ in range(20):                     # image servo, descending
+            ee = kr.fk(bridge.targ)
+            ee_pix = np.asarray(
+                vision.project(ee, pos0, mat0, f0, cx0, cy0)[:2], float)
+            dxy, err_px = servo.step(s_cube, ee_pix, ee)
+            z = max(grasp_z + 0.03, z - 0.008)
+            bridge.set_ik_target(
+                "right", [ee[0] + dxy[0], ee[1] + dxy[1], z], auto=True)
+            for _ in range(18):                 # let the tick loop track it
+                await asyncio.sleep(1 / 60)
+            if err_px < 3.0 and z <= grasp_z + 0.035:
+                break
+        ee = kr.fk(bridge.targ)
+        x, y, gz = ee[0] * 1000, ee[1] * 1000, grasp_z * 1000
+        code = (
+            f"# servo-pick: IBVS-aligned over target (image err {err_px:.1f}px)\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {gz + 12:.0f})\n"
+            f"rbt.gripper('right', 0)\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {gz + 130:.0f})\n"
+        )
+        ok = runner.run(code)
+        return JSONResponse({"found": True, "ran": bool(ok),
+                             "image_err_px": round(float(err_px), 1),
+                             "world_mm": [round(x, 1), round(y, 1)]})
 
     @app.get("/meshes/{name}")
     async def mesh(name: str):
