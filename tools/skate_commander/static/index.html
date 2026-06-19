@@ -14,33 +14,23 @@
 </head>
 <body>
   <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.4</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.5</em></div>
     <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
     </div>
-    <div class="chip" id="chip-link" title="Robot/sim link over the UDP wire — the browser↔server connection is shown by the banner">LINK</div>
-    <div class="chip" id="chip-armed">ARMED</div>
-    <div class="chip" id="chip-live">DAMPENED</div>
-    <div class="chip" id="chip-temp">TEMP</div>
-    <div class="chip" id="chip-guard" style="display:none"
-         title="Self-collision guard: impossible poses are rejected before being sent">GUARD</div>
-    <div class="chip" id="chip-sing" style="display:none"
-         title="Near a singularity — the arm is nearly straight, so a cartesian move in some direction needs large joint speeds">SING</div>
-    <div class="chip" id="chip-rec" style="display:none"
-         title="Teach-in recording — every settled pose becomes a line of the program (PROG tab)">REC</div>
-    <span class="vsep"></span>
-    <button id="btn-home" title="Glide to the documented safe pose">HOME</button>
-    <button id="btn-mirror" title="Bimanual mirror: commands to one arm are reflected onto the other (sign map measured from the model)">MIRROR: OFF</button>
-    <button id="btn-carry" title="Dual-arm carry: both wrists hold one object and move together (preserving their separation)">CARRY: OFF</button>
-    <span id="carry-pad" style="display:none">
-      <button data-cd="-1,0,0" title="carry the object -X">X-</button><button data-cd="1,0,0" title="carry +X">X+</button>
-      <button data-cd="0,-1,0" title="carry -Y (toward base)">Y-</button><button data-cd="0,1,0" title="carry +Y (away)">Y+</button>
-      <button data-cd="0,0,-1" title="carry down">Z-</button><button data-cd="0,0,1" title="carry up">Z+</button>
-    </span>
-    <button id="btn-trace" title="Record wrist (TCP) trajectories in the viewport">TRACE: ON</button>
-    <button id="btn-clear-trace" title="Erase recorded trajectories">CLEAR TRACE</button>
-    <button id="btn-cam" title="Toggle the rendered robot camera view">CAM: OFF</button>
+    <div class="status-cluster">
+      <div class="chip" id="chip-link" title="Robot/sim link over the UDP wire — the browser↔server connection is shown by the banner">LINK</div>
+      <div class="chip" id="chip-armed">ARMED</div>
+      <div class="chip" id="chip-live">DAMPENED</div>
+      <div class="chip" id="chip-temp">TEMP</div>
+      <div class="chip" id="chip-guard" style="display:none"
+           title="Self-collision guard: impossible poses are rejected before being sent">GUARD</div>
+      <div class="chip" id="chip-sing" style="display:none"
+           title="Near a singularity — the arm is nearly straight, so a cartesian move in some direction needs large joint speeds">SING</div>
+      <div class="chip" id="chip-rec" style="display:none"
+           title="Teach-in recording — every settled pose becomes a line of the program (PROG tab)">REC</div>
+    </div>
     <button id="btn-estop">E-STOP</button>
   </div>
 
@@ -48,6 +38,36 @@
     <div id="viewport">
       <div id="banner"></div>
       <div class="overlay" id="overlay"></div>
+      <div id="dock" class="frame">
+        <div class="dock-sec">
+          <div class="dock-lbl">VIEW</div>
+          <div class="dock-row">
+            <button id="btn-cam" class="tbtn" title="Toggle the rendered robot camera view"><svg viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg><span>CAM</span></button>
+            <button id="btn-trace" class="tbtn on" title="Record wrist (TCP) trajectories in the viewport"><svg viewBox="0 0 24 24"><path d="M3 17c4 0 4-10 8-10s4 10 9 10"/></svg><span>TRACE</span></button>
+            <button id="btn-clear-trace" class="tbtn" title="Erase recorded trajectories"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/></svg><span>CLEAR</span></button>
+          </div>
+        </div>
+        <div class="dock-sec">
+          <div class="dock-lbl">POSE</div>
+          <button id="btn-home" class="tbtn home" title="Glide to the documented safe pose"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg><span>HOME</span></button>
+        </div>
+        <div class="dock-sec">
+          <div class="dock-lbl">BIMANUAL</div>
+          <div class="dock-row">
+            <button id="btn-mirror" class="tbtn amber" title="Bimanual mirror: commands to one arm are reflected onto the other (sign map measured from the model)"><svg viewBox="0 0 24 24"><path d="M12 3v18M7 8l-3 4 3 4M17 8l3 4-3 4"/></svg><span>MIRROR</span></button>
+            <button id="btn-carry" class="tbtn amber" title="Dual-arm carry: both wrists hold one object and move together (preserving their separation)"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg><span>CARRY</span></button>
+          </div>
+        </div>
+        <div id="carry-pad" class="carry-pop" style="display:none">
+          <div class="cp-head">CARRY · MOVE OBJECT</div>
+          <div class="cp-grid">
+            <button data-cd="-1,0,0" title="carry the object -X">X−</button><button data-cd="1,0,0" title="carry +X">X+</button>
+            <button data-cd="0,-1,0" title="carry -Y (toward base)">Y−</button><button data-cd="0,1,0" title="carry +Y (away)">Y+</button>
+            <button data-cd="0,0,-1" title="carry down">Z−</button><button data-cd="0,0,1" title="carry up">Z+</button>
+            <div class="cp-axis">both wrists · world axes</div>
+          </div>
+        </div>
+      </div>
       <div id="cam-pip">
         <div id="cam-stage">
           <img id="cam-img" alt="rendered robot camera">

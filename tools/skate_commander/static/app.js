@@ -978,14 +978,10 @@ function updateTop() {
   tEl.textContent = `T ${tmax.toFixed(0)}°C`;
   tEl.className = "chip " + (state.overtemp ? "bad" : tmax > 45 ? "warn" : "");
   const mb = $("btn-mirror");
-  if (mb) {
-    mb.textContent = `MIRROR: ${state.mirror ? "ON" : "OFF"}`;
-    mb.className = state.mirror ? "mirror-on" : "";
-  }
+  if (mb) mb.classList.toggle("on", !!state.mirror);   // icon + label kept; .on = active
   const cb = $("btn-carry");
   if (cb) {
-    cb.textContent = `CARRY: ${state.carry ? "ON" : "OFF"}`;
-    cb.className = state.carry ? "mirror-on" : "";
+    cb.classList.toggle("on", !!state.carry);
     const cp = $("carry-pad"); if (cp) cp.style.display = state.carry ? "" : "none";
   }
   $("mode-sim").className = state.mode === "sim" ? "active sim" : "";
@@ -1027,7 +1023,7 @@ if ($("btn-carry")) {
 if ($("btn-trace")) {
   $("btn-trace").onclick = () => {
     traceOn = !traceOn;
-    $("btn-trace").textContent = `TRACE: ${traceOn ? "ON" : "OFF"}`;
+    $("btn-trace").classList.toggle("on", traceOn);
     for (const t of Object.values(traces)) t.line.visible = traceOn;
   };
   $("btn-clear-trace").onclick = clearTraces;
@@ -1052,7 +1048,6 @@ if (!PREVIEW && $("btn-cam")) {
   }).catch(() => ($("btn-cam").disabled = true));
   $("btn-cam").onclick = () => {
     camOn = !camOn;
-    $("btn-cam").textContent = "CAM: " + (camOn ? "ON" : "OFF");
     $("btn-cam").classList.toggle("on", camOn);
     pip.style.display = camOn ? "block" : "none";
     camOn ? start() : stop();
