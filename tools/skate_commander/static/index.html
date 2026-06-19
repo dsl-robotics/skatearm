@@ -14,7 +14,7 @@
 </head>
 <body>
   <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.1</em></div>
     <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
@@ -30,6 +30,12 @@
     <span class="vsep"></span>
     <button id="btn-home" title="Glide to the documented safe pose">HOME</button>
     <button id="btn-mirror" title="Bimanual mirror: commands to one arm are reflected onto the other (sign map measured from the model)">MIRROR: OFF</button>
+    <button id="btn-carry" title="Dual-arm carry: both wrists hold one object and move together (preserving their separation)">CARRY: OFF</button>
+    <span id="carry-pad" style="display:none">
+      <button data-cd="-1,0,0" title="carry the object -X">X-</button><button data-cd="1,0,0" title="carry +X">X+</button>
+      <button data-cd="0,-1,0" title="carry -Y (toward base)">Y-</button><button data-cd="0,1,0" title="carry +Y (away)">Y+</button>
+      <button data-cd="0,0,-1" title="carry down">Z-</button><button data-cd="0,0,1" title="carry up">Z+</button>
+    </span>
     <button id="btn-trace" title="Record wrist (TCP) trajectories in the viewport">TRACE: ON</button>
     <button id="btn-clear-trace" title="Erase recorded trajectories">CLEAR TRACE</button>
     <button id="btn-cam" title="Toggle the rendered robot camera view">CAM: OFF</button>

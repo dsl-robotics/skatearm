@@ -47,7 +47,8 @@ WS_HZ = 20.0          # UI telemetry rate
 
 # manual UI inputs interrupt a running program (same rule as the sequencer)
 _MANUAL = {"jog_start", "jog_step", "set_joint", "ik_target", "cart_step",
-           "wp_goto", "wp_play", "home"}
+           "wp_goto", "wp_play", "home", "carry_grab", "carry_step",
+           "carry_release"}
 
 
 def compute_mirror_map(kin):
@@ -394,6 +395,15 @@ def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
         if isinstance(delta, (list, tuple)) and len(delta) == 3:
             d = [max(-0.2, min(0.2, float(x))) for x in delta]
             bridge.cart_step(cmd.get("arm"), d)
+    elif t == "carry_grab":
+        bridge.carry_grab()
+    elif t == "carry_step":
+        delta = cmd.get("delta", ())
+        if isinstance(delta, (list, tuple)) and len(delta) == 3:
+            d = [max(-0.2, min(0.2, float(x))) for x in delta]
+            bridge.carry_step(d)
+    elif t == "carry_release":
+        bridge.carry_release()
     elif t == "mirror":
         bridge.mirror = bool(cmd.get("on"))
         if not bridge.mirror:

@@ -975,6 +975,12 @@ function updateTop() {
     mb.textContent = `MIRROR: ${state.mirror ? "ON" : "OFF"}`;
     mb.className = state.mirror ? "mirror-on" : "";
   }
+  const cb = $("btn-carry");
+  if (cb) {
+    cb.textContent = `CARRY: ${state.carry ? "ON" : "OFF"}`;
+    cb.className = state.carry ? "mirror-on" : "";
+    const cp = $("carry-pad"); if (cp) cp.style.display = state.carry ? "" : "none";
+  }
   $("mode-sim").className = state.mode === "sim" ? "active sim" : "";
   $("mode-real").className = state.mode === "real" ? "active real" : "";
   $("foot-mode").textContent = `mode: ${state.mode}`;
@@ -1001,6 +1007,16 @@ $("btn-estop").onclick = () =>
 $("btn-home").onclick = () => send({ type: "home" });
 $("btn-mirror").onclick = () =>
   send({ type: "mirror", on: !(state && state.mirror) });
+if ($("btn-carry")) {
+  $("btn-carry").onclick = () =>
+    send({ type: state && state.carry ? "carry_release" : "carry_grab" });
+  document.querySelectorAll("#carry-pad button").forEach(b => {
+    b.onclick = () => {
+      const d = b.dataset.cd.split(",").map(Number), s = 0.02;
+      send({ type: "carry_step", delta: [d[0] * s, d[1] * s, d[2] * s] });
+    };
+  });
+}
 if ($("btn-trace")) {
   $("btn-trace").onclick = () => {
     traceOn = !traceOn;
@@ -1162,7 +1178,7 @@ function startPlayback() {
   buildRobot();
   buildPanel();
   if (PREVIEW) {
-    for (const id of ["btn-estop", "btn-home", "btn-mirror"]) {
+    for (const id of ["btn-estop", "btn-home", "btn-mirror", "btn-carry"]) {
       $(id).disabled = true;
       $(id).title = "preview is a recording — run the local server to control";
     }

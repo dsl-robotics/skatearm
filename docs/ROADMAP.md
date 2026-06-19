@@ -75,7 +75,7 @@
 ## Research & integration backlog (post-1.0 — inspiration: @alloyrobotics)
 Techniques worth folding into the cockpit, from a survey of @alloyrobotics' MuJoCo explainers.
 
-- [~] **Dual-arm carry** (bimanual co-lift of one object) — *sim spike done* (`sim/demo_dual_carry.py`, `docs/img/dual_carry.gif`): both wrists weld-grasp one bar at the natural ~17 cm separation and co-lift it with a load-sharing term + gravity feed-forward. **Finding:** the arms can't squeeze in x (they self-collide), so "co-lift + balance the load" is the feasible bimanual primitive. Next: cockpit `dual-arm carry` mode; soft-weld load-sharing A/B.
+- [x] **Dual-arm carry** — *shipped in the cockpit* (v0.7.1: a `CARRY` mode where both wrists hold one object and move together via the topbar X/Y/Z pad, guard-protected) + *sim co-lift demo* (`sim/demo_dual_carry.py`, `docs/img/dual_carry.gif`): both wrists weld-grasp one bar at the natural ~17 cm separation and co-lift it with a load-sharing term + gravity feed-forward. **Finding:** the arms can't squeeze in x (they self-collide), so "co-lift + balance the load" is the feasible bimanual primitive. Next: rotation + load-sharing on the held object; soft-weld A/B.
 - [ ] **Gravity feed-forward** (`mj_rne`, qvel=0 → gravity-only, stable) — cancels the ~2 cm arm sag; validated in the carry demo. Fold into `primitives.reach()` / the cockpit controller as a motion-quality upgrade.
 - [ ] **Visual servoing (IBVS)** — close the loop on the vision-pick (robust to calibration error).
 - [ ] **Singularity / manipulability** awareness in drag-IK; **RRT\*/A\*** collision-free planning; **contact reflex** (torque-spike stop).

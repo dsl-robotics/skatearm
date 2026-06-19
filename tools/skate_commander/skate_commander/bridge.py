@@ -79,6 +79,7 @@ class RobotBridge:
         self.mirror = False
         self.mirror_signs = None           # per-arm-slot sign array, len 8
         self.mirror_axis = 1               # world axis flipped by the mirror
+        self.carry = False                 # dual-arm carry: both wrists move one object together
         self.tool_names = {"left": "flange", "right": "flange"}
         # waypoint sequencer
         self.waypoints = []                # list of np[26] (commanded poses)
@@ -106,11 +107,13 @@ class RobotBridge:
         self.targ = None                   # re-arm from the new robot's pose
         self.jog_dir[:] = 0
         self.ik_targets = {"left": None, "right": None}
+        self.carry = False
         self.estop = True                  # explicit resume required
 
     def trigger_estop(self):
         self.estop = True
         self.jog_dir[:] = 0
+        self.carry = False
         self.clear_ik_target()
         self.seq_stop()
 
@@ -340,6 +343,38 @@ class RobotBridge:
         for a in ([arm] if arm else ["left", "right"]):
             self._clear_one(a)
 
+    # -- dual-arm carry --------------------------------------------------------
+    def carry_grab(self):
+        """Hold one virtual object with BOTH wrists: pin each EE at its current
+        pose. carry_step then translates both targets together — a rigid
+        two-handed carry (not mirrored), at the arms' natural separation."""
+        if (self.targ is None or self.estop
+                or "left" not in self.kin or "right" not in self.kin):
+            return
+        self.seq_stop()
+        self.mirror = False                # carry drives both arms explicitly
+        self.carry = True
+        for a in ("left", "right"):
+            self._ik_one(a, self.kin[a].fk(self.targ), auto=False)
+
+    def carry_step(self, delta):
+        """Translate the held object by ``delta`` (world meters): both wrists
+        move by the SAME delta, preserving their separation. Guard-checked in
+        tick() like any IK move."""
+        if not self.carry or self.targ is None or self.estop or len(delta) != 3:
+            return
+        self.seq_stop()
+        delta = np.asarray(delta, dtype=float)
+        for a in ("left", "right"):
+            base = self.ik_targets[a]
+            if base is None:
+                base = self.kin[a].fk(self.targ)
+            self._ik_one(a, np.asarray(base, dtype=float) + delta, auto=False)
+
+    def carry_release(self):
+        self.carry = False
+        self.clear_ik_target()
+
     # -- tool / TCP offsets ----------------------------------------------------
     def set_tool(self, arm, name, offset_m):
         """Attach a named TCP offset (wrist-link frame, meters) to one arm.
@@ -434,6 +469,7 @@ class RobotBridge:
             "guard": {"on": self.guard is not None,
                       "blocking": self.guard_blocking},
             "mirror": self.mirror,
+            "carry": self.carry,
             "tools": {a: {"name": self.tool_names.get(a, "flange"),
                           "offset_mm": [round(v * 1000, 1)
                                         for v in self.kin[a].tool]}
