@@ -20,7 +20,7 @@
 
 <div align="center">
 
-**▶ Watch the 50-second product video** — a full tour of the cockpit: digital twin, drag-IK, mirror mode, teach-in and the vision-guided pick.
+**▶ Watch the 50-second product video** — a full tour of the cockpit: digital twin, drag-IK, mirror mode and teach-in *(recorded on an earlier UI — the cockpit has since been redesigned)*.
 
 🌐 **Live demo & write-up → [dsl-robotics.github.io/skatearm](https://dsl-robotics.github.io/skatearm/)**
 
@@ -72,7 +72,7 @@
   <img src="docs/img/skate_commander_lockup.png" width="560" alt="Skate Commander — web cockpit, digital twin, real robot">
 </div>
 
-> 🚧 **Early access · under active development** — v0.6 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
+> 🚧 **Early access · under active development** — v0.7.5 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
 
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
 
@@ -81,7 +81,10 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Jog + sliders | Hold −/+, drag the thumb, or jump straight to a limit; amber = your command, azure = actual position |
 | Cartesian jog | Step the TCP along world X/Y/Z in mm — server-side IK, auto-stops on arrival |
 | Drag-IK | Grab a wrist sphere in 3D — server-side DLS IK (damped least squares inverse kinematics) glides all 7 arm joints |
+| Singularity awareness | Live manipulability readout; a **SING** chip warns near a wrist singularity, where a small cartesian move would need huge joint speeds |
 | Mirror mode | Bimanual: jog/slider/IK on one arm is reflected onto the other — the sign map is *measured* from the model's FK, not guessed |
+| Dual-arm carry | **CARRY** — both wrists hold one object and move together via an X/Y/Z pad, preserving their separation (a true two-handed carry) |
+| Jerk-limited motion | Jog and replay use acceleration-limited / trapezoidal profiles — motion eases in and out instead of snapping (E-STOP still stops instantly) |
 | Python programs | Built-in editor + `rbt` API (`movej`/`pose`/`movel`/`home`/waypoints); **Click-to-Step** runs one motion at a time; E-STOP or any manual input kills the program |
 | Natural-language programs | Describe a task in plain English — a safe **offline** parser writes the `rbt` program into the editor (AST-validated; optional LLM fallback), which you then Click-to-Step through the same guarded bridge |
 | Teach-in recording | Press **● REC**, move the robot by hand — every settled pose becomes a line of `rbt` code, ready to replay |
@@ -89,14 +92,15 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Tool / TCP offsets | Named end-of-arm tools (mm offsets); FK, IK, traces and the gizmo all follow the active TCP |
 | TCP traces | Colored tool-center-point trajectories drawn in the viewport |
 | On-board camera | A camera view rendered from the model (MuJoCo) and streamed into the cockpit (MJPEG), switchable between viewpoints |
-| Vision-guided pick | **DETECT** finds the workspace target and back-projects its centroid to a world pose (validated to ~2 mm vs the simulator's ground truth); **PICK** drives the right arm to it through the same IK + collision guard and closes the gripper |
+| Vision-guided pick | **DETECT** finds the workspace target and back-projects its centroid to a world pose (~2 mm vs ground truth); **PICK** drives the right arm to it through the same IK + collision guard and closes the gripper |
+| Closed-loop visual servoing | **SERVO** locks the gripper onto the target *in image space* as it descends — robust to camera-calibration error (open-loop misses ~43 mm, IBVS ~5 mm in sim) |
 | Collision guard | Every target checked for self-collision *before* it is sent — including along interpolated paths; capsule-fitted collision model |
 | SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
 
 <div align="center">
-  <img src="docs/img/commander_v06_overview.gif" width="720px" alt="Skate Commander overview: mirror-mode bimanual jog raises both arms from one slider with TCP traces, then teach-in — move the arm by hand and every settled pose becomes a movej line; RUN replays the self-written program through the guarded bridge">
+  <img src="docs/img/commander_v075_cockpit.webp" width="720px" alt="The redesigned Skate Commander cockpit (v0.7.5): a slim status bar, a floating control dock, and the MuJoCo digital twin">
   <br>
-  <em><strong>v0.6 overview</strong>: <strong>mirror mode</strong> drives both arms from one slider (note the symmetric TCP traces), then <strong>teach-in</strong> — press ● REC, move the arm by hand, and every settled pose becomes a <code>movej</code> line. ▶ RUN replays the self-written program through the same collision-guarded bridge.</em>
+  <em><strong>v0.7.5 cockpit</strong> — redesigned to one visual language: a slim status bar, a floating control dock (view / pose / bimanual) and the MuJoCo twin. Mirror mode, dual-arm carry, jerk-limited motion, teach-in and closed-loop visual servoing all live here.</em>
   <br><br>
   <img src="docs/img/commander_v05_live.gif" width="720px" alt="Skate Commander v0.5 in action: RESUME, mirror-mode bimanual jog, cartesian TCP steps, then a Python program executed with Click-to-Step — the collision guard blocks two of its moves">
   <br>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit</title>
-<meta name="description" content="Open-source bimanual work-cell and web cockpit for the R.Botic Skate robot: a 3D digital twin, drag-IK, mirror mode, teach-in, natural-language programs and vision-guided picking — sim-first in MuJoCo, deployed over the native UDP wire.">
+<meta name="description" content="Open-source bimanual work-cell and web cockpit for the R.Botic Skate robot: a 3D digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs and closed-loop visual servoing — sim-first in MuJoCo, deployed over the native UDP wire.">
 <meta name="keywords" content="bimanual manipulation, humanoid robot, MuJoCo, ROS 2, digital twin, teleoperation, vision-guided grasping, inverse kinematics, collision guard, R.Botic Skate, robot arm, robotics">
 <meta name="author" content="DSL Robotics">
 <link rel="canonical" href="https://dsl-robotics.github.io/skatearm/">
@@ -13,19 +13,19 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SkateArm">
 <meta property="og:title" content="SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit">
-<meta property="og:description" content="Open bimanual work-cell + browser cockpit for the R.Botic Skate: digital twin, drag-IK, mirror mode, teach-in, natural-language programs, vision-guided picking. Sim-first in MuJoCo.">
+<meta property="og:description" content="Open bimanual work-cell + browser cockpit for the R.Botic Skate: digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs, closed-loop visual servoing. Sim-first in MuJoCo.">
 <meta property="og:url" content="https://dsl-robotics.github.io/skatearm/">
 <meta property="og:image" content="https://dsl-robotics.github.io/skatearm/img/og_card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit">
-<meta name="twitter:description" content="Digital twin, drag-IK, mirror mode, teach-in, natural-language programs, vision-guided picking — sim-first in MuJoCo, on the native UDP wire.">
+<meta name="twitter:description" content="Digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs, closed-loop visual servoing — sim-first in MuJoCo, on the native UDP wire.">
 <meta name="twitter:image" content="https://dsl-robotics.github.io/skatearm/img/og_card.png">
 <meta name="theme-color" content="#0a0b0e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SkateArm — Skate Commander","applicationCategory":"DeveloperApplication","operatingSystem":"Web, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","codeRepository":"https://github.com/dsl-robotics/skatearm","url":"https://dsl-robotics.github.io/skatearm/","description":"Open-source bimanual work-cell and browser cockpit for the R.Botic Skate: MuJoCo digital twin, drag-IK, mirror mode, teach-in, natural-language programs, vision-guided picking, ROS 2 over the native UDP wire.","author":{"@type":"Organization","name":"DSL Robotics"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SkateArm — Skate Commander","applicationCategory":"DeveloperApplication","operatingSystem":"Web, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","codeRepository":"https://github.com/dsl-robotics/skatearm","url":"https://dsl-robotics.github.io/skatearm/","description":"Open-source bimanual work-cell and browser cockpit for the R.Botic Skate: MuJoCo digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs, closed-loop visual servoing, ROS 2 over the native UDP wire.","author":{"@type":"Organization","name":"DSL Robotics"}}
 </script>
 <style>
   :root{
@@ -265,7 +265,8 @@
         <span class="chip">MuJoCo twin</span>
         <span class="chip">ROS 2 bridge</span>
         <span class="chip">MIT license</span>
-        <span class="chip">vision-guided pick</span>
+        <span class="chip">closed-loop vision</span>
+        <span class="chip">dual-arm carry</span>
       </div>
     </div>
     <div class="hero-photo">
@@ -286,19 +287,19 @@
         Your browser can't play embedded video — <a href="video/commander_v06_product.mp4">watch the 50-second product video</a>.
       </video>
     </figure>
-    <figcaption style="margin-top:13px;"><b>Product video</b> — a 50-second tour: digital twin, drag-IK, mirror mode, teach-in and the vision-guided pick.</figcaption>
+    <figcaption style="margin-top:13px;"><b>Product video</b> — a 50-second tour: digital twin, drag-IK, mirror mode and teach-in <span class="hl">(recorded on an earlier UI — the cockpit has since been redesigned; see the still below)</span>.</figcaption>
     <div class="media2">
       <figure class="reveal">
-        <div class="frame"><span class="cap">MuJoCo · sim</span>
-          <img src="img/commander_hero.gif" loading="lazy" decoding="async" alt="The Skate digital twin performing a bimanual mirror jog in the cockpit's 3D viewport">
+        <div class="frame"><span class="cap">Cockpit · v0.7.5</span>
+          <img src="img/commander_v075_cockpit.webp" loading="lazy" decoding="async" alt="The redesigned Skate Commander cockpit: a slim status bar, a floating control dock and the MuJoCo digital twin">
         </div>
-        <figcaption><b>Live twin</b> — bimanual mirror jog, both arms from one input (MuJoCo sim; links coloured by axis).</figcaption>
+        <figcaption><b>The cockpit</b> — slim status bar, a floating control dock, and the MuJoCo twin; the whole UI in one visual language.</figcaption>
       </figure>
       <figure class="reveal">
-        <div class="frame"><span class="cap">MuJoCo · vision</span>
-          <img src="img/commander_v06_pick.gif" loading="lazy" decoding="async" alt="Vision-guided pick: the work camera detects the target and the right arm is driven to it by inverse kinematics">
+        <div class="frame"><span class="cap">MuJoCo · servo</span>
+          <img src="img/commander_v06_pick.gif" loading="lazy" decoding="async" alt="Closed-loop visual servoing: the work camera drives the gripper onto the target in image space as the arm descends">
         </div>
-        <figcaption><b>Vision-guided pick</b> — colour detection on a known table plane → back-projected world pose (~2 mm in sim) → IK grasp.</figcaption>
+        <figcaption><b>Closed-loop visual servoing</b> — the camera locks the gripper onto the target in image space as it descends; robust to camera miscalibration (open-loop ~43 mm vs IBVS ~5 mm in sim).</figcaption>
       </figure>
     </div>
   </div>
@@ -307,18 +308,21 @@
 <section id="features">
   <div class="wrap">
     <div class="shead"><span class="snum">02</span><h2>What it does</h2></div>
-    <p class="ssub">Ten capabilities, one cockpit — every motion checked for self-collision before it reaches the robot.</p>
+    <p class="ssub">Thirteen capabilities, one cockpit — every motion checked for self-collision before it reaches the robot.</p>
     <ul class="feat reveal">
       <li><span class="ix">01</span><div><h4>3D digital twin</h4><p>Built from the official URDF in Three.js; forward kinematics cross-checked against MuJoCo link positions (numpy FK replica).</p></div></li>
       <li><span class="ix">02</span><div><h4>Joint &amp; cartesian jog</h4><p>Sliders, hold-to-jog, jump-to-limit, and world X/Y/Z TCP steps.</p></div></li>
       <li><span class="ix">03</span><div><h4>Drag-IK</h4><p>Grab a wrist in 3D; server-side damped-least-squares IK glides all 7 revolute arm joints.</p></div></li>
-      <li><span class="ix">04</span><div><h4>Mirror mode</h4><p>Bimanual — one input drives both arms, with the sign map measured from FK.</p></div></li>
-      <li><span class="ix">05</span><div><h4>Python programs</h4><p>Sandboxed <code>rbt</code> API with Click-to-Step execution.</p></div></li>
-      <li><span class="ix">06</span><div><h4>Natural-language programs</h4><p>Describe a task in English; a deterministic parser (with an optional, AST-validated LLM fallback) writes the program.</p></div></li>
-      <li><span class="ix">07</span><div><h4>Teach-in</h4><p>Move the robot by hand; every settled pose becomes a line of code.</p></div></li>
-      <li><span class="ix">08</span><div><h4>Vision-guided pick</h4><p>A workspace camera finds a target by colour on a known table plane, and the arm picks it.</p></div></li>
-      <li><span class="ix">09</span><div><h4>Collision guard</h4><p>Every target checked against a capsule self-collision model — incl. arm-vs-arm — before it is sent.</p></div></li>
-      <li><span class="ix">10</span><div><h4>Deadman-first safety</h4><p>Software E-STOP + deadman watchdog (sim today); the same UDP wire will drive the real Skate.</p></div></li>
+      <li><span class="ix">04</span><div><h4>Singularity awareness</h4><p>Manipulability is tracked live; a <code>SING</code> warning flags near-straight poses where a small cartesian move would need huge joint speeds.</p></div></li>
+      <li><span class="ix">05</span><div><h4>Mirror mode</h4><p>Bimanual — one input drives both arms, with the sign map measured from FK.</p></div></li>
+      <li><span class="ix">06</span><div><h4>Dual-arm carry</h4><p>Both wrists hold one object and move together via an X/Y/Z pad, preserving their separation — a true two-handed carry.</p></div></li>
+      <li><span class="ix">07</span><div><h4>Jerk-limited motion</h4><p>Jog and replay use acceleration-limited / trapezoidal profiles — motion eases in and out instead of snapping.</p></div></li>
+      <li><span class="ix">08</span><div><h4>Python programs</h4><p>Sandboxed <code>rbt</code> API with Click-to-Step execution.</p></div></li>
+      <li><span class="ix">09</span><div><h4>Natural-language programs</h4><p>Describe a task in English; a deterministic parser (with an optional, AST-validated LLM fallback) writes the program.</p></div></li>
+      <li><span class="ix">10</span><div><h4>Teach-in</h4><p>Move the robot by hand; every settled pose becomes a line of code.</p></div></li>
+      <li><span class="ix">11</span><div><h4>Closed-loop visual servoing</h4><p>A workspace camera locks the gripper onto the target in image space as it descends — robust to camera-calibration error (open-loop misses ~43&nbsp;mm, IBVS ~5&nbsp;mm in sim).</p></div></li>
+      <li><span class="ix">12</span><div><h4>Collision guard</h4><p>Every target checked against a capsule self-collision model — incl. arm-vs-arm — before it is sent.</p></div></li>
+      <li><span class="ix">13</span><div><h4>Deadman-first safety</h4><p>Software E-STOP + deadman watchdog (sim today); the same UDP wire will drive the real Skate.</p></div></li>
     </ul>
   </div>
 </section>
@@ -330,7 +334,7 @@
     <div class="stack">
       <div class="scard reveal"><span class="k">Layer 01</span><h3>Sim-first</h3><p>Control-ready MuJoCo model + capsule collision layer; kinematics validated against MuJoCo link positions.</p></div>
       <div class="scard reveal"><span class="k">Layer 02</span><h3>skate_ros2 — the wire</h3><p>One UDP protocol (SkateLink) for both the MuJoCo sim endpoint and the real robot, with a software E-STOP / deadman watchdog.</p></div>
-      <div class="scard reveal"><span class="k">Layer 03</span><h3>Skate Commander</h3><p>FastAPI + WebSocket cockpit; in-browser Three.js twin; server-side IK, collision guard, programs, vision.</p></div>
+      <div class="scard reveal"><span class="k">Layer 03</span><h3>Skate Commander</h3><p>FastAPI + WebSocket cockpit; in-browser Three.js twin; server-side IK, collision guard, jerk-limited motion, programs, visual servoing.</p></div>
       <div class="scard reveal"><span class="k">Layer 04</span><h3>Autonomous work-cell</h3><p>Phase 1: a GRAFCET-sequenced two-handed assembly cycle with camera quality inspection and a SCADA dashboard.</p></div>
     </div>
   </div>

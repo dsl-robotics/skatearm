@@ -21,9 +21,9 @@ redistributed).
 📖 **Docs & `rbt` API reference → [dsl-robotics.github.io/skatearm/commander.html](https://dsl-robotics.github.io/skatearm/commander.html)**
 
 <div align="center">
-  <img src="../../docs/img/commander_v06_overview.gif" width="680px" alt="Commander overview: mirror-mode bimanual jog, then teach-in writes a movej program from hand-moved poses and replays it through the guarded bridge">
+  <img src="../../docs/img/commander_v075_cockpit.webp" width="680px" alt="The redesigned Skate Commander cockpit (v0.7.5): a slim status bar, a floating control dock, and the MuJoCo digital twin">
   <br>
-  <em><strong>v0.6 overview</strong> — mirror-mode bimanual jog (both arms from one slider), then <strong>teach-in</strong>: move the arm by hand and the program writes itself as <code>movej</code> lines; ▶ RUN replays it through the same collision-guarded bridge.</em>
+  <em><strong>v0.7.5 cockpit</strong> — redesigned to share one visual language with the project site: a slim status bar, a floating control dock (view / pose / bimanual) and the MuJoCo twin.</em>
 </div>
 
 <div align="center">
@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7)
+## Features (v0.7.5)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -61,6 +61,17 @@ redistributed).
   reflected onto the other. The per-joint sign map and the mirror axis are
   **measured numerically from the model's FK at startup**, not assumed from
   URDF conventions
+* **Dual-arm carry** — **CARRY** holds one object with both wrists and moves
+  them together via an X/Y/Z pad, preserving the arms' natural separation (a
+  true two-handed carry; the Skate can't squeeze its wrists together in x, so
+  co-lifting is the feasible bimanual primitive)
+* **Singularity awareness** — per-arm manipulability (reciprocal Jacobian
+  condition number) streamed live; a **SING** chip warns when an active arm
+  nears a wrist singularity, where a small cartesian move would demand huge
+  joint speeds
+* **Jerk-limited motion** — jog is acceleration-limited (eases in on hold,
+  eases out on release) and waypoint/replay glides follow a trapezoidal
+  profile; safety stops (E-STOP / mode switch) still drop motion instantly
 * **Python programs** — in-browser editor over a sandboxed `rbt` API
   (`movej`, `movel`, `home`, `gripper`, `waypoint`, `wait`, `tcp`, `q`,
   `status`; `print` goes to the cockpit log). **Click-to-Step** executes one
@@ -80,7 +91,11 @@ redistributed).
   centroid to a world pose (camera intrinsics from `fovy`, extrinsics from
   `cam_xpos`/`cam_xmat`, intersected with the table plane — validated to ~2 mm
   against the simulator's true object position); **PICK** drives the right arm
-  to it via the same DLS-IK + collision guard and closes the gripper
+  to it via the same DLS-IK + collision guard and closes the gripper. **SERVO**
+  runs the pick *closed-loop* — it drives the gripper onto the target *in image
+  space* as the arm descends, so it stays on target despite camera-calibration
+  error (open-loop misses ~43 mm, image-based visual servoing converges to
+  ~5 mm in sim)
 * **Teach-in recording** — press **● REC** and just move the robot
   (sliders, jog, gizmo, cartesian steps): every settled pose becomes a line
   of `rbt` code — `movej` for one joint, a coordinated `pose({...})` for
