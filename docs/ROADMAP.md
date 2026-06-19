@@ -81,7 +81,7 @@ Techniques worth folding into the cockpit, from a survey of @alloyrobotics' MuJo
 - [x] **Singularity / manipulability** awareness in drag-IK — *shipped* (v0.7.2: per-arm manipulability = reciprocal Jacobian condition number, streamed in telemetry; a `SING` topbar chip warns when either active arm drops below 0.06, near a wrist singularity). Next: throttle the IK step near the warn line.
 - [ ] **RRT\*/A\*** collision-free planning; **contact reflex** (torque-spike stop).
 - [ ] **Smarter pick**: learned detector (YOLO) + point-cloud + shape-completion (vs colour + plane).
-- [ ] **Trajectory smoothing + S-curve motion profiles** — jerk-limited motion everywhere.
+- [x] **Trajectory smoothing + S-curve motion profiles** — *shipped* (v0.7.3: acceleration-limited jog — held jog eases in, eases out on release; trapezoidal sqrt-decel profile on waypoint/replay glides. Safety stops stay immediate). Next: same easing on `home()`.
 - [ ] **Learning track (v1.x):** teach-in → LeRobot dataset → behaviour cloning (+DAgger) / diffusion policy / VLA (SmolVLA, MolmoAct), with domain randomization for sim2real.
 
 *Sequencing rule: every phase ships at least one standalone community tool.*

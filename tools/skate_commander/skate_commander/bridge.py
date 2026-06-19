@@ -37,14 +37,19 @@ OVERTEMP_RELEASE_C = 53.0
 class RobotBridge:
     def __init__(self, sim_host="127.0.0.1", sim_port=2000,
                  real_host="r.local", real_port=2000,
-                 jog_rate=0.35, limits=None, kin=None):
+                 jog_rate=0.35, limits=None, kin=None,
+                 jog_accel=3.0, seq_accel=2.0):
         """jog_rate: rad/s while a jog button is held.
+        jog_accel: rad/s^2 ramp so hold-to-jog eases in and (on release)
+            eases out instead of snapping — no motion jerk.
+        seq_accel: rad/s^2 ease-in/out for waypoint / replay glides.
         limits: optional (lo[26], hi[26]) from the URDF; clamps jog targets."""
         self.sim_addr = (sim_host, sim_port)
         self.real_addr = (real_host, real_port)
         self.mode = "sim"                  # "sim" | "real"
         self.link = SkateLink(*self.sim_addr)
         self.jog_rate = float(jog_rate)
+        self.jog_accel = float(jog_accel)   # rad/s^2 smooth jog ramp
         if limits is not None:
             self.lo = np.asarray(limits[0], dtype=float)
             self.hi = np.asarray(limits[1], dtype=float)
@@ -56,6 +61,7 @@ class RobotBridge:
         self.estop = True                  # latched; starts SAFE (dampened)
         self.overtemp = False
         self.jog_dir = np.zeros(names.N_JOINTS)   # -1/0/+1 per joint
+        self.jog_vel = np.zeros(names.N_JOINTS)   # rad/s, accel-limited toward jog_dir*rate
         self.kin = kin or {}               # {"left"/"right": ArmKinematics}
         self.guard = None                  # callable(q26)->True if SELF-COLLIDING
         self.guard_blocking = False
@@ -90,7 +96,9 @@ class RobotBridge:
         self.seq_playing = False          # auto-advance through the list
         self.seq_loop = False
         self.seq_idx = None
-        self.seq_rate = 0.6               # rad/s glide speed
+        self.seq_rate = 0.6               # rad/s cruise glide speed
+        self.seq_accel = float(seq_accel)  # rad/s^2 ease-in/out for glides
+        self.seq_vel = 0.0                # current glide speed (trapezoidal)
         self.seq_dwell = 0.6              # s pause on each waypoint
         self._seq_wait = 0.0
         self._last_tx = None
@@ -107,6 +115,7 @@ class RobotBridge:
         self.mode = mode
         self.targ = None                   # re-arm from the new robot's pose
         self.jog_dir[:] = 0
+        self.jog_vel[:] = 0
         self.ik_targets = {"left": None, "right": None}
         self.carry = False
         self.estop = True                  # explicit resume required
@@ -114,6 +123,7 @@ class RobotBridge:
     def trigger_estop(self):
         self.estop = True
         self.jog_dir[:] = 0
+        self.jog_vel[:] = 0          # safety stop is immediate, no easing
         self.carry = False
         self.clear_ik_target()
         self.seq_stop()
@@ -149,6 +159,7 @@ class RobotBridge:
         self.seq_active = False
         self.seq_playing = False
         self._seq_wait = 0.0
+        self.seq_vel = 0.0
 
     def wp_add(self):
         """Record the current commanded pose as a waypoint."""
@@ -191,10 +202,19 @@ class RobotBridge:
                 or self.seq_idx >= len(self.waypoints):
             return
         wp = self.waypoints[self.seq_idx]
-        step = self.seq_rate * dt
+        remaining = float(np.max(np.abs(wp - self.targ)))
+        # trapezoidal speed profile: accelerate up to the cruise rate, but
+        # never go faster than we can still decelerate to a stop within the
+        # remaining distance (v <= sqrt(2*a*d)). Eases in and out of every
+        # waypoint move instead of constant-velocity hard starts/stops.
+        self.seq_vel = min(self.seq_rate, self.seq_vel + self.seq_accel * dt)
+        self.seq_vel = min(self.seq_vel,
+                           float(np.sqrt(2.0 * self.seq_accel * max(remaining, 0.0))))
+        step = self.seq_vel * dt
         self.targ = np.clip(self.targ + np.clip(wp - self.targ, -step, step),
                             self.lo, self.hi)
-        if float(np.max(np.abs(wp - self.targ))) < 0.01:   # arrived
+        if remaining < 0.01:                                # arrived
+            self.seq_vel = 0.0
             if not self.seq_playing:
                 self.seq_active = False
                 return
@@ -417,10 +437,15 @@ class RobotBridge:
 
         if self.targ is not None:
             prev = self.targ.copy()
-            if live and self.jog_dir.any():
-                self.targ = np.clip(self.targ + self.jog_dir * self.jog_rate * dt,
-                                    self.lo, self.hi)
             if live:
+                # acceleration-limited jog: chase jog_dir*rate so a held jog
+                # eases in, and on release eases out, instead of snapping.
+                target_vel = self.jog_dir * self.jog_rate
+                dv = self.jog_accel * dt
+                self.jog_vel += np.clip(target_vel - self.jog_vel, -dv, dv)
+                if self.jog_vel.any():
+                    self.targ = np.clip(self.targ + self.jog_vel * dt,
+                                        self.lo, self.hi)
                 for arm, target in self.ik_targets.items():
                     if target is not None and arm in self.kin:
                         self.targ, err = self.kin[arm].ik_step(
@@ -439,8 +464,10 @@ class RobotBridge:
                 self._seq_tick(dt)
                 if not np.array_equal(self.targ, prev):
                     self._guard_ok(prev)
-            elif self.seq_active:
-                self.seq_stop()            # dampened: playback must not resume
+            else:
+                self.jog_vel[:] = 0        # not live: drop jog velocity
+                if self.seq_active:
+                    self.seq_stop()        # dampened: playback must not resume
             deadman = (1, 1, 1) if live else (0, 0, 0)
             self.link.send_command(self.targ, deadman=deadman)
             self._last_tx = time.monotonic()
