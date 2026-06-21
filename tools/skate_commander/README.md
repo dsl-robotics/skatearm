@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.5)
+## Features (v0.7.6)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -70,8 +70,16 @@ redistributed).
   nears a wrist singularity, where a small cartesian move would demand huge
   joint speeds
 * **Jerk-limited motion** — jog is acceleration-limited (eases in on hold,
-  eases out on release) and waypoint/replay glides follow a trapezoidal
-  profile; safety stops (E-STOP / mode switch) still drop motion instantly
+  eases out on release) and waypoint/replay glides **and the Home pose**
+  follow a trapezoidal profile; safety stops (E-STOP / mode switch) still drop
+  motion instantly. (Home glides toward the safe default pose and gives up
+  gracefully if the straight path is guard-blocked — routing around it is a
+  planner's job, on the roadmap)
+* **Contact reflex** — an unexpected torque spike on a *stalled* arm joint
+  (loaded but barely moving — the signature of pushing into an obstacle, not
+  of a fast commanded move) latches a soft-stop, like the overtemp latch;
+  clear it from the **CONTACT** chip. Grippers are excluded so a grasp doesn't
+  trip it
 * **Python programs** — in-browser editor over a sandboxed `rbt` API
   (`movej`, `pose`, `movel`, `moveto`, `home`, `gripper`, `waypoint`, `wait`,
   `tcp`, `q`, `status`; `print` goes to the cockpit log). **Click-to-Step** executes one
