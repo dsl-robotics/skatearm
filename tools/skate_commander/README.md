@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.8)
+## Features (v0.7.9)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -69,6 +69,10 @@ redistributed).
   condition number) streamed live; a **SING** chip warns when an active arm
   nears a wrist singularity, where a small cartesian move would demand huge
   joint speeds
+* **Manipulability heat-map** — a **DEX** toggle samples each arm's reachable
+  workspace and renders it as a colour-graded point cloud in the twin: warm
+  where the arm is dexterous (isotropic), blue near its singular reach limits.
+  Computed server-side from the geometric (axis × lever) Jacobian, cached
 * **Jerk-limited motion** — jog is acceleration-limited (eases in on hold,
   eases out on release) and waypoint/replay glides **and the Home pose**
   follow a trapezoidal profile; safety stops (E-STOP / mode switch) still drop
