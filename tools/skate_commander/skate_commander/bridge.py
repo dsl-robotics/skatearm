@@ -30,6 +30,8 @@ if str(_SKATE_ROS2) not in sys.path:
 from skate_ros2 import names                    # noqa: E402
 from skate_ros2.protocol import SkateLink       # noqa: E402
 
+from . import planner                           # noqa: E402
+
 OVERTEMP_C = 58.0          # PETG limit, per official docs
 OVERTEMP_RELEASE_C = 53.0
 
@@ -133,10 +135,19 @@ class RobotBridge:
         # home(): glide to the safe default pose with the SAME jerk-limited
         # trapezoidal profile as the waypoint glides — not an instant snap.
         self.home_pose = np.array(names.DEFAULT_POSE, dtype=float)
+        self.home_goal = self.home_pose.copy()   # per-call target (legs preserved)
         self.home_active = False
         self.home_vel = 0.0
         self._home_prev = None             # last remaining-distance (stall watch)
         self._home_stall = 0.0             # s the glide has made no progress
+        # planned (RRT) route — a list of waypoint configs the glide follows to
+        # get AROUND a self-collision the straight path can't pass. None = idle.
+        self.plan_nodes = None
+        self.plan_idx = 0
+        self.plan_vel = 0.0
+        self._plan_prev = None
+        self._plan_stall = 0.0
+        self.plan_joints = np.arange(8, 24)   # default planning set: arm chains
 
     # -- mode / safety -------------------------------------------------------
     def set_mode(self, mode):
@@ -252,6 +263,10 @@ class RobotBridge:
         self.home_vel = 0.0
         self._home_stall = 0.0
         self._home_prev = None
+        self.plan_nodes = None           # cancel any planned route too
+        self.plan_vel = 0.0
+        self._plan_stall = 0.0
+        self._plan_prev = None
 
     def wp_add(self):
         """Record the current commanded pose as a waypoint."""
@@ -311,7 +326,7 @@ class RobotBridge:
         manual input / estop / dampening (all route through seq_stop)."""
         if not self.home_active:
             return
-        self.home_vel, remaining = self._glide(self.home_pose, self.home_vel, dt)
+        self.home_vel, remaining = self._glide(self.home_goal, self.home_vel, dt)
         if remaining < 0.01:                                # arrived
             self.home_vel = 0.0
             self.home_active = False
@@ -329,6 +344,53 @@ class RobotBridge:
             self.home_vel = 0.0
             self._home_stall = 0.0
             self._home_prev = None
+
+    # -- planned (collision-free) routing --------------------------------------
+    def plan_path(self, q_goal, joints=None):
+        """Plan a collision-free joint path from the current target to
+        ``q_goal``, routing around self-collisions the guard would reject.
+        Returns a list of configs (endpoints included) or None. With no guard
+        the straight line is always clear, so this returns ``[targ, goal]``."""
+        if self.targ is None:
+            return None
+        q_goal = np.asarray(q_goal, dtype=float)
+        cfree = ((lambda q: not self.guard(q)) if self.guard is not None
+                 else (lambda q: True))
+        js = self.plan_joints if joints is None else joints
+        return planner.plan(self.targ, q_goal, cfree, self.lo, self.hi,
+                            joints=js)
+
+    def _start_plan(self, path):
+        """Begin following a planned route (node 0 == the current targ)."""
+        self.plan_nodes = [np.asarray(p, dtype=float) for p in path[1:]]
+        self.plan_idx = 0
+        self.plan_vel = 0.0
+        self._plan_prev = None
+        self._plan_stall = 0.0
+
+    def _plan_tick(self, dt):
+        """Glide targ through the planned route node by node (shared trapezoid
+        profile). Gives up gracefully if a segment stalls, like the home glide."""
+        if self.plan_nodes is None:
+            return
+        goal = self.plan_nodes[self.plan_idx]
+        self.plan_vel, remaining = self._glide(goal, self.plan_vel, dt)
+        if remaining < 0.01:                             # node reached
+            self.plan_vel = 0.0
+            self._plan_prev = None
+            self._plan_stall = 0.0
+            self.plan_idx += 1
+            if self.plan_idx >= len(self.plan_nodes):
+                self.plan_nodes = None                   # route complete
+            return
+        if self._plan_prev is not None and self._plan_prev - remaining < 1e-5:
+            self._plan_stall += dt
+        else:
+            self._plan_stall = 0.0
+        self._plan_prev = remaining
+        if self._plan_stall > 0.8:
+            self.plan_nodes = None                       # blocked -> give up
+            self.plan_vel = 0.0
 
     def _seq_tick(self, dt):
         """Glide targ toward the active waypoint; advance when playing."""
@@ -531,18 +593,30 @@ class RobotBridge:
             self._clear_one(arm)
 
     def home(self):
-        """Glide the target smoothly to the documented safe default pose with
-        the jerk-limited trapezoidal profile (same as the waypoint glides),
-        not an instant snap. Any manual input / estop / dampening cancels it."""
+        """Send the target to the documented safe default pose with the
+        jerk-limited trapezoidal profile. If the straight joint path is clear
+        it glides directly; if a self-collision blocks it, an RRT planner
+        routes AROUND it; if even that fails, the direct glide gives up
+        gracefully. Any manual input / estop / dampening cancels it."""
         if self.targ is None or self.estop:
             return
-        self.seq_stop()                # clears any seq / prior home glide
+        self.seq_stop()                # clears any seq / prior home / plan
         self.carry = False
         self.clear_ik_target()         # don't let an IK target fight the glide
-        self.home_active = True
-        self.home_vel = 0.0
-        self._home_prev = None
-        self._home_stall = 0.0
+        # Home brings the ARMS (+head) to the documented safe pose and leaves
+        # the leg / balance chain exactly where it is — that's the firmware's
+        # job, and not re-routing the legs keeps the plan to just the arms.
+        goal = self.targ.copy()
+        goal[8:] = self.home_pose[8:]              # arms + head; legs [0:8] kept
+        self.home_goal = goal
+        path = self.plan_path(goal)
+        if path is not None and len(path) > 2:
+            self._start_plan(path)     # route around the self-collision
+        else:
+            self.home_active = True    # straight line clear, or give up gracefully
+            self.home_vel = 0.0
+            self._home_prev = None
+            self._home_stall = 0.0
 
     # -- periodic work (call at ~60 Hz from the server loop) -------------------
     def tick(self, dt, ui_attached):
@@ -604,11 +678,12 @@ class RobotBridge:
                                 self._clear_one(arm)         # arrived/stuck
                 self._seq_tick(dt)
                 self._home_tick(dt)
+                self._plan_tick(dt)
                 if not np.array_equal(self.targ, prev):
                     self._guard_ok(prev)
             else:
                 self.jog_vel[:] = 0        # not live: drop jog velocity
-                if self.seq_active or self.home_active:
+                if self.seq_active or self.home_active or self.plan_nodes is not None:
                     self.seq_stop()        # dampened: autonomous motion must not resume
             deadman = (1, 1, 1) if live else (0, 0, 0)
             self.link.send_command(self.targ, deadman=deadman)
@@ -645,7 +720,8 @@ class RobotBridge:
                       "blocking": self.guard_blocking},
             "mirror": self.mirror,
             "carry": self.carry,
-            "homing": self.home_active,
+            "homing": self.home_active or self.plan_nodes is not None,
+            "routing": self.plan_nodes is not None,
             "contact": {"on": self.contact_reflex,
                         "tripped": self.contact_tripped,
                         "joint": self.contact_joint},

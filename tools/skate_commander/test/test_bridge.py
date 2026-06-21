@@ -173,7 +173,7 @@ def test_home_glide_smooth():
     br.targ = start.copy()
     br.home()
     assert br.home_active and br.home_vel == 0.0
-    assert not np.allclose(br.targ, br.home_pose)       # has NOT snapped
+    assert not np.allclose(br.targ, br.home_goal)       # has NOT snapped
 
     dt = 1.0 / 60
     vels, prev, ticks = [], br.targ.copy(), 0
@@ -183,7 +183,7 @@ def test_home_glide_smooth():
         prev = br.targ.copy()
         ticks += 1
     assert not br.home_active
-    assert np.allclose(br.targ, br.home_pose, atol=1e-2)   # converged
+    assert np.allclose(br.targ, br.home_goal, atol=1e-2)   # converged
     assert ticks > 30, f"home snapped too fast ({ticks} ticks)"
     peak = max(vels)
     assert peak <= br.seq_rate + 1e-6, "exceeded the cruise rate"
@@ -202,8 +202,9 @@ def test_home_glide_smooth():
     # beyond it) makes zero progress -> gives up promptly instead of hanging,
     # the same graceful exit as when the guard keeps reverting every step
     br.targ = start.copy(); br.targ[0] = br.hi[0]            # already at the limit
-    br.home_pose = start.copy(); br.home_pose[0] = br.hi[0] + 5.0   # unreachable
-    br.home()
+    br.home_goal = start.copy(); br.home_goal[0] = br.hi[0] + 5.0   # unreachable
+    br.home_active = True; br.home_vel = 0.0
+    br._home_prev = None; br._home_stall = 0.0
     ticks = 0
     while br.home_active and ticks < 4000:
         br._home_tick(dt); ticks += 1
