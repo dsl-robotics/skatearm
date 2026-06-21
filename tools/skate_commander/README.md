@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.10)
+## Features (v0.7.11)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -77,7 +77,16 @@ redistributed).
   camera's rendered depth into the twin as a coloured point cloud (each point
   takes its RGB pixel's colour): a live 3D reconstruction of what the camera
   sees (table, target). The magenta cube reconstructs to ~2 mm of ground truth
-  — the input a point-cloud grasp planner (smarter pick) would consume
+  — the input the grasp planner below consumes
+* **Smart pick — grasp synthesis on the cloud** — a **GRASP** toggle turns the
+  point cloud into a grasp: a RANSAC plane fit removes the table, the rest is
+  clustered, and a top-down parallel-jaw grasp is fit to the object's own
+  geometry — centre, a *measured* grasp height (mid plane↔top, not a hard-coded
+  height), footprint + yaw (jaws close across the minor axis) and a
+  gripper-width feasibility check — drawn in the twin (footprint + jaw line +
+  approach). **SMART** executes it through the IK + guard. It selects the flat,
+  compact object a resting part presents to the overhead camera, not the
+  robot's own limbs in the cloud.
 * **Jerk-limited motion** — jog is acceleration-limited (eases in on hold,
   eases out on release) and waypoint/replay glides **and the Home pose**
   follow a trapezoidal profile; safety stops (E-STOP / mode switch) still drop
