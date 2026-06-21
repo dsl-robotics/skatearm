@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.7)
+## Features (v0.7.8)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -81,9 +81,9 @@ redistributed).
 * **Collision-free routing** — when a direct move would clip a self-collision
   the guard won't pass (folding the elbow from the hanging pose sweeps the hand
   through the thigh), an **RRT-Connect** planner finds a path *around* it and
-  the arm follows that route. **Home** uses this to reach the default arm pose
-  from poses the straight glide can't; the leg / balance chain is never
-  re-planned (the **ROUTING** chip shows while a route runs)
+  the arm follows that route. **Home** and **waypoint** moves (goto / play) use
+  this to reach a pose the straight glide can't; the leg / balance chain is
+  never re-planned (the **ROUTING** chip shows while a route runs)
 * **Python programs** — in-browser editor over a sandboxed `rbt` API
   (`movej`, `pose`, `movel`, `moveto`, `home`, `gripper`, `waypoint`, `wait`,
   `tcp`, `q`, `status`; `print` goes to the cockpit log). **Click-to-Step** executes one
