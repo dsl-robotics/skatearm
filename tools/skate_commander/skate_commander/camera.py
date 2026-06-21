@@ -20,6 +20,11 @@ from . import vision
 
 WORK_CAMERA = "cam_work"
 GRASP_Z = -0.055          # magenta cube centre height in the generated scene (m)
+# Work-surface AABB (x0, x1, y0, y1, world m): the table footprint + a small
+# margin. grasp.plan_grasp keeps only above-plane points inside it, so stray
+# robot/body returns off the table aren't clustered as graspable objects.
+WORKSPACE_AABB = (-0.14, 0.24, 0.18, 0.50)
+MAX_GRIPPER_WIDTH = 0.09  # widest object the parallel jaws can span (m)
 
 _VISUAL = """  <visual>
     <headlight ambient="0.45 0.45 0.45" diffuse="0.6 0.6 0.6" specular="0.1 0.1 0.1"/>

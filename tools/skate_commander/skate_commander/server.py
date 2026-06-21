@@ -28,7 +28,7 @@ from .bridge import RobotBridge
 from .kinematics import ArmKinematics, reach_map
 from .program import PoseRecorder, ProgramRunner
 from .urdf import joint_limits, parse_urdf
-from . import camera, ibvs, nl, vision
+from . import camera, grasp, ibvs, nl, vision
 
 from skate_ros2 import names  # noqa: E402  (path set up by .bridge)
 
@@ -263,6 +263,25 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         res = cam.cloud(stride=max(2, min(int(stride), 12)))
         return JSONResponse({"points": res} if isinstance(res, list) else res)
 
+    @app.get("/api/grasp")
+    def api_grasp(stride: int = 4):
+        """Synthesise a top-down grasp from the work-camera point cloud: remove
+        the table, cluster what's left, and fit a parallel-jaw grasp to the
+        object's OWN geometry — centre, a measured grasp height, footprint, yaw
+        and a gripper-width feasibility check. Returns the grasp dict for the
+        twin overlay; it moves nothing (use /api/smart_pick to execute). Sync
+        def -> FastAPI threadpool (GL render + numpy)."""
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"found": False, "error": "no camera"})
+        cloud = cam.cloud(stride=max(2, min(int(stride), 10)))
+        if not isinstance(cloud, list):
+            return JSONResponse({"found": False,
+                                 "error": cloud.get("error", "no cloud")})
+        g = grasp.plan_grasp(cloud, max_width=camera.MAX_GRIPPER_WIDTH,
+                             workspace=camera.WORKSPACE_AABB)
+        return JSONResponse(g)
+
     @app.get("/api/sequences")
     async def api_sequences():
         if not SEQ_DIR.exists():
@@ -408,6 +427,47 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         return JSONResponse({"found": True, "ran": bool(ok),
                              "image_err_px": round(float(err_px), 1),
                              "world_mm": [round(x, 1), round(y, 1)]})
+
+    @app.post("/api/smart_pick")
+    def api_smart_pick(stride: int = 4):
+        """Cloud grasp synthesis -> pick (right arm) through the guarded runner.
+        Plans on the point cloud (table removed, object clustered), then picks
+        at the MEASURED grasp centre/height — no colour or fixed-height prior.
+        Refuses an object too wide for the jaws. Moves nothing unless armed +
+        resumed. Sync def -> threadpool (GL render + numpy)."""
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"found": False, "error": "camera unavailable"})
+        if runner.running:
+            return JSONResponse({"found": False, "error": "a program is running"})
+        cloud = cam.cloud(stride=max(2, min(int(stride), 10)))
+        if not isinstance(cloud, list):
+            return JSONResponse({"found": False,
+                                 "error": cloud.get("error", "no cloud")})
+        g = grasp.plan_grasp(cloud, max_width=camera.MAX_GRIPPER_WIDTH,
+                             workspace=camera.WORKSPACE_AABB)
+        if not g.get("found"):
+            return JSONResponse({"found": False,
+                                 "error": g.get("reason", "no object")})
+        if not g.get("feasible"):
+            return JSONResponse({"found": True, "ran": False, "feasible": False,
+                                 "error": f"object {g['width_mm']:.0f}mm wider "
+                                 f"than the {g['max_width_mm']:.0f}mm gripper",
+                                 "width_mm": g["width_mm"]})
+        x, y, gz = g["center_mm"]
+        code = (
+            f"# smart-pick: cloud grasp at ({x:.0f}, {y:.0f}, {gz:.0f}) mm - "
+            f"obj {g['length_mm']:.0f}x{g['width_mm']:.0f} mm, yaw {g['yaw_deg']:.0f} deg\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {gz + 90:.0f})\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {gz + 12:.0f})\n"
+            f"rbt.gripper('right', 0)\n"
+            f"rbt.moveto('right', {x:.0f}, {y:.0f}, {gz + 130:.0f})\n"
+        )
+        ok = runner.run(code)
+        return JSONResponse({"found": True, "ran": bool(ok), "feasible": True,
+                             "center_mm": g["center_mm"], "yaw_deg": g["yaw_deg"],
+                             "width_mm": g["width_mm"], "length_mm": g["length_mm"],
+                             "n": g.get("n"), "code": code})
 
     @app.get("/meshes/{name}")
     async def mesh(name: str):

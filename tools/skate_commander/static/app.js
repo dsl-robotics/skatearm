@@ -1126,6 +1126,27 @@ if (!PREVIEW && $("btn-cam")) {
       }
     } catch (e) { info.textContent = "servo failed"; }
   };
+  $("cam-smart").onclick = async () => {
+    toWork();
+    info.textContent = "smart pick…";
+    try {
+      const d = await (await fetch("/api/smart_pick", { method: "POST" })).json();
+      if (d.found && d.ran) {
+        info.textContent = "smart pick  " +
+          (d.center_mm ? d.center_mm.map((v) => v.toFixed(0)).join("  ") + " mm" : "") +
+          " · " + d.length_mm.toFixed(0) + "×" + d.width_mm.toFixed(0) +
+          " · yaw " + d.yaw_deg.toFixed(0);
+        await buildGrasp();                       // overlay what it grasped
+        graspOn = true; if ($("btn-grasp")) $("btn-grasp").classList.add("on");
+      } else if (d.found && d.feasible === false) {
+        info.textContent = d.error || "object too wide for the gripper";
+        await buildGrasp();
+      } else {
+        info.textContent = d.error ? "smart pick: " + d.error : "no object"
+          + " — armed?";
+      }
+    } catch (e) { info.textContent = "smart pick failed"; }
+  };
 } else if ($("btn-cam")) {
   $("btn-cam").disabled = true;
   $("btn-cam").title = "preview is a recording — run the local server";
@@ -1301,5 +1322,64 @@ if ($("btn-pcl")) {
       $("btn-pcl").classList.remove("busy"); pclBusy = false;
     }
     if (pclCloud) pclCloud.visible = pclOn;
+  };
+}
+
+
+
+// ---- smart-pick grasp overlay -------------------------------------------
+// A grasp synthesised on the work-camera cloud (table removed, object
+// clustered): the object footprint, the parallel-jaw line (closes across the
+// minor axis) and the top-down approach, drawn in the twin. /api/grasp returns
+// mm; the twin is world metres. Azure = graspable, amber = too wide for the jaws.
+let graspViz = null, graspOn = false, graspBusy = false;
+function clearGrasp() {
+  if (graspViz) { scene.remove(graspViz); graspViz = null; }
+}
+function graspLine(ptsMm, color, opacity) {
+  const pos = [];
+  for (const p of ptsMm) pos.push(p[0] / 1000, p[1] / 1000, p[2] / 1000);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const ln = new THREE.Line(geo, new THREE.LineBasicMaterial({
+    color, transparent: true, opacity: opacity == null ? 0.95 : opacity,
+    depthTest: false }));
+  ln.renderOrder = 6;
+  return ln;
+}
+async function buildGrasp() {
+  clearGrasp();
+  const g = await fetch("/api/grasp?stride=4").then((x) => x.json()).catch(() => null);
+  const info = $("cam-info");
+  if (!g || !g.found) {
+    if (info) info.textContent = "grasp: " + ((g && (g.reason || g.error)) || "no object");
+    return false;
+  }
+  const grp = new THREE.Group();
+  const accent = g.feasible ? 0x37c8ff : 0xff8a3d;      // azure ok / amber too-wide
+  const f = g.footprint;
+  grp.add(graspLine([f[0], f[1], f[2], f[3], f[0]], accent, 0.85));  // footprint loop
+  grp.add(graspLine([g.jaws[0], g.jaws[1]], accent, 1.0));           // jaw line
+  const c = g.center_mm;
+  grp.add(graspLine([c, [c[0], c[1], c[2] + 95]], accent, 0.6));     // top-down approach
+  scene.add(grp);
+  graspViz = grp;
+  if (info) info.textContent =
+    "grasp " + c.map((v) => v.toFixed(0)).join(" ") + " mm · " +
+    g.length_mm.toFixed(0) + "×" + g.width_mm.toFixed(0) +
+    " · yaw " + g.yaw_deg.toFixed(0) + (g.feasible ? "" : " · TOO WIDE");
+  return true;
+}
+if ($("btn-grasp")) {
+  $("btn-grasp").onclick = async () => {
+    if (PREVIEW || graspBusy) return;
+    graspOn = !graspOn;
+    $("btn-grasp").classList.toggle("on", graspOn);
+    if (graspOn) {
+      graspBusy = true; $("btn-grasp").classList.add("busy");
+      const ok = await buildGrasp();
+      $("btn-grasp").classList.remove("busy"); graspBusy = false;
+      if (!ok) { graspOn = false; $("btn-grasp").classList.remove("on"); }
+    } else clearGrasp();
   };
 }
