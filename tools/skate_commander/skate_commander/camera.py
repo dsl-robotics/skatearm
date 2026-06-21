@@ -74,6 +74,9 @@ class CameraStreamer:
         self._det_req = None
         self._det_res = {"found": False}
         self._det_evt = threading.Event()
+        self._cloud_req = None
+        self._cloud_res = None
+        self._cloud_evt = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
@@ -101,6 +104,18 @@ class CameraStreamer:
             return self._det_res
         return {"found": False, "error": "timeout"}
 
+    def cloud(self, stride=5, zmax=0.75, timeout=4.0):
+        """Render the work camera's depth + RGB and back-project to a coloured
+        world point cloud (serviced on the GL render thread). Returns a list of
+        [x, y, z, r, g, b] rows, or {'error': ...}."""
+        if not self.has_work:
+            return {"error": "no work camera"}
+        self._cloud_evt.clear()
+        self._cloud_req = (int(stride), float(zmax))
+        if self._cloud_evt.wait(timeout):
+            return self._cloud_res
+        return {"error": "timeout"}
+
     def close(self):
         self._stop = True
 
@@ -116,7 +131,8 @@ class CameraStreamer:
                 q = self.get_qpos()
                 if q is not None:
                     d.qpos[:n] = np.asarray(q, dtype=float)[:n]
-                    self._mj.mj_forward(self.m, d)
+                self._mj.mj_forward(self.m, d)     # every frame: populate camera
+                #   pose / link xforms even before any telemetry has arrived
                 renderer.update_scene(d, camera=(self.cam if self.cam else -1))
                 img = renderer.render()
                 buf = io.BytesIO()
@@ -147,6 +163,26 @@ class CameraStreamer:
                     except Exception as exc:
                         self._det_res = {"found": False, "error": str(exc)}
                     self._det_evt.set()
+                if self._cloud_req is not None:                # serve point cloud
+                    stride, zmax = self._cloud_req
+                    self._cloud_req = None
+                    try:
+                        cid = self.m.camera(WORK_CAMERA).id
+                        cpos = np.asarray(d.cam_xpos[cid], float)
+                        cmat = np.asarray(d.cam_xmat[cid], float).reshape(3, 3)
+                        fovy = float(self.m.cam_fovy[cid])
+                        renderer.update_scene(d, camera=WORK_CAMERA)
+                        crgb = renderer.render()
+                        renderer.enable_depth_rendering()
+                        renderer.update_scene(d, camera=WORK_CAMERA)
+                        cdepth = renderer.render()
+                        renderer.disable_depth_rendering()
+                        self._cloud_res = vision.depth_cloud(
+                            cdepth, crgb, cpos, cmat, fovy,
+                            stride=stride, zmax=zmax).tolist()
+                    except Exception as exc:
+                        self._cloud_res = {"error": str(exc)}
+                    self._cloud_evt.set()
             except Exception:
                 pass
             dt = period - (time.time() - t0)

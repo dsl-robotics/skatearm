@@ -252,6 +252,17 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                 kin[arm], np.array(names.DEFAULT_POSE, dtype=float), n=n)
         return JSONResponse({"arm": arm, "points": app.state.reachmap.get(key, [])})
 
+    @app.get("/api/pointcloud")
+    def api_pointcloud(stride: int = 5):
+        """Work-camera depth back-projected to a coloured world point cloud
+        ([[x, y, z, r, g, b], ...]) — what the camera sees, in 3D. Serviced on
+        the camera's GL render thread (sync def -> FastAPI threadpool)."""
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"error": "no camera"})
+        res = cam.cloud(stride=max(2, min(int(stride), 12)))
+        return JSONResponse({"points": res} if isinstance(res, list) else res)
+
     @app.get("/api/sequences")
     async def api_sequences():
         if not SEQ_DIR.exists():

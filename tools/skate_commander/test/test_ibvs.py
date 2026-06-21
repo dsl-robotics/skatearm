@@ -127,5 +127,40 @@ def test_ibvs_robust_to_miscalibration():
     cam.close(); br.close(); ep.close()
 
 
+def test_depth_cloud_backprojection():
+    """The work-camera depth back-projects to a world cloud whose magenta points
+    cluster at the cube's true position (~mm) — validates vision.depth_cloud."""
+    try:
+        import mujoco
+    except ImportError:
+        print("SKIP: mujoco not installed"); return
+    if not Path(MJCF).exists():
+        print("SKIP: no control model"); return
+    from skate_commander import camera, vision
+    scene = camera.build_scene_xml(SKT)
+    m = mujoco.MjModel.from_xml_path(scene)
+    d = mujoco.MjData(m); mujoco.mj_forward(m, d)
+    W, H = 320, 240
+    r = mujoco.Renderer(m, H, W)
+    r.update_scene(d, camera="cam_work"); rgb = r.render()
+    r.enable_depth_rendering(); r.update_scene(d, camera="cam_work"); depth = r.render()
+    r.disable_depth_rendering()
+    cid = m.camera("cam_work").id
+    cpos = np.asarray(d.cam_xpos[cid]); cmat = np.asarray(d.cam_xmat[cid]).reshape(3, 3)
+    fovy = float(m.cam_fovy[cid])
+    cloud = vision.depth_cloud(depth, rgb, cpos, cmat, fovy, stride=2, zmax=0.75)
+    assert len(cloud) > 200, "cloud should have points"
+    C = (cloud[:, 3:] * 255).astype(int)
+    mag = ((C[:, 0] > 110) & (C[:, 2] > 100)
+           & (C[:, 0] - C[:, 1] > 60) & (C[:, 2] - C[:, 1] > 40))
+    assert mag.sum() >= 20, f"too few magenta points ({int(mag.sum())})"
+    xy = cloud[mag, :2].mean(0)
+    assert np.linalg.norm(xy - CUBE_XY) < 0.01, \
+        f"magenta cluster {xy} off the true cube {CUBE_XY}"
+    print(f"PASS depth cloud: {len(cloud)} pts, magenta -> "
+          f"{[round(float(v), 3) for v in cloud[mag, :3].mean(0)]} (cube {list(CUBE_XY)})")
+
+
 if __name__ == "__main__":
     test_ibvs_robust_to_miscalibration()
+    test_depth_cloud_backprojection()

@@ -32,6 +32,29 @@ def backproject(u, v, z0, cam_pos, cam_mat, f, cx, cy):
     return cam_pos + t * dw
 
 
+def depth_cloud(depth, rgb, cam_pos, cam_mat, fovy_deg, stride=5, zmax=0.75):
+    """Back-project a rendered depth image to a world point cloud, coloured by
+    the matching RGB pixel. ``depth`` is MuJoCo's camera-frame depth (metres
+    along -z). Returns an (M, 6) array of [x, y, z, r, g, b] (rgb in [0, 1]),
+    downsampled by ``stride`` and clipped to ``zmax`` metres (drops the far
+    background / floor). Same camera model as project/backproject."""
+    H, W = depth.shape[:2]
+    f, cx, cy = intrinsics(fovy_deg, W, H)
+    cam_pos = np.asarray(cam_pos, float).reshape(3)
+    cam_mat = np.asarray(cam_mat, float).reshape(3, 3)
+    vv, uu = np.mgrid[0:H:stride, 0:W:stride]
+    uu = uu.ravel(); vv = vv.ravel()
+    D = depth[vv, uu]
+    keep = (D > 0.05) & (D < zmax)
+    uu, vv, D = uu[keep], vv[keep], D[keep]
+    xn = (uu - cx) / f
+    yn = (cy - vv) / f
+    pc = np.stack([xn * D, yn * D, -D], axis=1)          # camera frame
+    P = cam_pos.reshape(1, 3) + pc @ cam_mat.T            # world
+    C = rgb[vv, uu, :3].astype(float) / 255.0            # per-point colour
+    return np.hstack([P, C])
+
+
 def find_magenta(img):
     """Centroid (u, v, n_pixels) of the magenta blob, or None."""
     R = img[:, :, 0].astype(int)

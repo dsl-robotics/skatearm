@@ -1271,3 +1271,35 @@ if ($("btn-dex")) {
     if (dexCloud) dexCloud.visible = dexOn;
   };
 }
+
+
+// ---- work-camera point cloud --------------------------------------------
+// What the work camera sees, back-projected to a coloured 3D cloud in the twin
+// (depth render -> world points, each coloured by its RGB pixel).
+let pclCloud = null, pclOn = false, pclBusy = false;
+async function buildPcl() {
+  const r = await fetch("/api/pointcloud?stride=4").then(x => x.json()).catch(() => null);
+  if (!r || !r.points || !r.points.length) return;
+  const pos = [], col = [];
+  for (const p of r.points) { pos.push(p[0], p[1], p[2]); col.push(p[3], p[4], p[5]); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  pclCloud = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.008, vertexColors: true, sizeAttenuation: true }));
+  pclCloud.frustumCulled = false;
+  scene.add(pclCloud);
+}
+if ($("btn-pcl")) {
+  $("btn-pcl").onclick = async () => {
+    if (PREVIEW || pclBusy) return;
+    pclOn = !pclOn;
+    $("btn-pcl").classList.toggle("on", pclOn);
+    if (pclOn && !pclCloud) {
+      pclBusy = true; $("btn-pcl").classList.add("busy");
+      await buildPcl();
+      $("btn-pcl").classList.remove("busy"); pclBusy = false;
+    }
+    if (pclCloud) pclCloud.visible = pclOn;
+  };
+}
