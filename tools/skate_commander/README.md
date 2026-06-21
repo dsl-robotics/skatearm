@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.9)
+## Features (v0.7.10)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -73,6 +73,11 @@ redistributed).
   workspace and renders it as a colour-graded point cloud in the twin: warm
   where the arm is dexterous (isotropic), blue near its singular reach limits.
   Computed server-side from the geometric (axis × lever) Jacobian, cached
+* **Work-camera point cloud** — a **PCL** toggle back-projects the work
+  camera's rendered depth into the twin as a coloured point cloud (each point
+  takes its RGB pixel's colour): a live 3D reconstruction of what the camera
+  sees (table, target). The magenta cube reconstructs to ~2 mm of ground truth
+  — the input a point-cloud grasp planner (smarter pick) would consume
 * **Jerk-limited motion** — jog is acceleration-limited (eases in on hold,
   eases out on release) and waypoint/replay glides **and the Home pose**
   follow a trapezoidal profile; safety stops (E-STOP / mode switch) still drop
