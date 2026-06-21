@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.11)
+## Features (v0.7.12)
 
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
@@ -86,7 +86,11 @@ redistributed).
   gripper-width feasibility check — drawn in the twin (footprint + jaw line +
   approach). **SMART** executes it through the IK + guard. It selects the flat,
   compact object a resting part presents to the overhead camera, not the
-  robot's own limbs in the cloud.
+  robot's own limbs in the cloud. **Multi-object:** every object on the table is
+  found and **labelled by colour + shape** by a pluggable detector (with an
+  opt-in **YOLO** backend, `SKATE_YOLO` + ultralytics, for real / COCO objects),
+  so you pick **by name** — the `GRASP` overlay shows all candidates and an
+  object selector + `SMART` choose which to grasp.
 * **Jerk-limited motion** — jog is acceleration-limited (eases in on hold,
   eases out on release) and waypoint/replay glides **and the Home pose**
   follow a trapezoidal profile; safety stops (E-STOP / mode switch) still drop
