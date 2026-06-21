@@ -41,6 +41,9 @@ _SCENE = """    <light name="worklight" pos="0.05 0.34 1.2" dir="0 0 -1" diffuse
     <body name="target" pos="0.13 0.35 -0.055">
       <geom name="target_geom" type="box" size="0.025 0.025 0.025" rgba="0.9 0.12 0.86 1"/>
     </body>
+    <body name="target2" pos="0.0 0.30 -0.06">
+      <geom name="target2_geom" type="box" size="0.02 0.02 0.02" rgba="0.12 0.75 0.85 1"/>
+    </body>
     <camera name="cam_work" pos="0.05 0.34 0.42" xyaxes="1 0 0 0 1 0" fovy="55"/>
 """
 
@@ -82,6 +85,8 @@ class CameraStreamer:
         self._cloud_req = None
         self._cloud_res = None
         self._cloud_evt = threading.Event()
+        self._last_rgb = None        # last rendered work-cam frame + model
+        self._last_cam = None        # (for the grasp detector's YOLO path)
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
@@ -120,6 +125,15 @@ class CameraStreamer:
         if self._cloud_evt.wait(timeout):
             return self._cloud_res
         return {"error": "timeout"}
+
+    def scene(self, stride=4, zmax=0.75, timeout=4.0):
+        """Render once and return ``{cloud, rgb, cam}`` for the grasp + detector
+        pipeline (server-side; the rgb frame is NOT serialised over HTTP). The
+        rgb / cam are the same frame the cloud was built from."""
+        cloud = self.cloud(stride=stride, zmax=zmax, timeout=timeout)
+        if not isinstance(cloud, list):
+            return {"error": cloud.get("error", "no cloud")}
+        return {"cloud": cloud, "rgb": self._last_rgb, "cam": self._last_cam}
 
     def close(self):
         self._stop = True
@@ -185,6 +199,11 @@ class CameraStreamer:
                         self._cloud_res = vision.depth_cloud(
                             cdepth, crgb, cpos, cmat, fovy,
                             stride=stride, zmax=zmax).tolist()
+                        self._last_rgb = crgb
+                        self._last_cam = {"pos": cpos.tolist(),
+                                          "mat": cmat.reshape(-1).tolist(),
+                                          "fovy": fovy, "W": self.width,
+                                          "H": self.height}
                     except Exception as exc:
                         self._cloud_res = {"error": str(exc)}
                     self._cloud_evt.set()

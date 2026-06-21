@@ -1130,20 +1130,20 @@ if (!PREVIEW && $("btn-cam")) {
     toWork();
     info.textContent = "smart pick…";
     try {
-      const d = await (await fetch("/api/smart_pick", { method: "POST" })).json();
+      const sel = $("cam-obj");
+      const q = sel && sel.value !== "" ? "?target=" + encodeURIComponent(sel.value) : "";
+      const d = await (await fetch("/api/smart_pick" + q, { method: "POST" })).json();
       if (d.found && d.ran) {
-        info.textContent = "smart pick  " +
-          (d.center_mm ? d.center_mm.map((v) => v.toFixed(0)).join("  ") + " mm" : "") +
-          " · " + d.length_mm.toFixed(0) + "×" + d.width_mm.toFixed(0) +
-          " · yaw " + d.yaw_deg.toFixed(0);
-        await buildGrasp();                       // overlay what it grasped
+        info.textContent = "smart pick  " + (d.label ? d.label + " · " : "") +
+          (d.center_mm ? d.center_mm.map((v) => v.toFixed(0)).join(" ") + " mm" : "") +
+          (d.ran ? "" : " — press RESUME");
         graspOn = true; if ($("btn-grasp")) $("btn-grasp").classList.add("on");
-      } else if (d.found && d.feasible === false) {
+        await buildGrasp();                       // refresh overlay + selector
+      } else if (d.feasible === false) {
         info.textContent = d.error || "object too wide for the gripper";
-        await buildGrasp();
+        graspOn = true; await buildGrasp();
       } else {
-        info.textContent = d.error ? "smart pick: " + d.error : "no object"
-          + " — armed?";
+        info.textContent = d.error ? "smart pick: " + d.error : "no object — armed?";
       }
     } catch (e) { info.textContent = "smart pick failed"; }
   };
@@ -1332,7 +1332,7 @@ if ($("btn-pcl")) {
 // clustered): the object footprint, the parallel-jaw line (closes across the
 // minor axis) and the top-down approach, drawn in the twin. /api/grasp returns
 // mm; the twin is world metres. Azure = graspable, amber = too wide for the jaws.
-let graspViz = null, graspOn = false, graspBusy = false;
+let graspViz = null, graspOn = false, graspBusy = false, graspObjs = [];
 function clearGrasp() {
   if (graspViz) { scene.remove(graspViz); graspViz = null; }
 }
@@ -1347,27 +1347,52 @@ function graspLine(ptsMm, color, opacity) {
   ln.renderOrder = 6;
   return ln;
 }
-async function buildGrasp() {
+function selectedGraspId() {
+  const sel = $("cam-obj");
+  if (sel && sel.value !== "") return parseInt(sel.value);
+  return graspObjs.length ? graspObjs[0].id : -1;
+}
+function drawGraspObjs() {
   clearGrasp();
-  const g = await fetch("/api/grasp?stride=4").then((x) => x.json()).catch(() => null);
-  const info = $("cam-info");
-  if (!g || !g.found) {
-    if (info) info.textContent = "grasp: " + ((g && (g.reason || g.error)) || "no object");
-    return false;
-  }
+  if (!graspObjs.length) return;
+  const selId = selectedGraspId();
   const grp = new THREE.Group();
-  const accent = g.feasible ? 0x37c8ff : 0xff8a3d;      // azure ok / amber too-wide
-  const f = g.footprint;
-  grp.add(graspLine([f[0], f[1], f[2], f[3], f[0]], accent, 0.85));  // footprint loop
-  grp.add(graspLine([g.jaws[0], g.jaws[1]], accent, 1.0));           // jaw line
-  const c = g.center_mm;
-  grp.add(graspLine([c, [c[0], c[1], c[2] + 95]], accent, 0.6));     // top-down approach
+  for (const g of graspObjs) {
+    const on = g.id === selId;
+    const accent = !g.feasible ? 0xff8a3d : on ? 0x37c8ff : 0x70798a;
+    const f = g.footprint, c = g.center_mm;
+    grp.add(graspLine([f[0], f[1], f[2], f[3], f[0]], accent, on ? 0.9 : 0.4));
+    grp.add(graspLine([g.jaws[0], g.jaws[1]], accent, on ? 1.0 : 0.45));
+    grp.add(graspLine([c, [c[0], c[1], c[2] + 95]], accent, on ? 0.7 : 0.3));
+  }
   scene.add(grp);
   graspViz = grp;
-  if (info) info.textContent =
-    "grasp " + c.map((v) => v.toFixed(0)).join(" ") + " mm · " +
-    g.length_mm.toFixed(0) + "×" + g.width_mm.toFixed(0) +
-    " · yaw " + g.yaw_deg.toFixed(0) + (g.feasible ? "" : " · TOO WIDE");
+}
+async function buildGrasp() {
+  const r = await fetch("/api/grasps?stride=4").then((x) => x.json()).catch(() => null);
+  const info = $("cam-info"), sel = $("cam-obj");
+  graspObjs = (r && r.found && r.objects) ? r.objects : [];
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = "";
+    for (const g of graspObjs) {
+      const o = document.createElement("option");
+      o.value = g.id;
+      o.textContent = g.label + (g.feasible ? "" : " (wide)");
+      sel.appendChild(o);
+    }
+    if (prev !== "" && graspObjs.some((g) => String(g.id) === prev)) sel.value = prev;
+    sel.style.display = graspObjs.length ? "" : "none";
+  }
+  if (!graspObjs.length) {
+    clearGrasp();
+    if (info) info.textContent = "grasp: " + ((r && (r.reason || r.error)) || "no object");
+    return false;
+  }
+  drawGraspObjs();
+  if (info) info.textContent = graspObjs.length +
+    (graspObjs.length > 1 ? " objects: " : " object: ") +
+    graspObjs.map((g) => g.label).join(", ");
   return true;
 }
 if ($("btn-grasp")) {
@@ -1383,3 +1408,4 @@ if ($("btn-grasp")) {
     } else clearGrasp();
   };
 }
+if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); };

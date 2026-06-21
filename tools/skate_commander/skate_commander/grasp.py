@@ -131,56 +131,70 @@ def synthesize_grasp(cluster_xyz, plane, max_width=0.09, clearance=0.006):
     }
 
 
-def plan_grasp(cloud, max_width=0.09, plane_tol=0.008, cluster_eps=0.02,
-               min_cluster=18, workspace=None,
-               max_obj=0.18, flat_max=0.02, elong_max=0.72):
-    """Full pipeline: cloud -> remove the table -> cluster -> pick the object
-    -> synthesise a grasp.
+def plan_grasps(cloud, max_width=0.09, plane_tol=0.008, cluster_eps=0.02,
+                min_cluster=18, workspace=None,
+                max_obj=0.18, flat_max=0.02, elong_max=0.72):
+    """Cloud -> remove the table -> cluster -> synthesise a grasp for EVERY
+    graspable object, ranked by point count (best-sampled first).
 
-    ``cloud`` is an (M, 6) ``[x, y, z, r, g, b]`` array (or list) from
-    ``vision.depth_cloud`` / ``camera.cloud``. ``workspace`` is an optional
-    ``(x0, x1, y0, y1)`` AABB that keeps only above-plane points over the work
-    surface.
-
-    Object selection is geometric, NOT "largest cluster": the cloud also holds
-    the robot's own legs / arms, which out-number a small part. A graspable
-    object resting on the table shows the overhead camera a FLAT, COMPACT top
-    face, whereas a limb is elongated with a large height spread. A cluster
-    qualifies when its top-height spread <= ``flat_max``, its footprint
-    elongation <= ``elong_max`` and it fits ``max_obj``; among those the
-    best-sampled (most points) wins. Returns ``synthesize_grasp`` + meta, or
-    ``{"found": False, "reason": ...}``."""
+    Same geometric object test as the single path: a graspable object shows the
+    overhead camera a FLAT, COMPACT top face, whereas the robot's own limbs are
+    elongated with a large height spread and are rejected (a cluster qualifies
+    when top-height spread <= ``flat_max``, footprint elongation <= ``elong_max``
+    and size <= ``max_obj``). Each returned object is a ``synthesize_grasp`` dict
+    + ``found``/``n``/``id`` + ``mean_rgb`` (cluster mean colour, [r,g,b] 0..1)
+    for the detector to label. Returns ``{"found": True, "objects": [...],
+    "n_clusters", "n_candidates"}`` or ``{"found": False, "reason": ...,
+    "objects": []}``."""
     A = np.asarray(cloud, float)
     if A.ndim != 2 or A.shape[0] < min_cluster or A.shape[1] < 3:
-        return {"found": False, "reason": "cloud too small"}
+        return {"found": False, "reason": "cloud too small", "objects": []}
     xyz = A[:, :3]
+    rgb = A[:, 3:6] if A.shape[1] >= 6 else np.full((len(A), 3), 0.5)
     plane, above = segment_plane(xyz, tol=plane_tol)
     nrm, d = plane
-    pts = xyz[above]
+    pts, cols = xyz[above], rgb[above]
     if workspace is not None and len(pts):
         x0, x1, y0, y1 = workspace
-        pts = pts[(pts[:, 0] >= x0) & (pts[:, 0] <= x1) &
-                  (pts[:, 1] >= y0) & (pts[:, 1] <= y1)]
+        m = ((pts[:, 0] >= x0) & (pts[:, 0] <= x1) &
+             (pts[:, 1] >= y0) & (pts[:, 1] <= y1))
+        pts, cols = pts[m], cols[m]
     if len(pts) < min_cluster:
-        return {"found": False, "reason": "nothing above the surface"}
+        return {"found": False, "reason": "nothing above the surface",
+                "objects": []}
     comps = [c for c in voxel_clusters(pts, cluster_eps) if len(c) >= min_cluster]
-    if not comps:
-        return {"found": False, "reason": "no object cluster"}
-    cand = []
+    objs = []
     for c in comps:
         P = pts[c]
         major, minor, _, _ = _footprint(P)
         flat = float(np.ptp(P @ nrm + d))
         elong = 1.0 - minor / max(major, 1e-9)
-        if major <= max_obj and flat <= flat_max and elong <= elong_max:
-            cand.append((c, len(c)))
-    if not cand:
+        if not (major <= max_obj and flat <= flat_max and elong <= elong_max):
+            continue
+        g = synthesize_grasp(P, plane, max_width=max_width)
+        g["found"] = True
+        g["n"] = int(len(c))
+        g["mean_rgb"] = [round(float(v), 3) for v in cols[c].mean(axis=0)]
+        objs.append(g)
+    if not objs:
         return {"found": False,
-                "reason": "no flat compact object (only limbs / clutter)"}
-    best = max(cand, key=lambda t: t[1])[0]
-    g = synthesize_grasp(pts[best], plane, max_width=max_width)
-    g["found"] = True
-    g["n"] = int(len(best))
-    g["n_clusters"] = len(comps)
-    g["n_candidates"] = len(cand)
+                "reason": "no flat compact object (only limbs / clutter)",
+                "objects": []}
+    objs.sort(key=lambda g: g["n"], reverse=True)
+    for i, g in enumerate(objs):
+        g["id"] = i
+    return {"found": True, "objects": objs,
+            "n_clusters": len(comps), "n_candidates": len(objs)}
+
+
+def plan_grasp(cloud, **kw):
+    """Single best grasp (the most-sampled object) — back-compat wrapper over
+    ``plan_grasps``. Returns the best object dict (plus ``n_clusters`` /
+    ``n_candidates``) or ``{"found": False, "reason": ...}``."""
+    r = plan_grasps(cloud, **kw)
+    if not r.get("found"):
+        return {"found": False, "reason": r.get("reason", "no object")}
+    g = dict(r["objects"][0])
+    g["n_clusters"] = r["n_clusters"]
+    g["n_candidates"] = r["n_candidates"]
     return g

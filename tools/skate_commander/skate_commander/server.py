@@ -28,7 +28,7 @@ from .bridge import RobotBridge
 from .kinematics import ArmKinematics, reach_map
 from .program import PoseRecorder, ProgramRunner
 from .urdf import joint_limits, parse_urdf
-from . import camera, grasp, ibvs, nl, vision
+from . import camera, detect, grasp, ibvs, nl, vision
 
 from skate_ros2 import names  # noqa: E402  (path set up by .bridge)
 
@@ -282,6 +282,27 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                              workspace=camera.WORKSPACE_AABB)
         return JSONResponse(g)
 
+    @app.get("/api/grasps")
+    def api_grasps(stride: int = 4):
+        """ALL graspable objects on the work surface, each with a synthesised
+        grasp and a detector label (built-in colour/shape; optional YOLO when
+        opted in via SKATE_YOLO). Moves nothing -- the twin overlay + object
+        selector read this. Sync def -> threadpool (GL render + numpy)."""
+        cam = app.state.camera
+        if cam is None:
+            return JSONResponse({"found": False, "error": "no camera",
+                                 "objects": []})
+        sc = cam.scene(stride=max(2, min(int(stride), 10)))
+        if "error" in sc:
+            return JSONResponse({"found": False, "error": sc["error"],
+                                 "objects": []})
+        res = grasp.plan_grasps(sc["cloud"], max_width=camera.MAX_GRIPPER_WIDTH,
+                                workspace=camera.WORKSPACE_AABB)
+        if res.get("found"):
+            detect.detect(res["objects"], rgb_image=sc.get("rgb"),
+                          cam=sc.get("cam"))
+        return JSONResponse(res)
+
     @app.get("/api/sequences")
     async def api_sequences():
         if not SEQ_DIR.exists():
@@ -429,7 +450,7 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                              "world_mm": [round(x, 1), round(y, 1)]})
 
     @app.post("/api/smart_pick")
-    def api_smart_pick(stride: int = 4):
+    def api_smart_pick(stride: int = 4, target: str = None):
         """Cloud grasp synthesis -> pick (right arm) through the guarded runner.
         Plans on the point cloud (table removed, object clustered), then picks
         at the MEASURED grasp centre/height — no colour or fixed-height prior.
@@ -440,23 +461,31 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
             return JSONResponse({"found": False, "error": "camera unavailable"})
         if runner.running:
             return JSONResponse({"found": False, "error": "a program is running"})
-        cloud = cam.cloud(stride=max(2, min(int(stride), 10)))
-        if not isinstance(cloud, list):
+        sc = cam.scene(stride=max(2, min(int(stride), 10)))
+        if "error" in sc:
+            return JSONResponse({"found": False, "error": sc["error"]})
+        res = grasp.plan_grasps(sc["cloud"], max_width=camera.MAX_GRIPPER_WIDTH,
+                                workspace=camera.WORKSPACE_AABB)
+        if not res.get("found"):
             return JSONResponse({"found": False,
-                                 "error": cloud.get("error", "no cloud")})
-        g = grasp.plan_grasp(cloud, max_width=camera.MAX_GRIPPER_WIDTH,
-                             workspace=camera.WORKSPACE_AABB)
-        if not g.get("found"):
-            return JSONResponse({"found": False,
-                                 "error": g.get("reason", "no object")})
+                                 "error": res.get("reason", "no object")})
+        detect.detect(res["objects"], rgb_image=sc.get("rgb"), cam=sc.get("cam"))
+        g = detect.pick_target(res["objects"], target)
+        if g is None:
+            return JSONResponse({"found": True, "ran": False,
+                                 "error": f"no object matches {target!r}",
+                                 "objects": [o["label"] for o in res["objects"]]})
         if not g.get("feasible"):
             return JSONResponse({"found": True, "ran": False, "feasible": False,
-                                 "error": f"object {g['width_mm']:.0f}mm wider "
-                                 f"than the {g['max_width_mm']:.0f}mm gripper",
+                                 "label": g.get("label"),
+                                 "error": f"{g.get('label', 'object')} "
+                                 f"{g['width_mm']:.0f}mm wider than the "
+                                 f"{g['max_width_mm']:.0f}mm gripper",
                                  "width_mm": g["width_mm"]})
         x, y, gz = g["center_mm"]
         code = (
-            f"# smart-pick: cloud grasp at ({x:.0f}, {y:.0f}, {gz:.0f}) mm - "
+            f"# smart-pick: {g.get('label', 'object')} grasp at "
+            f"({x:.0f}, {y:.0f}, {gz:.0f}) mm - "
             f"obj {g['length_mm']:.0f}x{g['width_mm']:.0f} mm, yaw {g['yaw_deg']:.0f} deg\n"
             f"rbt.moveto('right', {x:.0f}, {y:.0f}, {gz + 90:.0f})\n"
             f"rbt.moveto('right', {x:.0f}, {y:.0f}, {gz + 12:.0f})\n"
@@ -465,6 +494,7 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         )
         ok = runner.run(code)
         return JSONResponse({"found": True, "ran": bool(ok), "feasible": True,
+                             "label": g.get("label"), "id": g.get("id"),
                              "center_mm": g["center_mm"], "yaw_deg": g["yaw_deg"],
                              "width_mm": g["width_mm"], "length_mm": g["length_mm"],
                              "n": g.get("n"), "code": code})

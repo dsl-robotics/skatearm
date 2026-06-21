@@ -12,7 +12,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from skate_commander import grasp          # noqa: E402
+from skate_commander import grasp, detect  # noqa: E402
 
 # the generated scene: table top at z=-0.08, magenta cube top at z=-0.03
 WS = (-0.14, 0.24, 0.18, 0.50)             # work-surface AABB (x0,x1,y0,y1)
@@ -27,7 +27,7 @@ def _table(n=2500, z=-0.08, cx=0.05, cy=0.34, hx=0.18, hy=0.15, seed=1):
     return np.column_stack([x, y, zz, rgb])
 
 
-def _box_top(center, half, yaw=0.0, n=500, seed=2):
+def _box_top(center, half, yaw=0.0, n=500, seed=2, rgb=(0.9, 0.12, 0.86)):
     """Points on a box's TOP face (what a top-down camera sees)."""
     rng = np.random.default_rng(seed)
     cx, cy, topz = center
@@ -38,8 +38,7 @@ def _box_top(center, half, yaw=0.0, n=500, seed=2):
     x = cx + u * cy_ - v * sy_
     y = cy + u * sy_ + v * cy_
     z = np.full(n, topz) + rng.normal(0, 0.0005, n)
-    rgb = np.tile([0.9, 0.12, 0.86], (n, 1))
-    return np.column_stack([x, y, z, rgb])
+    return np.column_stack([x, y, z, np.tile(rgb, (n, 1))])
 
 
 def _limb(center, length=0.12, width=0.02, n=350, seed=7):
@@ -146,6 +145,25 @@ def test_selects_flat_object_over_limb():
           f"{g['n_candidates']} graspable, picked {g['center_mm'][:2]} mm")
 
 
+def test_plan_grasps_multi_object():
+    # two objects on the table (magenta cube + cyan box) + the robot legs
+    cloud = np.vstack([
+        _table(),
+        _limb((0.10, 0.20), n=320, seed=7),                       # robot leg
+        _box_top((0.13, 0.35, -0.03), (0.025, 0.025), n=420, seed=3),
+        _box_top((0.00, 0.30, -0.04), (0.02, 0.02), n=240, seed=5,
+                 rgb=(0.12, 0.75, 0.85)),
+    ])
+    r = grasp.plan_grasps(cloud, workspace=WS)
+    assert r["found"] and len(r["objects"]) == 2, r          # leg excluded
+    assert r["objects"][0]["n"] >= r["objects"][1]["n"], "not ranked by points"
+    assert all("mean_rgb" in o and "id" in o for o in r["objects"])
+    detect.label_objects(r["objects"])
+    cols = {o["colour"] for o in r["objects"]}
+    assert cols == {"magenta", "cyan"}, cols
+    print(f"PASS plan_grasps multi: 2 objects ({cols}), leg dropped, ranked")
+
+
 if __name__ == "__main__":
     test_segment_plane_keeps_object()
     test_grasp_center_recovers_truth()
@@ -155,4 +173,5 @@ if __name__ == "__main__":
     test_workspace_filter_excludes_outside()
     test_picks_largest_of_two()
     test_selects_flat_object_over_limb()
+    test_plan_grasps_multi_object()
     print("GRASP OK")

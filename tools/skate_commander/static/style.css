@@ -198,15 +198,17 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
 }
 #cam-img { display: block; width: 100%; height: auto; background: #000; }
 #cam-bar {
-  display: flex; align-items: center; gap: 8px; padding: 6px 9px;
-  border-top: 1px solid var(--line-soft);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px;
+  padding: 6px 9px; border-top: 1px solid var(--line-soft);
   font: 700 9.5px var(--mono); letter-spacing: .14em; color: var(--dim);
 }
 #cam-bar select {
-  flex: 1; background: var(--panel2); color: var(--fg);
+  flex: 1 1 120px; min-width: 110px; background: var(--panel2); color: var(--fg);
   border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px;
   font: 500 11px "Inter", sans-serif;
 }
+#cam-smart { border-color: rgba(56,160,255,.5); color: var(--accent); }
+#cam-smart:hover { background: var(--accent-soft); }
 #btn-cam.on { border-color: rgba(56,160,255,.55); color: var(--accent);
   background: var(--accent-soft); }
 #cam-stage { position: relative; line-height: 0; }
