@@ -14,7 +14,7 @@
 </head>
 <body>
   <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.5</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.6</em></div>
     <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
@@ -30,6 +30,10 @@
            title="Near a singularity — the arm is nearly straight, so a cartesian move in some direction needs large joint speeds">SING</div>
       <div class="chip" id="chip-rec" style="display:none"
            title="Teach-in recording — every settled pose becomes a line of the program (PROG tab)">REC</div>
+      <div class="chip" id="chip-home" style="display:none"
+           title="Homing — gliding to the safe default pose (jerk-limited)">HOMING</div>
+      <div class="chip" id="chip-contact" style="display:none"
+           title="Contact reflex tripped — an arm joint pushed into something (loaded but stalled) and the arm dampened. Click to reset.">CONTACT</div>
     </div>
     <button id="btn-estop">E-STOP</button>
   </div>

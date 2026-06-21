@@ -58,6 +58,9 @@ def test_bridge_full_cycle():
     snap = _spin(br, 1.5)
     assert snap["live"]
     assert br.targ[11] > t0[11] + 0.4
+    # the contact reflex must NOT false-trip during a normal smooth jog
+    assert not snap["contact"]["tripped"], \
+        "contact reflex false-tripped on a normal jog (threshold too low)"
     br.jog_stop(11)
     elbow_target = br.targ[11]
     snap = _spin(br, 1.0)
@@ -124,8 +127,12 @@ def test_cart_step_and_mirror():
     print(f"PASS cart_step: dz={moved[2]*1000:.1f} mm, auto-cleared")
 
     # -- mirror: slider input reflects with the measured sign ----------------
-    br.home()                                  # symmetric documented pose
-    _spin(br, 0.5)
+    br.home()                                  # glide to the symmetric default
+    end = time.monotonic() + 5.0               # smooth home() eases in/out now
+    while br.home_active and time.monotonic() < end:
+        br.tick(1 / 60, ui_attached=True)
+        time.sleep(1 / 60)
+    assert not br.home_active, "home glide should settle to the default pose"
     br.mirror = True
     s2 = br.mirror_signs[2]                    # arm slot of joint 10/18
     br.set_joint(10, 0.5)
@@ -156,6 +163,107 @@ def test_cart_step_and_mirror():
     br.close(); ep.close()
 
 
+def test_home_glide_smooth():
+    """home() eases to the default pose with a jerk-limited trapezoidal profile
+    instead of snapping — pure logic, no sim model needed."""
+    br = RobotBridge(sim_port=_free_port())
+    br.estop = False                                   # pretend resumed
+    n = br.home_pose.shape[0]
+    start = np.zeros(n)
+    br.targ = start.copy()
+    br.home()
+    assert br.home_active and br.home_vel == 0.0
+    assert not np.allclose(br.targ, br.home_pose)       # has NOT snapped
+
+    dt = 1.0 / 60
+    vels, prev, ticks = [], br.targ.copy(), 0
+    while br.home_active and ticks < 4000:
+        br._home_tick(dt)
+        vels.append(float(np.max(np.abs(br.targ - prev))) / dt)
+        prev = br.targ.copy()
+        ticks += 1
+    assert not br.home_active
+    assert np.allclose(br.targ, br.home_pose, atol=1e-2)   # converged
+    assert ticks > 30, f"home snapped too fast ({ticks} ticks)"
+    peak = max(vels)
+    assert peak <= br.seq_rate + 1e-6, "exceeded the cruise rate"
+    assert vels[0] < peak * 0.5, "no jerk-limited ease-in"
+    assert vels[-1] < peak * 0.6, "no ease-out near the goal"
+    print(f"PASS home glide: {ticks} ticks, peak {peak:.3f} rad/s, eased in+out")
+
+    # any manual input / estop / dampening (all via seq_stop) cancels it
+    br.targ = start.copy(); br.home(); br._home_tick(dt)
+    assert br.home_active
+    br.seq_stop()
+    assert not br.home_active and br.home_vel == 0.0
+    print("PASS home glide cancels on manual input")
+
+    # a goal that can't be approached at all (joint pinned at its limit, target
+    # beyond it) makes zero progress -> gives up promptly instead of hanging,
+    # the same graceful exit as when the guard keeps reverting every step
+    br.targ = start.copy(); br.targ[0] = br.hi[0]            # already at the limit
+    br.home_pose = start.copy(); br.home_pose[0] = br.hi[0] + 5.0   # unreachable
+    br.home()
+    ticks = 0
+    while br.home_active and ticks < 4000:
+        br._home_tick(dt); ticks += 1
+    assert not br.home_active, "a blocked/unreachable home must give up, not hang"
+    assert ticks < 120, f"gave up too slowly ({ticks} ticks)"   # ~0.8 s stall window
+    print(f"PASS home glide gives up when blocked ({ticks} ticks)")
+    br.close()
+
+
+def test_contact_reflex():
+    """An arm-joint torque spike trips a latched soft-stop; legs and grippers
+    are ignored; reset re-baselines. Pure logic, no sim model needed."""
+    from skate_ros2 import names
+    br = RobotBridge(sim_port=_free_port())
+    br.contact_tau = 5.0
+    n = names.N_JOINTS
+
+    stalled = np.zeros(n)                              # joint not moving
+    base = np.full(n, 1.0)                             # steady holding torque
+    assert br._contact_update(base, stalled) is False  # first sample = baseline
+    assert br._contact_update(base.copy(), stalled) is False   # steady -> no trip
+
+    leg = base.copy(); leg[2] += 50.0                  # leg spike (firmware's)
+    assert br._contact_update(leg, stalled) is False
+    grip = base.copy(); grip[15] += 50.0               # gripper spike (a grasp)
+    assert br._contact_update(grip, stalled) is False
+
+    # a fast COMMANDED move: big torque but the joint is slewing -> NOT a contact
+    br._tau_ref = base.copy(); br._contact_run = 0
+    fast = base.copy(); fast[19] += 50.0
+    moving = np.zeros(n); moving[19] = 2.0             # 2 rad/s
+    assert br._contact_update(fast, moving) is False
+    assert br._contact_update(fast, moving) is False   # still slewing -> never trips
+
+    # a BLOCKED joint: same spike but stalled -> trips once it persists (hold=2)
+    br._tau_ref = base.copy(); br._contact_run = 0
+    blocked = base.copy(); blocked[19] += 50.0
+    assert br._contact_update(blocked, stalled) is False  # hold tick 1 of 2
+    assert br._contact_update(blocked, stalled) is True   # persisted -> trip
+    assert br.contact_joint == 19
+    print("PASS contact detect: blocked arm joint trips; fast move/legs/grippers don't")
+
+    # trip latches a soft-stop and stops any motion in progress
+    br.targ = np.array(names.DEFAULT_POSE, dtype=float)
+    br.estop = False
+    br.jog_start(19, +1)
+    br._trip_contact()
+    assert br.contact_tripped and not br.jog_dir.any() and not br.carry
+    snap = br.snapshot(ui_attached=True)
+    assert snap["contact"]["tripped"] and snap["live"] is False
+
+    br.clear_contact()                                 # operator reset
+    assert not br.contact_tripped and br._tau_ref is None
+    assert br.snapshot()["contact"]["tripped"] is False
+    print("PASS contact latch: trip dampens, reset clears + re-baselines")
+    br.close()
+
+
 if __name__ == "__main__":
+    test_home_glide_smooth()
+    test_contact_reflex()
     test_bridge_full_cycle(); print("PASS test_bridge_full_cycle")
     test_cart_step_and_mirror()

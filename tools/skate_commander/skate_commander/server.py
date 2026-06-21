@@ -558,6 +558,8 @@ def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
         bridge.resume()
     elif t == "home":
         bridge.home()
+    elif t == "reset_contact":
+        bridge.clear_contact()
     elif t == "set_mode":
         bridge.set_mode(cmd["mode"])
 

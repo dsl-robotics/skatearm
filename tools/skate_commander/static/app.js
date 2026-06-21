@@ -973,6 +973,19 @@ function updateTop() {
     if (rec && rec.on) rc.textContent = `REC · ${rec.n}`;
     rc.className = "chip bad";
   }
+  const hc = $("chip-home");
+  if (hc) {
+    hc.style.display = state.homing ? "" : "none";
+    hc.className = "chip on";
+  }
+  const cc = $("chip-contact");
+  if (cc) {
+    const ct = state.contact && state.contact.tripped;
+    cc.style.display = ct ? "" : "none";
+    cc.textContent = ct && state.contact.joint != null
+      ? `CONTACT · J${state.contact.joint}` : "CONTACT";
+    cc.className = "chip bad";
+  }
   const tmax = state.temps ? Math.max(...state.temps) : 0;
   const tEl = $("chip-temp");
   tEl.textContent = `T ${tmax.toFixed(0)}°C`;
@@ -1001,6 +1014,8 @@ function updateTop() {
     banner.textContent = state.estop
       ? "DAMPENED — press RESUME to enable motion"
       : state.overtemp ? "DAMPENED — overtemp latch"
+      : (state.contact && state.contact.tripped)
+          ? "DAMPENED — contact reflex: click CONTACT to reset"
       : !state.connected ? "waiting for telemetry…" : "DAMPENED";
   } else banner.className = "";
 }
@@ -1008,6 +1023,8 @@ function updateTop() {
 $("btn-estop").onclick = () =>
   send({ type: state && state.estop ? "resume" : "estop" });
 $("btn-home").onclick = () => send({ type: "home" });
+if ($("chip-contact"))
+  $("chip-contact").onclick = () => send({ type: "reset_contact" });
 $("btn-mirror").onclick = () =>
   send({ type: "mirror", on: !(state && state.mirror) });
 if ($("btn-carry")) {

@@ -38,11 +38,15 @@ class RobotBridge:
     def __init__(self, sim_host="127.0.0.1", sim_port=2000,
                  real_host="r.local", real_port=2000,
                  jog_rate=0.35, limits=None, kin=None,
-                 jog_accel=3.0, seq_accel=2.0):
+                 jog_accel=3.0, seq_accel=2.0, contact_tau=8.0):
         """jog_rate: rad/s while a jog button is held.
         jog_accel: rad/s^2 ramp so hold-to-jog eases in and (on release)
             eases out instead of snapping — no motion jerk.
         seq_accel: rad/s^2 ease-in/out for waypoint / replay glides.
+        contact_tau: N·m torque spike (over the slow baseline) on a barely-
+            moving arm joint that trips the contact reflex (soft-stop) — the
+            signature of a joint pushing into an obstacle. Grippers are
+            excluded; a grasp legitimately spikes torque.
         limits: optional (lo[26], hi[26]) from the URDF; clamps jog targets."""
         self.sim_addr = (sim_host, sim_port)
         self.real_addr = (real_host, real_port)
@@ -60,6 +64,30 @@ class RobotBridge:
         self.targ = None                   # armed target (np[26]) or None
         self.estop = True                  # latched; starts SAFE (dampened)
         self.overtemp = False
+        # contact reflex: an unexpected torque spike on the arm chain (vs a
+        # slow per-joint baseline) latches a soft-stop — motion dampens like
+        # the overtemp latch and is cleared by an explicit operator reset.
+        self.contact_reflex = True
+        # A contact = a torque spike on an arm joint WHILE that joint is barely
+        # moving (pushing into something that won't yield). Gating on low
+        # velocity is what separates a real block from a fast COMMANDED move,
+        # which is also high-torque but high-speed (measured on the sim: a
+        # slider step saturates torque at ~10 N·m while slewing at 3–5 rad/s,
+        # whereas the normal-motion spike floor is ~1.3 N·m).
+        self.contact_tau = float(contact_tau)     # N·m spike over the baseline
+        self.contact_vel_eps = 0.3                # rad/s; below this = "not slewing"
+        self.contact_hold = 2                     # consecutive ticks before a trip
+        self.contact_alpha = 0.2                  # per-tick EMA rate of the baseline
+        self.contact_tripped = False              # latched soft-stop
+        self.contact_joint = None                 # joint that tripped (for the UI)
+        self._tau_ref = None                      # per-joint torque baseline (np[26])
+        self._contact_run = 0                     # consecutive blocked-tick counter
+        _cmask = np.zeros(names.N_JOINTS, dtype=bool)
+        _cmask[names.LEFT_ARM] = True             # 8..15
+        _cmask[names.RIGHT_ARM] = True            # 16..23
+        _cmask[names.LEFT_GRIPPER] = False        # a grasp spikes torque on purpose
+        _cmask[names.RIGHT_GRIPPER] = False
+        self.contact_mask = _cmask                # arm structural joints only
         self.jog_dir = np.zeros(names.N_JOINTS)   # -1/0/+1 per joint
         self.jog_vel = np.zeros(names.N_JOINTS)   # rad/s, accel-limited toward jog_dir*rate
         self.kin = kin or {}               # {"left"/"right": ArmKinematics}
@@ -102,6 +130,13 @@ class RobotBridge:
         self.seq_dwell = 0.6              # s pause on each waypoint
         self._seq_wait = 0.0
         self._last_tx = None
+        # home(): glide to the safe default pose with the SAME jerk-limited
+        # trapezoidal profile as the waypoint glides — not an instant snap.
+        self.home_pose = np.array(names.DEFAULT_POSE, dtype=float)
+        self.home_active = False
+        self.home_vel = 0.0
+        self._home_prev = None             # last remaining-distance (stall watch)
+        self._home_stall = 0.0             # s the glide has made no progress
 
     # -- mode / safety -------------------------------------------------------
     def set_mode(self, mode):
@@ -134,6 +169,59 @@ class RobotBridge:
             self.estop = False
         return not self.estop
 
+    # -- contact reflex --------------------------------------------------------
+    def _contact_update(self, tau, vel):
+        """Return True if an arm joint is BLOCKED: a torque spike beyond
+        ``contact_tau`` N·m over its slow baseline WHILE the joint is barely
+        moving (``|vel| < contact_vel_eps``) — the signature of pushing into an
+        obstacle, not of a fast commanded move (high-torque but high-speed). A
+        per-joint EMA baseline normalises out steady holding / gravity torque,
+        and the condition must persist ``contact_hold`` ticks to reject brief
+        settle transients. Pure function of ``(tau, vel)`` + internal state;
+        grippers are excluded (a grasp spikes torque on purpose)."""
+        if tau is None or vel is None:
+            self._contact_run = 0
+            return False
+        tau = np.asarray(tau, dtype=float)
+        vel = np.asarray(vel, dtype=float)
+        if tau.shape != (names.N_JOINTS,) or vel.shape != (names.N_JOINTS,):
+            return False
+        if self._tau_ref is None:
+            self._tau_ref = tau.copy()
+            self._contact_run = 0
+            return False                     # need a baseline first
+        spike = np.abs(tau - self._tau_ref)
+        blocked = ((spike > self.contact_tau)
+                   & (np.abs(vel) < self.contact_vel_eps)
+                   & self.contact_mask)
+        if np.any(blocked):
+            self._contact_run += 1
+            self.contact_joint = int(np.argmax(np.where(blocked, spike, -np.inf)))
+        else:
+            self._contact_run = 0
+        # EMA the baseline AFTER the test: a sustained load becomes the new
+        # normal, but the first ticks of a real contact still trip.
+        self._tau_ref += self.contact_alpha * (tau - self._tau_ref)
+        return self._contact_run >= self.contact_hold
+
+    def _trip_contact(self):
+        """Latch the contact soft-stop: dampen motion immediately (like estop)
+        but as a separate, operator-clearable latch."""
+        self.contact_tripped = True
+        self.jog_dir[:] = 0
+        self.jog_vel[:] = 0
+        self.carry = False
+        self.clear_ik_target()
+        self.seq_stop()                      # also cancels a home glide
+
+    def clear_contact(self):
+        """Operator acknowledges the contact and clears the latch. Motion stays
+        dampened until it goes live again (ui attached, not estopped, ...)."""
+        self.contact_tripped = False
+        self.contact_joint = None
+        self._tau_ref = None                 # re-baseline from the next sample
+        self._contact_run = 0
+
     # -- collision guard -------------------------------------------------------
     def _guard_ok(self, prev):
         """Reject self-colliding targets: revert to ``prev`` if the new targ
@@ -160,6 +248,10 @@ class RobotBridge:
         self.seq_playing = False
         self._seq_wait = 0.0
         self.seq_vel = 0.0
+        self.home_active = False         # a home glide is autonomous motion too
+        self.home_vel = 0.0
+        self._home_stall = 0.0
+        self._home_prev = None
 
     def wp_add(self):
         """Record the current commanded pose as a waypoint."""
@@ -196,23 +288,55 @@ class RobotBridge:
             self.seq_playing = True
             self._seq_wait = 0.0
 
+    def _glide(self, goal, vel, dt):
+        """One jerk-limited trapezoidal step of ``targ`` toward ``goal``:
+        ease in to ``seq_rate``, then sqrt-decelerate to a clean stop
+        (v <= sqrt(2*a*d) so it can always brake within the remaining
+        distance). Returns ``(new_vel, remaining_before_step)``. Shared by the
+        waypoint sequencer and home() so both ease in and out identically."""
+        remaining = float(np.max(np.abs(goal - self.targ)))
+        vel = min(self.seq_rate, vel + self.seq_accel * dt)
+        vel = min(vel, float(np.sqrt(2.0 * self.seq_accel * max(remaining, 0.0))))
+        step = vel * dt
+        self.targ = np.clip(self.targ + np.clip(goal - self.targ, -step, step),
+                            self.lo, self.hi)
+        return vel, remaining
+
+    def _home_tick(self, dt):
+        """Glide ``targ`` to the safe default pose with the shared jerk-limited
+        profile; self-clears on arrival. Gives up (no error) if the path stays
+        guard-blocked or otherwise stops improving — the straight joint-space
+        route to the default pose can clip a self-collision the guard won't
+        pass (routing around it is a planner's job, backlog). Cancelled by any
+        manual input / estop / dampening (all route through seq_stop)."""
+        if not self.home_active:
+            return
+        self.home_vel, remaining = self._glide(self.home_pose, self.home_vel, dt)
+        if remaining < 0.01:                                # arrived
+            self.home_vel = 0.0
+            self.home_active = False
+            self._home_stall = 0.0
+            self._home_prev = None
+            return
+        # not improving (guard reverts the step / clamped out of reach) -> quit
+        if self._home_prev is not None and self._home_prev - remaining < 1e-5:
+            self._home_stall += dt
+        else:
+            self._home_stall = 0.0
+        self._home_prev = remaining
+        if self._home_stall > 0.8:
+            self.home_active = False
+            self.home_vel = 0.0
+            self._home_stall = 0.0
+            self._home_prev = None
+
     def _seq_tick(self, dt):
         """Glide targ toward the active waypoint; advance when playing."""
         if not self.seq_active or self.seq_idx is None \
                 or self.seq_idx >= len(self.waypoints):
             return
         wp = self.waypoints[self.seq_idx]
-        remaining = float(np.max(np.abs(wp - self.targ)))
-        # trapezoidal speed profile: accelerate up to the cruise rate, but
-        # never go faster than we can still decelerate to a stop within the
-        # remaining distance (v <= sqrt(2*a*d)). Eases in and out of every
-        # waypoint move instead of constant-velocity hard starts/stops.
-        self.seq_vel = min(self.seq_rate, self.seq_vel + self.seq_accel * dt)
-        self.seq_vel = min(self.seq_vel,
-                           float(np.sqrt(2.0 * self.seq_accel * max(remaining, 0.0))))
-        step = self.seq_vel * dt
-        self.targ = np.clip(self.targ + np.clip(wp - self.targ, -step, step),
-                            self.lo, self.hi)
+        self.seq_vel, remaining = self._glide(wp, self.seq_vel, dt)
         if remaining < 0.01:                                # arrived
             self.seq_vel = 0.0
             if not self.seq_playing:
@@ -407,12 +531,18 @@ class RobotBridge:
             self._clear_one(arm)
 
     def home(self):
-        """Glide the target to the documented default pose (handled by the
-        position servos; the pose itself is the official safe default)."""
+        """Glide the target smoothly to the documented safe default pose with
+        the jerk-limited trapezoidal profile (same as the waypoint glides),
+        not an instant snap. Any manual input / estop / dampening cancels it."""
         if self.targ is None or self.estop:
             return
-        self.seq_stop()
-        self.targ = np.array(names.DEFAULT_POSE)
+        self.seq_stop()                # clears any seq / prior home glide
+        self.carry = False
+        self.clear_ik_target()         # don't let an IK target fight the glide
+        self.home_active = True
+        self.home_vel = 0.0
+        self._home_prev = None
+        self._home_stall = 0.0
 
     # -- periodic work (call at ~60 Hz from the server loop) -------------------
     def tick(self, dt, ui_attached):
@@ -432,8 +562,19 @@ class RobotBridge:
             elif self.overtemp and tmax < OVERTEMP_RELEASE_C:
                 self.overtemp = False
 
-        live = (ui_attached and not self.estop and not self.overtemp
-                and self.targ is not None and self.link.connected)
+        # contact reflex: while otherwise-live, an unexpected arm-torque spike
+        # latches a soft-stop. When not otherwise-live the baseline is dropped
+        # so a dampened arm settling can't false-trip on the next resume.
+        base_ok = (ui_attached and not self.estop and not self.overtemp
+                   and self.targ is not None and self.link.connected)
+        if self.contact_reflex and base_ok and not self.contact_tripped:
+            if self._contact_update(st.dof_torque(), st.dof_vel()):
+                self._trip_contact()
+        elif not base_ok:
+            self._tau_ref = None
+            self._contact_run = 0
+
+        live = base_ok and not self.contact_tripped
 
         if self.targ is not None:
             prev = self.targ.copy()
@@ -462,12 +603,13 @@ class RobotBridge:
                             if err < 0.003 or self._ik_stall[arm] > 0.8:
                                 self._clear_one(arm)         # arrived/stuck
                 self._seq_tick(dt)
+                self._home_tick(dt)
                 if not np.array_equal(self.targ, prev):
                     self._guard_ok(prev)
             else:
                 self.jog_vel[:] = 0        # not live: drop jog velocity
-                if self.seq_active:
-                    self.seq_stop()        # dampened: playback must not resume
+                if self.seq_active or self.home_active:
+                    self.seq_stop()        # dampened: autonomous motion must not resume
             deadman = (1, 1, 1) if live else (0, 0, 0)
             self.link.send_command(self.targ, deadman=deadman)
             self._last_tx = time.monotonic()
@@ -485,6 +627,7 @@ class RobotBridge:
             "estop": self.estop,
             "overtemp": self.overtemp,
             "live": (ui_attached and not self.estop and not self.overtemp
+                     and not self.contact_tripped
                      and self.targ is not None and self.link.connected),
             "q": st.dof_pos(),
             "dq": st.dof_vel(),
@@ -502,6 +645,10 @@ class RobotBridge:
                       "blocking": self.guard_blocking},
             "mirror": self.mirror,
             "carry": self.carry,
+            "homing": self.home_active,
+            "contact": {"on": self.contact_reflex,
+                        "tripped": self.contact_tripped,
+                        "joint": self.contact_joint},
             "tools": {a: {"name": self.tool_names.get(a, "flange"),
                           "offset_mm": [round(v * 1000, 1)
                                         for v in self.kin[a].tool]}
