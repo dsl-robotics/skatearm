@@ -56,7 +56,7 @@ Known limitation: AABB boxes overestimate the L-shaped wrist links, so hands "to
 - `demo_selfcollision.py` — hands-meet demo with the collision layer revealed mid-clip → GIF or MP4.
 - `telemetry_demo.py` — log sensors during the wave trajectory → tracking/torque/EE plot (+ optional CSV).
 - `make_cell_scene.py` — generate `skt_v3_cell.xml`: work table, base part (60×40×25 mm, 45 g, square 22 mm pocket as v1 bore stand-in), peg (Ø20×40, 12 g), accept/reject bins.
-- `primitives.py` — task-space primitives: `reach()` = closed-loop damped-least-squares IK on the 8-DoF arm chains, servoed through position actuators (physics stays honest, no qpos writes).
+- `primitives.py` — task-space primitives: `reach()` = closed-loop damped-least-squares IK on the 8-DoF arm chains, servoed through position actuators (physics stays honest, no qpos writes); optional gravity feed-forward (`reach(grav_ff=True)`, `mj_rne` at qvel=0) cancels the standing servo sag (30 → 1 mm, `test_gravity_ff.py`).
 - `demo_cell_reach.py` — Phase 1 demo: bimanual hover → descend → lift over the parts → GIF/MP4.
 - `demo_cell_pick.py` — Phase 1 demo: full bimanual pick & place (grasp → carry → place → release). The grasp is a **weld-constraint stand-in** (`primitives.grasp/release`): engaged at the part's current relative pose so nothing snaps; replaced by real gripper geometry once the hardware arrives.
 - `demo_cell_assemble.py` — Phase 1 capstone: full bimanual assembly (fixture + align + force-guarded insert + place). Insertion know-how documented in the script docstring: lateral-offset grasps, orientation-locked carries (`Arm.lock_orientation` + `ik_step6`), relative servoing, τ watchdog.

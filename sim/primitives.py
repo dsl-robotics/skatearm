@@ -9,10 +9,12 @@ whips and ~30 m/s^2 spikes at segment switches — measured).
 
 Controller notes (tried and rejected): integrating the IK update on d.ctrl
 winds up (servo whip); a qfrc_bias/kp feedforward includes Coriolis terms =
-positive velocity feedback (unstable). Plain P on qpos is stable; the
-steady-state gravity sag (~2 cm) is handled by the settle phase and is an
-accepted v1 limitation. Now available via reach(grav_ff=True): gravity-only feedforward via mj_rne
-(qvel=0, no Coriolis) applied to the hinge joints — cancels the standing sag.
+positive velocity feedback (unstable). Plain P on qpos is stable; the steady-state gravity sag is cancelled by
+reach(grav_ff=True): gravity-only feed-forward via mj_rne (qvel=0, so no
+Coriolis -> stable, unlike a qfrc_bias feedforward) applied to the hinge
+joints through qfrc_applied — measured 30 mm sag -> 1 mm, servo holding offset
+0.033 rad -> 0. The feed-forward is cleared on exit so it never leaks into a
+later (force-guarded) descent; free bodies (carried parts) still fall.
 """
 import mujoco
 import numpy as np
@@ -174,6 +176,8 @@ def reach(m, d, targets, seconds=4.0, settle_steps=4, tol=0.01, on_frame=None,
         if i >= n_move and tol and all(
                 np.linalg.norm(goals[s] - a.ee_pos()) < tol for s, a in arms.items()):
             break
+    if grav_ff:
+        d.qfrc_applied[:] = 0.0      # clear the feed-forward — never leak it on
     return {s: float(np.linalg.norm(goals[s] - a.ee_pos())) for s, a in arms.items()}
 
 
