@@ -131,6 +131,11 @@ class RobotBridge:
         self.seq_vel = 0.0                # current glide speed (trapezoidal)
         self.seq_dwell = 0.6              # s pause on each waypoint
         self._seq_wait = 0.0
+        self.seq_route = None            # planned route to the active waypoint
+        self.seq_route_idx = 0           # (None=plan needed, []=dwelling, [..]=following)
+        self.seq_route_verified = False  # route came from a successful plan (guard-safe)
+        self._seq_prev = None            # leg progress watch (stall give-up)
+        self._seq_stall = 0.0
         self._last_tx = None
         # home(): glide to the safe default pose with the SAME jerk-limited
         # trapezoidal profile as the waypoint glides — not an instant snap.
@@ -259,6 +264,8 @@ class RobotBridge:
         self.seq_playing = False
         self._seq_wait = 0.0
         self.seq_vel = 0.0
+        self.seq_route = None            # drop any in-progress leg route
+        self.seq_route_verified = False
         self.home_active = False         # a home glide is autonomous motion too
         self.home_vel = 0.0
         self._home_stall = 0.0
@@ -294,6 +301,7 @@ class RobotBridge:
             self.seq_idx = i
             self.seq_active = True
             self.seq_playing = False
+            self.seq_route = None              # plan this leg on the next tick
 
     def wp_play(self, loop=False):
         if self.waypoints and self.targ is not None and not self.estop:
@@ -302,6 +310,7 @@ class RobotBridge:
             self.seq_active = True
             self.seq_playing = True
             self._seq_wait = 0.0
+            self.seq_route = None              # plan each leg on the next tick
 
     def _glide(self, goal, vel, dt):
         """One jerk-limited trapezoidal step of ``targ`` toward ``goal``:
@@ -393,17 +402,15 @@ class RobotBridge:
             self.plan_vel = 0.0
 
     def _seq_tick(self, dt):
-        """Glide targ toward the active waypoint; advance when playing."""
+        """Glide targ to the active waypoint, routing AROUND a self-collision
+        when the straight leg is guard-blocked (same planner as home); advance
+        through the list when playing. ``seq_route``: None = plan this leg,
+        [] = dwelling at the reached waypoint, [..] = following the route."""
         if not self.seq_active or self.seq_idx is None \
                 or self.seq_idx >= len(self.waypoints):
             return
-        wp = self.waypoints[self.seq_idx]
-        self.seq_vel, remaining = self._glide(wp, self.seq_vel, dt)
-        if remaining < 0.01:                                # arrived
-            self.seq_vel = 0.0
-            if not self.seq_playing:
-                self.seq_active = False
-                return
+        # dwelling at a reached waypoint (playback) before the next leg
+        if self.seq_route is not None and len(self.seq_route) == 0:
             self._seq_wait += dt
             if self._seq_wait < self.seq_dwell:
                 return
@@ -411,11 +418,48 @@ class RobotBridge:
             nxt = self.seq_idx + 1
             if nxt >= len(self.waypoints):
                 if self.seq_loop:
-                    self.seq_idx = 0
+                    self.seq_idx, self.seq_route = 0, None
                 else:
                     self.seq_stop()
             else:
-                self.seq_idx = nxt
+                self.seq_idx, self.seq_route = nxt, None
+            return
+        # plan the leg the first time we head for this waypoint (a clear leg
+        # comes back as a 2-point straight line, a blocked one as a detour)
+        if self.seq_route is None:
+            path = self.plan_path(self.waypoints[self.seq_idx])
+            self.seq_route = ([np.asarray(p, dtype=float) for p in path[1:]]
+                              if path is not None and len(path) > 1
+                              else [np.asarray(self.waypoints[self.seq_idx],
+                                               dtype=float)])
+            self.seq_route_verified = path is not None      # guard-safe if planned
+            self.seq_route_idx = 0
+            self.seq_vel = 0.0
+            self._seq_prev = None
+            self._seq_stall = 0.0
+        sub = self.seq_route[self.seq_route_idx]
+        self.seq_vel, remaining = self._glide(sub, self.seq_vel, dt)
+        if remaining < 0.01:                                # route node reached
+            self.seq_vel = 0.0
+            self._seq_prev = None
+            self._seq_stall = 0.0
+            self.seq_route_idx += 1
+            if self.seq_route_idx < len(self.seq_route):
+                return                                      # next route node
+            if not self.seq_playing:                        # waypoint reached
+                self.seq_active = False
+                self.seq_route = None
+            else:
+                self.seq_route = []                         # enter the dwell
+            return
+        # a fallback (un-routable) leg that the guard keeps reverting gives up
+        if self._seq_prev is not None and self._seq_prev - remaining < 1e-5:
+            self._seq_stall += dt
+        else:
+            self._seq_stall = 0.0
+        self._seq_prev = remaining
+        if self._seq_stall > 0.8:
+            self.seq_stop()                                 # blocked leg -> stop
 
     # -- mirror mode -----------------------------------------------------------
     def _mirror_joint(self, idx):
@@ -679,7 +723,13 @@ class RobotBridge:
                 self._seq_tick(dt)
                 self._home_tick(dt)
                 self._plan_tick(dt)
-                if not np.array_equal(self.targ, prev):
+                # a planner route is already collision-verified at the guard's
+                # own resolution; re-checking it per-tick (at the finer glide
+                # step) only false-stalls on grazing corners. Guard only the
+                # un-verified moves (jog / slider / IK / give-up fallback).
+                verified = (self.plan_nodes is not None
+                            or (self.seq_route is not None and self.seq_route_verified))
+                if not np.array_equal(self.targ, prev) and not verified:
                     self._guard_ok(prev)
             else:
                 self.jog_vel[:] = 0        # not live: drop jog velocity
@@ -721,7 +771,8 @@ class RobotBridge:
             "mirror": self.mirror,
             "carry": self.carry,
             "homing": self.home_active or self.plan_nodes is not None,
-            "routing": self.plan_nodes is not None,
+            "routing": (self.plan_nodes is not None
+                        or (self.seq_route is not None and len(self.seq_route) > 1)),
             "contact": {"on": self.contact_reflex,
                         "tripped": self.contact_tripped,
                         "joint": self.contact_joint},

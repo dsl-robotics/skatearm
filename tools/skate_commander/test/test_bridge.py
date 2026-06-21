@@ -263,8 +263,51 @@ def test_contact_reflex():
     br.close()
 
 
+def test_seq_routes_around_collision():
+    """A waypoint move whose straight leg is guard-blocked makes the sequencer
+    plan a collision-free DETOUR to the waypoint (not a straight glide); a
+    clear leg stays a direct move. Pure logic, no sim. (End-to-end glide-
+    following through a real collision is covered by the home e2e + live.)"""
+    from skate_commander import planner
+    br = RobotBridge(sim_port=_free_port())
+    br.estop = False
+    n = br.home_pose.shape[0]
+    start = np.zeros(n)
+    br.targ = start.copy()
+    # forbidden when joint 11 is mid-range AND joint 9 is near zero; swinging
+    # joint 9 out opens a gap — mirrors the elbow/abduction self-collision
+    br.guard = lambda q: (0.3 < q[11] < 1.1) and (abs(q[9]) < 0.7)
+    cfree = lambda q: not br.guard(q)
+
+    # 1) a BLOCKED leg -> the sequencer plans a multi-node detour to the wp
+    wp = np.zeros(n); wp[11] = 1.5
+    br.waypoints = [wp]; br.wp_names = ["WP1"]
+    assert not planner._edge_clear(start, wp, cfree, 0.05), "straight leg must be blocked"
+    br.wp_goto(0)
+    br._seq_tick(1 / 60)                         # first tick plans the leg
+    assert br.seq_route is not None and len(br.seq_route) > 1, \
+        "a blocked leg must become a multi-node detour, not a straight glide"
+    for q in br.seq_route:
+        assert cfree(q), "every detour node must be collision-free"
+    assert np.allclose(br.seq_route[-1], wp), "the detour ends at the waypoint"
+    print(f"PASS sequencer plans a {len(br.seq_route)}-node detour for a blocked leg")
+
+    # 2) a CLEAR leg -> a direct (single-node) move, no detour
+    br.seq_stop()
+    br.targ = start.copy()
+    wp2 = np.zeros(n); wp2[8] = 0.5             # joint 8 is unobstructed
+    br.waypoints = [wp2]; br.wp_names = ["WP2"]
+    br.wp_goto(0)
+    br._seq_tick(1 / 60)
+    assert br.seq_route is not None and len(br.seq_route) == 1, \
+        "a clear leg should be a direct move"
+    print("PASS sequencer uses a direct move for a clear leg")
+    br.close()
+
+
 if __name__ == "__main__":
     test_home_glide_smooth()
     test_contact_reflex()
+    test_seq_routes_around_collision()
     test_bridge_full_cycle(); print("PASS test_bridge_full_cycle")
     test_cart_step_and_mirror()

@@ -975,7 +975,8 @@ function updateTop() {
   }
   const hc = $("chip-home");
   if (hc) {
-    hc.style.display = state.homing ? "" : "none";
+    const show = state.homing || state.routing;
+    hc.style.display = show ? "" : "none";
     hc.textContent = state.routing ? "ROUTING" : "HOMING";
     hc.className = "chip on";
   }
