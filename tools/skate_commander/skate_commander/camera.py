@@ -74,6 +74,14 @@ class CameraStreamer:
         self.cams = [self.m.camera(i).name for i in range(self.m.ncam)]
         self.has_work = WORK_CAMERA in self.cams
         self.cam = WORK_CAMERA if self.has_work else (self.cams[-1] if self.cams else None)
+        # scene geoms (table + objects) — to mask the robot's own body out of
+        # the work-camera cloud (clean reconstruction of the workspace only)
+        self._scene_geom_ids = []
+        for nm in ("table_top", "target_geom", "target2_geom"):
+            try:
+                self._scene_geom_ids.append(int(self.m.geom(nm).id))
+            except Exception:
+                pass
         self.get_qpos = get_qpos
         self.width, self.height, self.fps = width, height, fps
         self._jpeg = _solid_jpeg(width, height)
@@ -134,6 +142,22 @@ class CameraStreamer:
         if not isinstance(cloud, list):
             return {"error": cloud.get("error", "no cloud")}
         return {"cloud": cloud, "rgb": self._last_rgb, "cam": self._last_cam}
+
+    def _scene_mask(self, renderer, d):
+        """HxW bool: True where the work camera sees a SCENE geom (table /
+        objects), False on the robot's own body — so the cloud reconstructs the
+        workspace, not the arm. None when segmentation isn't available (then the
+        cloud is unfiltered, as before)."""
+        if not self._scene_geom_ids:
+            return None
+        try:
+            renderer.enable_segmentation_rendering()
+            renderer.update_scene(d, camera=WORK_CAMERA)
+            seg = renderer.render()
+            renderer.disable_segmentation_rendering()
+            return np.isin(seg[:, :, 0], self._scene_geom_ids)
+        except Exception:
+            return None
 
     def close(self):
         self._stop = True
@@ -196,9 +220,10 @@ class CameraStreamer:
                         renderer.update_scene(d, camera=WORK_CAMERA)
                         cdepth = renderer.render()
                         renderer.disable_depth_rendering()
+                        mask = self._scene_mask(renderer, d)
                         self._cloud_res = vision.depth_cloud(
                             cdepth, crgb, cpos, cmat, fovy,
-                            stride=stride, zmax=zmax).tolist()
+                            stride=stride, zmax=zmax, mask=mask).tolist()
                         self._last_rgb = crgb
                         self._last_cam = {"pos": cpos.tolist(),
                                           "mat": cmat.reshape(-1).tolist(),

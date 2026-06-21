@@ -69,6 +69,7 @@ body {
 /* status cluster — one bordered group: telemetry reads distinctly from actions */
 .status-cluster {
   display: flex; align-items: center; gap: 5px; padding: 5px 7px;
+  min-width: 0; flex-shrink: 1;
   border: 1px solid var(--line); border-radius: 99px;
   background: linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.008));
 }
@@ -82,6 +83,10 @@ body {
 .chip.on  { color: var(--ok);    background: var(--ok-soft); }
 .chip.bad { color: var(--bad);   background: var(--bad-soft); }
 .chip.warn{ color: var(--amber); background: var(--amber-soft); }
+@media (max-width: 940px) {
+  #topbar .chip { font-size: 0; padding: 4px; gap: 0; }
+  #topbar .chip::before { box-shadow: 0 0 6px currentColor; }
+}
 
 /* shared button base — subtle gradient, hairline, azure hover glow (site .btn) */
 button {
@@ -128,13 +133,13 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
 #dock { position: absolute; top: 14px; left: 14px; width: 196px; z-index: 6;
   padding: 13px 12px 12px; display: flex; flex-direction: column; gap: 12px; }
 .dock-sec { display: flex; flex-direction: column; gap: 7px; }
-.dock-lbl { font: 600 9px var(--mono); letter-spacing: .22em; color: var(--faint); padding-left: 2px; }
+.dock-lbl { font: 600 10px var(--mono); letter-spacing: .2em; color: var(--faint); padding-left: 2px; }
 .dock-row { display: flex; gap: 7px; }
 .tbtn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
   padding: 9px 4px 7px; color: var(--fg2); border-radius: 10px; }
 .tbtn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.7;
   stroke-linecap: round; stroke-linejoin: round; }
-.tbtn span { font: 600 9px var(--sans); letter-spacing: .04em; }
+.tbtn span { font: 600 10px var(--sans); letter-spacing: .04em; }
 .tbtn:hover { transform: translateY(-1px); }
 .tbtn.on { color: var(--accent-ink); border-color: var(--accent-lt);
   background: linear-gradient(180deg,#7cc4ff,#3aa0fa 55%,#2a8cee);
@@ -183,8 +188,8 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
   font-weight: 600; display: none; max-width: 86%;
   backdrop-filter: blur(8px); box-shadow: 0 6px 24px rgba(0,0,0,.35);
 }
-#banner.dampened { display: block; background: var(--bad-soft);
-  border: 1px solid rgba(244,86,76,.45); color: var(--bad); }
+#banner.dampened { display: block; background: var(--amber-soft);
+  border: 1px solid rgba(240,177,61,.45); color: var(--amber); }
 #banner.preview { display: block; background: var(--accent-soft);
   border: 1px solid rgba(56,160,255,.45); color: var(--accent); }
 
@@ -192,7 +197,7 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
 
 /* ============ camera PiP (rendered robot camera) ============ */
 #cam-pip {
-  position: absolute; right: 14px; bottom: 14px; width: 300px; z-index: 5;
+  position: absolute; right: 14px; bottom: 14px; width: 256px; z-index: 5;
   background: #0a0c0e; border: 1px solid var(--line2); border-radius: var(--r-lg);
   overflow: hidden; box-shadow: 0 16px 40px -18px rgba(0,0,0,.7); display: none;
 }
@@ -201,7 +206,10 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px;
   padding: 6px 9px; border-top: 1px solid var(--line-soft);
   font: 700 9.5px var(--mono); letter-spacing: .14em; color: var(--dim);
+  cursor: move;
 }
+#cam-bar button, #cam-bar select { cursor: pointer; }
+#cam-pip.dragging { box-shadow: 0 18px 46px -16px rgba(0,0,0,.85); opacity: .96; }
 #cam-bar select {
   flex: 1 1 120px; min-width: 110px; background: var(--panel2); color: var(--fg);
   border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px;
@@ -216,7 +224,7 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
   border: 2px solid #38e0ff; border-radius: 50%;
   box-shadow: 0 0 9px #38e0ff, inset 0 0 4px #38e0ff;
   display: none; pointer-events: none; }
-#cam-bar button { padding: 4px 7px; font: 700 9px var(--mono); letter-spacing: .04em; }
+#cam-bar button { padding: 5px 9px; font: 600 10px var(--sans); letter-spacing: .04em; border-radius: 8px; }
 #cam-detect { border-color: rgba(56,160,255,.5); color: var(--accent); }
 #cam-detect:hover { background: var(--accent-soft); }
 #cam-pick { border-color: rgba(63,196,99,.5); color: var(--ok); }
@@ -252,7 +260,7 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
 
 .panel-head {
   display: flex; align-items: baseline; justify-content: space-between;
-  padding: 12px 4px 8px;
+  padding: 12px 12px 8px;
   font-size: 10px; font-weight: 700; letter-spacing: .14em;
   color: var(--dim);
 }
@@ -277,7 +285,7 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
   background: var(--amber-soft); border: none; }
 .jrow:last-child { border-bottom: none; }
 .jrow:hover { background: rgba(255,255,255,.02); }
-.jname { font-size: 9px; color: var(--dim);
+.jname { font-size: 10px; color: var(--dim);
   font-family: var(--mono); line-height: 1.3;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jname b { display: block; color: var(--fg); font-size: 11.5px;

@@ -174,7 +174,7 @@ function setupGizmo() {
   // click a sphere to attach the gizmo; click elsewhere to detach
   const ray = new THREE.Raycaster();
   renderer.domElement.addEventListener("pointerdown", (e) => {
-    if (tc.dragging) return;
+    if (tc.dragging || overlaysOn()) return;   // no gizmo while overlays declutter the view
     const r = renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(
       ((e.clientX - r.left) / r.width) * 2 - 1,
@@ -734,7 +734,7 @@ function buildPanel() {
       <div class="jname" title="protocol index ${idx}"><b>${human}</b>${jname}</div>
       <button class="jlim" data-l="lo" title="Jump to the lower limit (guard permitting)">⇤</button>
       <button class="jbtn" data-d="-1">−</button>
-      <div class="jbar"><div class="jfill"></div><div class="jthumb"></div></div>
+      <div class="jbar" role="slider" tabindex="0" aria-label="${human}" aria-valuemin="${Math.round(lo*180/Math.PI)}" aria-valuemax="${Math.round(hi*180/Math.PI)}" aria-valuenow="0"><div class="jfill"></div><div class="jthumb"></div></div>
       <button class="jbtn" data-d="1">+</button>
       <button class="jlim" data-l="hi" title="Jump to the upper limit (guard permitting)">⇥</button>
       <div class="jval"><span class="ang">—</span><small class="sub">—</small></div>`;
@@ -764,9 +764,10 @@ function buildPanel() {
     const r = { fill: row.querySelector(".jfill"),
                 thumb: row.querySelector(".jthumb"),
                 ang: row.querySelector(".ang"),
-                sub: row.querySelector(".sub"), lo, hi, dragging: false };
+                sub: row.querySelector(".sub"), bar, lo, hi, dragging: false };
     if (locked) {
       bar.classList.add("disabled");
+      bar.tabIndex = -1; bar.setAttribute("aria-disabled", "true");
     } else {
       const valAt = (e) => {
         const rect = bar.getBoundingClientRect();
@@ -796,6 +797,22 @@ function buildPanel() {
       };
       bar.addEventListener("pointerup", end);
       bar.addEventListener("pointercancel", end);
+      bar.addEventListener("keydown", (e) => {
+        const step = (e.shiftKey ? 8 : 2) * Math.PI / 180;
+        const cur = (state && state.targ && state.targ[idx] != null)
+          ? state.targ[idx] : ((state && state.q && state.q[idx]) ?? lo);
+        let v = null;
+        if (e.key === "ArrowRight" || e.key === "ArrowUp") v = cur + step;
+        else if (e.key === "ArrowLeft" || e.key === "ArrowDown") v = cur - step;
+        else if (e.key === "Home") v = lo;
+        else if (e.key === "End") v = hi;
+        else return;
+        e.preventDefault();
+        v = Math.min(hi, Math.max(lo, v));
+        send({ type: "set_joint", idx, value: v });
+        r.thumb.style.left = `${(100 * (v - lo)) / (hi - lo)}%`;
+        bar.setAttribute("aria-valuenow", Math.round((v * 180) / Math.PI));
+      });
     }
     rows[idx] = r;
   }
@@ -934,6 +951,8 @@ function updatePanel() {
     if (!r.dragging && targ !== null && targ !== undefined)
       r.thumb.style.left = `${(100 * (targ - r.lo)) / span}%`;
     r.ang.textContent = deg(a);
+    if (r.bar) r.bar.setAttribute("aria-valuenow",
+      Math.round(((targ != null && targ !== undefined ? targ : a) * 180) / Math.PI));
     const tcls = t > 50 ? "temp-bad" : t > 40 ? "temp-warn" : "temp-ok";
     r.sub.className = "sub " + tcls;
     r.sub.textContent =
@@ -942,17 +961,17 @@ function updatePanel() {
 }
 
 // ---------------------------------------------------------------- top bar
-function chip(id, on, txtOn, txtOff, badWhenOff = true) {
+function chip(id, on, txtOn, txtOff, offClass = "bad") {
   const el = $(id);
   el.textContent = on ? txtOn : txtOff;
-  el.className = "chip " + (on ? "on" : badWhenOff ? "bad" : "");
+  el.className = "chip " + (on ? "on" : offClass);
 }
 
 function updateTop() {
   if (!state) return;
   chip("chip-link", state.connected, "LINK", "NO LINK");
-  chip("chip-armed", state.armed, "ARMED", "ARMING…", false);
-  chip("chip-live", state.live, "LIVE", "DAMPENED");
+  chip("chip-armed", state.armed, "ARMED", "ARMING…", "");
+  chip("chip-live", state.live, "LIVE", "DAMPENED", "warn");
   const gc = $("chip-guard");
   if (gc && state.guard) {
     gc.style.display = state.guard.on ? "" : "none";
@@ -1279,17 +1298,33 @@ async function buildDexCloud() {
   dexCloud.frustumCulled = false;
   scene.add(dexCloud);
 }
+
+// ---- overlay coordination: declutter when heavy overlays are shown --------
+// One heavy cloud at a time (DEX <-> PCL), and hide the drag-gizmo + wrist
+// handles while any overlay is up so the twin stays readable.
+function overlaysOn() { return pclOn || dexOn || graspOn; }
+function syncGizmo() {
+  const hide = overlaysOn();
+  for (const m of Object.values(markers)) m.visible = !hide;
+  if (hide && tc && tc.object) tc.detach();
+}
+
 if ($("btn-dex")) {
   $("btn-dex").onclick = async () => {
     if (PREVIEW || dexBusy) return;
     dexOn = !dexOn;
     $("btn-dex").classList.toggle("on", dexOn);
+    if (dexOn && pclOn) {                 // one heavy cloud at a time
+      pclOn = false; if (pclCloud) pclCloud.visible = false;
+      $("btn-pcl").classList.remove("on");
+    }
     if (dexOn && !dexCloud) {
       dexBusy = true; $("btn-dex").classList.add("busy");
       await buildDexCloud();
       $("btn-dex").classList.remove("busy"); dexBusy = false;
     }
     if (dexCloud) dexCloud.visible = dexOn;
+    syncGizmo();
   };
 }
 
@@ -1316,12 +1351,17 @@ if ($("btn-pcl")) {
     if (PREVIEW || pclBusy) return;
     pclOn = !pclOn;
     $("btn-pcl").classList.toggle("on", pclOn);
+    if (pclOn && dexOn) {                 // one heavy cloud at a time
+      dexOn = false; if (dexCloud) dexCloud.visible = false;
+      $("btn-dex").classList.remove("on");
+    }
     if (pclOn && !pclCloud) {
       pclBusy = true; $("btn-pcl").classList.add("busy");
       await buildPcl();
       $("btn-pcl").classList.remove("busy"); pclBusy = false;
     }
     if (pclCloud) pclCloud.visible = pclOn;
+    syncGizmo();
   };
 }
 
@@ -1352,6 +1392,45 @@ function selectedGraspId() {
   if (sel && sel.value !== "") return parseInt(sel.value);
   return graspObjs.length ? graspObjs[0].id : -1;
 }
+const GRASP_COLOUR = {
+  magenta: 0xe23bd0, red: 0xe5534b, orange: 0xfb8c00, yellow: 0xf4c430,
+  green: 0x43c463, cyan: 0x26c6da, blue: 0x4f86f7, purple: 0x9b59d0,
+  white: 0xe8e8ec, grey: 0x9aa3b2, black: 0x5a606c,
+};
+function objColour(g) {
+  return GRASP_COLOUR[g.colour] != null ? GRASP_COLOUR[g.colour] : 0x37c8ff;
+}
+function graspQuad(cornersMm, hex, opacity) {        // filled footprint (selected)
+  const v = cornersMm.map((p) => [p[0] / 1000, p[1] / 1000, p[2] / 1000]);
+  const pos = [...v[0], ...v[1], ...v[2], ...v[0], ...v[2], ...v[3]];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: hex, transparent: true, opacity, side: THREE.DoubleSide,
+    depthWrite: false, depthTest: false }));
+  m.renderOrder = 5;
+  return m;
+}
+function makeLabel(text, hex, bright) {              // floating 3D text sprite
+  const cv = document.createElement("canvas"), ctx = cv.getContext("2d");
+  const font = "bold 42px Inter, system-ui, sans-serif";
+  ctx.font = font;
+  cv.width = Math.ceil(ctx.measureText(text).width) + 48; cv.height = 68;
+  ctx.font = font; ctx.textBaseline = "middle";
+  ctx.fillStyle = bright ? "rgba(10,12,16,0.88)" : "rgba(10,12,16,0.5)";
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = "#" + (hex >>> 0).toString(16).padStart(6, "0");
+  if (!bright) ctx.globalAlpha = 0.65;
+  ctx.fillText(text, 24, cv.height / 2 + 2);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.minFilter = THREE.LinearFilter;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthTest: false, depthWrite: false }));
+  spr.renderOrder = 8;
+  const h = bright ? 0.05 : 0.042;
+  spr.scale.set(h * cv.width / cv.height, h, 1);
+  return spr;
+}
 function drawGraspObjs() {
   clearGrasp();
   if (!graspObjs.length) return;
@@ -1359,11 +1438,16 @@ function drawGraspObjs() {
   const grp = new THREE.Group();
   for (const g of graspObjs) {
     const on = g.id === selId;
-    const accent = !g.feasible ? 0xff8a3d : on ? 0x37c8ff : 0x70798a;
+    const col = objColour(g);
+    const jaw = g.feasible ? col : 0xff8a3d;        // amber jaws if too wide
     const f = g.footprint, c = g.center_mm;
-    grp.add(graspLine([f[0], f[1], f[2], f[3], f[0]], accent, on ? 0.9 : 0.4));
-    grp.add(graspLine([g.jaws[0], g.jaws[1]], accent, on ? 1.0 : 0.45));
-    grp.add(graspLine([c, [c[0], c[1], c[2] + 95]], accent, on ? 0.7 : 0.3));
+    if (on) grp.add(graspQuad(f, col, 0.16));
+    grp.add(graspLine([f[0], f[1], f[2], f[3], f[0]], col, on ? 0.95 : 0.4));
+    grp.add(graspLine([g.jaws[0], g.jaws[1]], jaw, on ? 1.0 : 0.5));
+    grp.add(graspLine([c, [c[0], c[1], c[2] + 95]], col, on ? 0.7 : 0.3));
+    const lab = makeLabel(g.label + (g.feasible ? "" : " · wide"), col, on);
+    lab.position.set(c[0] / 1000, c[1] / 1000, (c[2] + 150) / 1000);
+    grp.add(lab);
   }
   scene.add(grp);
   graspViz = grp;
@@ -1406,6 +1490,45 @@ if ($("btn-grasp")) {
       $("btn-grasp").classList.remove("busy"); graspBusy = false;
       if (!ok) { graspOn = false; $("btn-grasp").classList.remove("on"); }
     } else clearGrasp();
+    syncGizmo();
   };
 }
 if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); };
+
+
+// ---- cam PiP: draggable by its bar so it doesn't cover the twin -----------
+(function makePipDraggable() {
+  const pip = $("cam-pip"), bar = $("cam-bar");
+  if (!pip || !bar) return;
+  let drag = null;
+  bar.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button, select, option")) return;   // leave controls alone
+    const r = pip.getBoundingClientRect();
+    const par = pip.offsetParent ? pip.offsetParent.getBoundingClientRect()
+                                 : { left: 0, top: 0 };
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, par };
+    pip.style.right = "auto"; pip.style.bottom = "auto";
+    pip.style.left = (r.left - par.left) + "px";
+    pip.style.top = (r.top - par.top) + "px";
+    pip.classList.add("dragging");
+    try { bar.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  });
+  bar.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const par = pip.offsetParent;
+    const maxX = (par ? par.clientWidth : window.innerWidth) - pip.offsetWidth - 4;
+    const maxY = (par ? par.clientHeight : window.innerHeight) - pip.offsetHeight - 4;
+    const x = e.clientX - drag.dx - drag.par.left;
+    const y = e.clientY - drag.dy - drag.par.top;
+    pip.style.left = Math.max(4, Math.min(x, maxX)) + "px";
+    pip.style.top = Math.max(4, Math.min(y, maxY)) + "px";
+  });
+  const end = (e) => {
+    if (!drag) return;
+    drag = null; pip.classList.remove("dragging");
+    try { bar.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  bar.addEventListener("pointerup", end);
+  bar.addEventListener("pointercancel", end);
+})();

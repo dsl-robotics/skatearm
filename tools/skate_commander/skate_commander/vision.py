@@ -32,12 +32,15 @@ def backproject(u, v, z0, cam_pos, cam_mat, f, cx, cy):
     return cam_pos + t * dw
 
 
-def depth_cloud(depth, rgb, cam_pos, cam_mat, fovy_deg, stride=5, zmax=0.75):
+def depth_cloud(depth, rgb, cam_pos, cam_mat, fovy_deg, stride=5, zmax=0.75,
+                mask=None):
     """Back-project a rendered depth image to a world point cloud, coloured by
     the matching RGB pixel. ``depth`` is MuJoCo's camera-frame depth (metres
     along -z). Returns an (M, 6) array of [x, y, z, r, g, b] (rgb in [0, 1]),
     downsampled by ``stride`` and clipped to ``zmax`` metres (drops the far
-    background / floor). Same camera model as project/backproject."""
+    background / floor). ``mask`` (HxW bool) keeps only its True pixels -- used
+    to drop the robot's own body so the cloud reconstructs the workspace. Same
+    camera model as project/backproject."""
     H, W = depth.shape[:2]
     f, cx, cy = intrinsics(fovy_deg, W, H)
     cam_pos = np.asarray(cam_pos, float).reshape(3)
@@ -46,6 +49,8 @@ def depth_cloud(depth, rgb, cam_pos, cam_mat, fovy_deg, stride=5, zmax=0.75):
     uu = uu.ravel(); vv = vv.ravel()
     D = depth[vv, uu]
     keep = (D > 0.05) & (D < zmax)
+    if mask is not None:
+        keep &= np.asarray(mask)[vv, uu]
     uu, vv, D = uu[keep], vv[keep], D[keep]
     xn = (uu - cx) / f
     yn = (cy - vv) / f

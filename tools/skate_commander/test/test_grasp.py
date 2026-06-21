@@ -12,7 +12,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from skate_commander import grasp, detect  # noqa: E402
+from skate_commander import grasp, detect, vision  # noqa: E402
 
 # the generated scene: table top at z=-0.08, magenta cube top at z=-0.03
 WS = (-0.14, 0.24, 0.18, 0.50)             # work-surface AABB (x0,x1,y0,y1)
@@ -164,6 +164,21 @@ def test_plan_grasps_multi_object():
     print(f"PASS plan_grasps multi: 2 objects ({cols}), leg dropped, ranked")
 
 
+def test_depth_cloud_mask_drops_points():
+    # the PCL self-filter passes a keep-mask to vision.depth_cloud so the
+    # robot's own pixels are dropped; here a left-half mask keeps ~half the cloud
+    H, W = 48, 64
+    depth = np.full((H, W), 0.4)               # all in range (0.05..zmax)
+    rgb = np.zeros((H, W, 3), np.uint8)
+    cam_pos, cam_mat = np.array([0.0, 0.0, 0.5]), np.eye(3)
+    full = vision.depth_cloud(depth, rgb, cam_pos, cam_mat, 55, stride=2)
+    mask = np.zeros((H, W), bool); mask[:, : W // 2] = True
+    half = vision.depth_cloud(depth, rgb, cam_pos, cam_mat, 55, stride=2, mask=mask)
+    assert len(full) > 0 and 0 < len(half) < len(full)
+    assert abs(len(half) - len(full) / 2) <= 0.12 * len(full)
+    print(f"PASS depth_cloud mask: {len(full)} -> {len(half)} pts (~half kept)")
+
+
 if __name__ == "__main__":
     test_segment_plane_keeps_object()
     test_grasp_center_recovers_truth()
@@ -174,4 +189,5 @@ if __name__ == "__main__":
     test_picks_largest_of_two()
     test_selects_flat_object_over_limb()
     test_plan_grasps_multi_object()
+    test_depth_cloud_mask_drops_points()
     print("GRASP OK")
