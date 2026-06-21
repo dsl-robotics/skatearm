@@ -25,7 +25,7 @@ from fastapi.responses import (FileResponse, JSONResponse, PlainTextResponse,
 from fastapi.staticfiles import StaticFiles
 
 from .bridge import RobotBridge
-from .kinematics import ArmKinematics
+from .kinematics import ArmKinematics, reach_map
 from .program import PoseRecorder, ProgramRunner
 from .urdf import joint_limits, parse_urdf
 from . import camera, ibvs, nl, vision
@@ -213,6 +213,7 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     app.state.runner = runner
     app.state.tools = tools
     app.state.clients = 0
+    app.state.reachmap = {}                 # cached dexterity clouds per arm
 
     def _cam_qpos():
         try:
@@ -237,6 +238,19 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     @app.get("/api/model")
     async def api_model():
         return JSONResponse(model)
+
+    @app.get("/api/reachmap")
+    def api_reachmap(arm: str = "right", n: int = 3000):
+        """Manipulability heat-map: a dexterity point cloud over the arm's
+        reachable workspace — [[x, y, z, manip], ...], manip in [0, 1] (0 =
+        singular, 1 = isotropic). Computed once per arm and cached. Sync `def`
+        so the ~1.5 s sample runs in FastAPI's threadpool, not the event loop."""
+        n = max(200, min(int(n), 6000))
+        key = f"{arm}:{n}"
+        if arm in kin and key not in app.state.reachmap:
+            app.state.reachmap[key] = reach_map(
+                kin[arm], np.array(names.DEFAULT_POSE, dtype=float), n=n)
+        return JSONResponse({"arm": arm, "points": app.state.reachmap.get(key, [])})
 
     @app.get("/api/sequences")
     async def api_sequences():

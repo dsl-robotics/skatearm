@@ -12,7 +12,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from skate_commander.kinematics import ArmKinematics  # noqa: E402
+from skate_commander.kinematics import ArmKinematics, reach_map  # noqa: E402
 from skate_commander.urdf import parse_urdf           # noqa: E402
 
 SKT = Path(os.environ.get("SKT_DIR", "/tmp/skate_teleop/skt_v3"))
@@ -142,7 +142,31 @@ def test_posture_hold_no_winding():
               f"{np.degrees(free):.1f} deg (free)")
 
 
+def test_fast_jacobian_and_reach_map():
+    """Geometric fast Jacobian == numeric central-diff one, and reach_map
+    returns a sane dexterity cloud. Pure numpy — no mujoco needed."""
+    if not (SKT / "skt_v3.urdf").exists():
+        print("SKIP: no URDF"); return
+    model = parse_urdf(SKT / "skt_v3.urdf")
+    kin = ArmKinematics(model, "right")
+    base = np.zeros(26)
+    rng = np.random.default_rng(0)
+    for _ in range(20):
+        q = base.copy(); q[kin.idx] = rng.uniform(kin.lo, kin.hi)
+        p_f, J_f = kin._fk_jac_fast(q)
+        assert np.max(np.abs(p_f - kin.fk(q))) < 1e-9, "fast FK must match"
+        assert np.max(np.abs(J_f - kin.jacobian(q))) < 1e-6, "fast Jacobian must match numeric"
+        assert abs(kin.manipulability_fast(q) - kin.manipulability(q)) < 1e-6
+    pts = reach_map(kin, base, n=800, seed=1)
+    assert len(pts) == 800
+    m = np.array([p[3] for p in pts])
+    assert 0.0 <= m.min() and m.max() <= 1.0 and m.mean() > 0.05, "manip in [0,1], non-degenerate"
+    print(f"PASS fast-Jacobian == numeric (~1e-6); reach_map {len(pts)} pts, "
+          f"manip mean {m.mean():.2f}")
+
+
 if __name__ == "__main__":
+    test_fast_jacobian_and_reach_map()
     test_fk_matches_mujoco_and_ik_converges()
     test_tool_offset_tracks_mujoco()
     test_posture_hold_no_winding()

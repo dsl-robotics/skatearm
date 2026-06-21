@@ -1223,3 +1223,51 @@ function startPlayback() {
     connectWS();
   }
 })();
+
+
+// ---- manipulability heat-map (dexterity cloud) --------------------------
+// A point cloud over each arm's reachable workspace, coloured by
+// manipulability (reciprocal Jacobian condition number): blue = near-singular,
+// warm = isotropic/dexterous. Fetched once from /api/reachmap, then toggled.
+let dexCloud = null, dexOn = false, dexBusy = false;
+function manipColor(t) {                    // t in [0,1] -> cold..hot
+  t = Math.max(0, Math.min(1, t));
+  const stops = [[0.13, 0.20, 0.60], [0.00, 0.62, 0.78], [0.22, 0.80, 0.35],
+                 [0.96, 0.85, 0.22], [0.92, 0.28, 0.18]];
+  const x = t * (stops.length - 1), i = Math.min(Math.floor(x), stops.length - 2),
+        f = x - i, a = stops[i], b = stops[i + 1];
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+}
+async function buildDexCloud() {
+  const pos = [], col = [];
+  for (const arm of ["left", "right"]) {
+    const r = await fetch(`/api/reachmap?arm=${arm}&n=2500`).then(x => x.json()).catch(() => null);
+    if (!r || !r.points) continue;
+    for (const p of r.points) {
+      pos.push(p[0], p[1], p[2]);
+      const c = manipColor(p[3] / 0.45);    // 0.45 ~ top of the manip range
+      col.push(c[0], c[1], c[2]);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  dexCloud = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.013, vertexColors: true, transparent: true, opacity: 0.85,
+    sizeAttenuation: true, depthWrite: false }));
+  dexCloud.frustumCulled = false;
+  scene.add(dexCloud);
+}
+if ($("btn-dex")) {
+  $("btn-dex").onclick = async () => {
+    if (PREVIEW || dexBusy) return;
+    dexOn = !dexOn;
+    $("btn-dex").classList.toggle("on", dexOn);
+    if (dexOn && !dexCloud) {
+      dexBusy = true; $("btn-dex").classList.add("busy");
+      await buildDexCloud();
+      $("btn-dex").classList.remove("busy"); dexBusy = false;
+    }
+    if (dexCloud) dexCloud.visible = dexOn;
+  };
+}

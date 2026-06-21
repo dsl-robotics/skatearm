@@ -109,6 +109,38 @@ class ArmKinematics:
         s = np.linalg.svd(self.jacobian(q26), compute_uv=False)
         return float(s[-1] / s[0]) if s[0] > 1e-12 else 0.0
 
+    def _fk_jac_fast(self, q26):
+        """One forward pass returning (TCP position, 3x7 position Jacobian wrt
+        this arm's joints) via the geometric (axis x lever) Jacobian — ~15x
+        cheaper than the central-difference jacobian(), for bulk manipulability
+        sampling (matches it to ~1e-6)."""
+        x = np.zeros(3)
+        R = np.eye(3)
+        axes, origins = [], []
+        for j in self.chain:
+            x = x + R @ np.asarray(j["xyz"])
+            Rfix = _rpy(*j["rpy"])
+            if j["index"] is not None:
+                if j["index"] in self.idx:
+                    ax = np.asarray(j["axis"], float)
+                    axes.append((R @ Rfix) @ (ax / np.linalg.norm(ax)))
+                    origins.append(x.copy())
+                Rj = Rfix @ _axis_rot(j["axis"], q26[j["index"]])
+            else:
+                Rj = Rfix
+            R = R @ Rj
+        p = x + R @ self.tool
+        J = np.zeros((3, len(self.idx)))
+        for k in range(len(axes)):
+            J[:, k] = np.cross(axes[k], p - origins[k])
+        return p, J
+
+    def manipulability_fast(self, q26):
+        """Same metric as manipulability() but one FK pass (geometric J)."""
+        _, J = self._fk_jac_fast(q26)
+        s = np.linalg.svd(J, compute_uv=False)
+        return float(s[-1] / s[0]) if s[0] > 1e-12 else 0.0
+
     def ik_step(self, q26, target, lam=0.05, step_m=0.04, dq_max=0.06,
                 q_ref=None, k_null=0.15):
         """One DLS step toward ``target`` (world, meters).
@@ -144,3 +176,27 @@ class ArmKinematics:
         for k, i in enumerate(self.idx):
             q[i] = np.clip(q[i] + dq[k], self.lo[k], self.hi[k])
         return q, err
+
+
+def reach_map(kin, base, n=3000, guard=None, seed=0):
+    """Sample ``n`` configs of one arm (its joints uniform in [lo, hi], every
+    other joint held at ``base``), forward-kinematic each to the TCP and score
+    **manipulability** (reciprocal Jacobian condition number, 0 = singular,
+    1 = isotropic). Self-colliding samples are dropped when a ``guard(q26)``
+    is supplied. Returns ``[[x, y, z, manip], ...]`` — a dexterity point cloud
+    over the arm's reachable workspace (the 'manipulability heat-volume')."""
+    rng = np.random.default_rng(seed)
+    base = np.asarray(base, dtype=float)
+    lo = np.asarray(kin.lo, dtype=float)
+    hi = np.asarray(kin.hi, dtype=float)
+    pts = []
+    for _ in range(n):
+        q = base.copy()
+        q[kin.idx] = rng.uniform(lo, hi)
+        if guard is not None and guard(q):
+            continue
+        p, J = kin._fk_jac_fast(q)
+        s = np.linalg.svd(J, compute_uv=False)
+        manip = float(s[-1] / s[0]) if s[0] > 1e-12 else 0.0
+        pts.append([float(p[0]), float(p[1]), float(p[2]), manip])
+    return pts
