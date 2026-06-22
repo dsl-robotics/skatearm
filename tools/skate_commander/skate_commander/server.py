@@ -303,6 +303,26 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                           cam=sc.get("cam"))
         return JSONResponse(res)
 
+    @app.get("/api/preview")
+    def api_preview(action: str = "home"):
+        """Preview a commanded motion WITHOUT executing — returns the target
+        TCP(s) so the cockpit can draw a ghost + require approval before the move
+        runs (MoveIt-Pro-style 'show intent before action')."""
+        if action != "home":
+            return JSONResponse({"error": "unknown action"})
+        base = (bridge.targ if bridge.targ is not None
+                else np.array(names.DEFAULT_POSE, dtype=float))
+        goal = np.array(base, dtype=float)
+        goal[8:] = np.array(names.DEFAULT_POSE, dtype=float)[8:]   # arms+head home
+        tcp = {}
+        for arm, k in bridge.kin.items():
+            try:
+                p = k.fk(goal)
+                tcp[arm] = [round(float(v), 5) for v in p]
+            except Exception:
+                pass
+        return JSONResponse({"action": "home", "tcp": tcp})
+
     @app.get("/api/sequences")
     async def api_sequences():
         if not SEQ_DIR.exists():

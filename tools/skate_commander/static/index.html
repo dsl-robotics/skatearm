@@ -14,13 +14,14 @@
 </head>
 <body>
   <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.13</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.14</em></div>
     <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
     </div>
     <div class="status-cluster" role="status" aria-live="polite">
       <div class="chip" id="chip-link" title="Robot/sim link over the UDP wire — the browser↔server connection is shown by the banner">LINK</div>
+      <div class="chip" id="chip-lat" title="Link latency — time since the last telemetry update from the server" style="display:none"></div>
       <div class="chip" id="chip-armed">ARMED</div>
       <div class="chip" id="chip-live">DAMPENED</div>
       <div class="chip" id="chip-temp">TEMP</div>
@@ -41,7 +42,9 @@
   <div id="main">
     <div id="viewport">
       <div id="banner"></div>
+      <div id="approve-bar"><span id="approve-text"></span><button id="approve-go">✓ Approve</button><button id="approve-cancel">✕ Cancel</button></div>
       <div class="overlay" id="overlay"></div>
+      <div id="overlay-hint"></div>
       <div id="dock" class="frame">
         <div class="dock-sec">
           <div class="dock-lbl">CAMERA</div>
@@ -57,7 +60,7 @@
           </div>
         </div>
         <div class="dock-sec">
-          <div class="dock-lbl">OVERLAYS</div>
+          <button class="dock-lbl dock-lbl-btn" id="btn-layers" title="Layer visibility + opacity">OVERLAYS<span class="lbl-caret"> ▸</span></button>
           <div class="dock-row">
             <button id="btn-dex" class="tbtn" title="Manipulability heat-map — a dexterity cloud over the reachable workspace (blue = near-singular, warm = isotropic). First toggle samples it (~2 s)."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/></svg><span>DEX</span></button>
             <button id="btn-pcl" class="tbtn" title="Work-camera point cloud — what the work camera sees, depth-back-projected to a coloured 3D cloud in the twin. First toggle renders it."><svg viewBox="0 0 24 24"><circle cx="7" cy="8" r="1.3"/><circle cx="12.5" cy="6" r="1.3"/><circle cx="17" cy="9" r="1.3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="14" r="1.3"/><circle cx="11.5" cy="18" r="1.3"/></svg><span>PCL</span></button>
@@ -75,6 +78,17 @@
             <button id="btn-carry" class="tbtn amber" title="Dual-arm carry: both wrists hold one object and move together (preserving their separation)"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg><span>CARRY</span></button>
           </div>
         </div>
+        <div id="layers-pop" class="layers-pop" style="display:none">
+          <div class="cp-head">OVERLAY LAYERS</div>
+          <div class="presets">
+            <button data-preset="clean">Clean</button><button data-preset="pick">Pick</button>
+            <button data-preset="inspect">Inspect</button><button data-preset="reach">Reach</button>
+          </div>
+          <div class="lyr" data-ov="trace"><button class="eye" title="toggle">●</button><span>Traces</span></div>
+          <div class="lyr" data-ov="dex"><button class="eye" title="toggle">●</button><span>Dexterity</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Dexterity opacity"></div>
+          <div class="lyr" data-ov="pcl"><button class="eye" title="toggle">●</button><span>Point cloud</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Point cloud opacity"></div>
+          <div class="lyr" data-ov="grasp"><button class="eye" title="toggle">●</button><span>Grasps</span></div>
+        </div>
         <div id="carry-pad" class="carry-pop" style="display:none">
           <div class="cp-head">CARRY · MOVE OBJECT</div>
           <div class="cp-grid">
@@ -91,6 +105,7 @@
           <div id="cam-mark"></div>
         </div>
         <div id="cam-bar">
+          <button id="cam-expand" title="Expand the camera (ego + exo, side by side)">⤢</button>
           <select id="cam-sel"></select>
           <button id="cam-detect" title="Find the workspace target with the camera">⌖ DETECT</button>
           <button id="cam-pick" title="Detect, then run a right-arm pick (needs RESUME)">▶ PICK</button>

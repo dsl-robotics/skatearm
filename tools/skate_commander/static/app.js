@@ -969,7 +969,21 @@ function chip(id, on, txtOn, txtOff, offClass = "bad") {
 
 function updateTop() {
   if (!state) return;
+  const vp = $("viewport");
+  if (vp) {
+    vp.classList.toggle("cue-estop", !!state.estop);
+    vp.classList.toggle("cue-dampened", !state.estop && !state.live);
+    vp.classList.toggle("cue-live", !state.estop && !!state.live);
+  }
   chip("chip-link", state.connected, "LINK", "NO LINK");
+  const lat = $("chip-lat");
+  if (lat) {
+    if (wsOnline && frameMs) {
+      lat.style.display = "";
+      lat.textContent = Math.round(frameMs) + "ms";
+      lat.className = "chip " + (frameMs > 260 ? "bad" : frameMs > 120 ? "warn" : "");
+    } else lat.style.display = "none";
+  }
   chip("chip-armed", state.armed, "ARMED", "ARMING…", "");
   chip("chip-live", state.live, "LIVE", "DAMPENED", "warn");
   const gc = $("chip-guard");
@@ -1043,7 +1057,42 @@ function updateTop() {
 
 $("btn-estop").onclick = () =>
   send({ type: state && state.estop ? "resume" : "estop" });
-$("btn-home").onclick = () => send({ type: "home" });
+let previewViz = null, previewPending = null;
+function clearPreview() {
+  if (previewViz) { scene.remove(previewViz); previewViz = null; }
+  previewPending = null;
+  if ($("approve-bar")) $("approve-bar").style.display = "none";
+}
+function showHomePreview(d) {
+  if (previewViz) scene.remove(previewViz);
+  const grp = new THREE.Group();
+  for (const arm in (d.tcp || {})) {
+    const t = d.tcp[arm];
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.032, 18, 18),
+      new THREE.MeshBasicMaterial({ color: 0x3fc463, transparent: true, opacity: 0.4, depthTest: false }));
+    s.position.set(t[0], t[1], t[2]); s.renderOrder = 7; grp.add(s);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.042, 0.052, 28),
+      new THREE.MeshBasicMaterial({ color: 0x3fc463, transparent: true, opacity: 0.75,
+        side: THREE.DoubleSide, depthTest: false }));
+    ring.position.set(t[0], t[1], t[2]); ring.renderOrder = 7; grp.add(ring);
+  }
+  scene.add(grp); previewViz = grp; previewPending = "home";
+  if ($("approve-text")) $("approve-text").textContent = "HOME — glide arms to the safe pose";
+  if ($("approve-bar")) $("approve-bar").style.display = "flex";
+}
+$("btn-home").onclick = async () => {
+  if (PREVIEW || previewPending) return;
+  try {
+    const d = await fetch("/api/preview?action=home").then((r) => r.json());
+    if (d && d.tcp && Object.keys(d.tcp).length) showHomePreview(d);
+    else send({ type: "home" });
+  } catch (_) { send({ type: "home" }); }
+};
+if ($("approve-go")) $("approve-go").onclick = () => {
+  if (previewPending === "home") send({ type: "home" });
+  clearPreview();
+};
+if ($("approve-cancel")) $("approve-cancel").onclick = clearPreview;
 if ($("chip-contact"))
   $("chip-contact").onclick = () => send({ type: "reset_contact" });
 $("btn-mirror").onclick = () =>
@@ -1083,6 +1132,7 @@ if (!PREVIEW && $("btn-cam")) {
       sel.appendChild(o);
     }
     if (!(d.cameras && d.cameras.length)) $("btn-cam").disabled = true;
+    updateCamActions();
   }).catch(() => ($("btn-cam").disabled = true));
   $("btn-cam").onclick = () => {
     camOn = !camOn;
@@ -1099,8 +1149,15 @@ if (!PREVIEW && $("btn-cam")) {
       mark.style.display = "block";
     } else mark.style.display = "none";
   };
-  const toWork = () => { sel.value = "cam_work"; if (camOn) start(); };
-  sel.onchange = () => { showMark(null); if (camOn) start(); };
+  const updateCamActions = () => {                 // pick actions only on the work camera
+    const work = sel.value === "cam_work";
+    for (const id of ["cam-detect", "cam-pick", "cam-servo", "cam-smart"])
+      if ($(id)) $(id).style.display = work ? "" : "none";
+    if (!work && $("cam-obj")) $("cam-obj").style.display = "none";
+  };
+  const toWork = () => { sel.value = "cam_work"; updateCamActions(); if (camOn) start(); };
+  sel.onchange = () => { showMark(null); updateCamActions(); if (camOn) start(); };
+  if ($("cam-expand")) $("cam-expand").onclick = () => pip.classList.toggle("big");
   $("cam-detect").onclick = async () => {
     toWork();
     info.textContent = "detecting…";
@@ -1187,7 +1244,11 @@ for (const tab of document.querySelectorAll("#tabs div")) {
 }
 
 // ---------------------------------------------------------------- data in
+let lastFrame = 0, frameMs = 0;        // link latency (telemetry freshness)
 function onState(s) {
+  const _n = performance.now();
+  if (lastFrame) frameMs = frameMs ? frameMs * 0.8 + (_n - lastFrame) * 0.2 : (_n - lastFrame);
+  lastFrame = _n;
   const modeChanged = state && state.mode !== s.mode;
   state = s;
   setAngles(s.q || s.targ);
@@ -1303,10 +1364,20 @@ async function buildDexCloud() {
 // One heavy cloud at a time (DEX <-> PCL), and hide the drag-gizmo + wrist
 // handles while any overlay is up so the twin stays readable.
 function overlaysOn() { return pclOn || dexOn || graspOn; }
+function setOverlayHint() {
+  const el = $("overlay-hint"); if (!el) return;
+  const parts = [];
+  if (dexOn) parts.push("DEX — reach dexterity · warm = agile, blue = near-singular");
+  if (pclOn) parts.push("PCL — work-camera depth → 3D points");
+  if (graspOn) parts.push("GRASP — synthesised top-down grasps · azure = selected");
+  el.textContent = parts.join("      ·      ");
+  el.style.display = parts.length ? "block" : "none";
+}
 function syncGizmo() {
   const hide = overlaysOn();
   for (const m of Object.values(markers)) m.visible = !hide;
   if (hide && tc && tc.object) tc.detach();
+  setOverlayHint();
 }
 
 if ($("btn-dex")) {
@@ -1531,4 +1602,58 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
   };
   bar.addEventListener("pointerup", end);
   bar.addEventListener("pointercancel", end);
+})();
+
+
+
+// ---- overlay layer-tree: eye + opacity per overlay, in one place ---------
+(function layersPanel() {
+  const pop = $("layers-pop"), btn = $("btn-layers");
+  if (!pop || !btn) return;
+  const OVL = { trace: "btn-trace", dex: "btn-dex", pcl: "btn-pcl", grasp: "btn-grasp" };
+  const refresh = () => {
+    for (const r of pop.querySelectorAll(".lyr")) {
+      const b = $(OVL[r.dataset.ov]);
+      r.classList.toggle("on", !!(b && b.classList.contains("on")));
+    }
+  };
+  const setOpacity = (ov, f) => {
+    if (ov === "pcl" && pclCloud) { pclCloud.material.transparent = true; pclCloud.material.opacity = f; }
+    if (ov === "dex" && dexCloud) { dexCloud.material.transparent = true; dexCloud.material.opacity = f; }
+  };
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const show = pop.style.display === "none" || !pop.style.display;
+    pop.style.display = show ? "block" : "none";
+    if (show) refresh();
+  };
+  for (const r of pop.querySelectorAll(".lyr")) {
+    const ov = r.dataset.ov;
+    const eye = r.querySelector(".eye");
+    if (eye) eye.onclick = () => { const b = $(OVL[ov]); if (b) b.click(); setTimeout(refresh, 40); };
+    const opa = r.querySelector(".opa");
+    if (opa) opa.oninput = (e) => setOpacity(ov, e.target.value / 100);
+  }
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#layers-pop") && !btn.contains(e.target)) pop.style.display = "none";
+  });
+})();
+
+
+
+// ---- view presets: one-click task layouts (overlay combinations) --------
+(function viewPresets() {
+  const setOv = (id, want) => {
+    const b = $(id);
+    if (b && b.classList.contains("on") !== want) b.click();
+  };
+  const P = {
+    clean:   { "btn-trace": false, "btn-dex": false, "btn-pcl": false, "btn-grasp": false },
+    pick:    { "btn-cam": true, "btn-trace": false, "btn-dex": false, "btn-pcl": false, "btn-grasp": true },
+    inspect: { "btn-cam": true, "btn-trace": false, "btn-dex": false, "btn-pcl": true, "btn-grasp": false },
+    reach:   { "btn-trace": false, "btn-dex": true, "btn-pcl": false, "btn-grasp": false },
+  };
+  for (const btn of document.querySelectorAll(".presets button")) {
+    btn.onclick = () => { const p = P[btn.dataset.preset]; if (p) for (const id in p) setOv(id, p[id]); };
+  }
 })();
