@@ -60,7 +60,12 @@ axes.position.z = FLOOR_Z;
 if (!CLEAN) scene.add(axes);
 
 function resize() {
-  const w = $("viewport").clientWidth, h = $("viewport").clientHeight;
+  const vp = $("viewport");
+  let w = vp.clientWidth, h = vp.clientHeight;
+  if (vp.classList.contains("split")) {            // ego+exo: the twin shares width with the work-cam pane
+    const cam = $("cam-pip");
+    if (cam && cam.classList.contains("show")) w = Math.max(120, w - cam.offsetWidth);
+  }
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
@@ -1167,8 +1172,13 @@ if (!PREVIEW && $("btn-cam")) {
   $("btn-cam").onclick = () => {
     camOn = !camOn;
     $("btn-cam").classList.toggle("on", camOn);
-    pip.style.display = camOn ? "block" : "none";
+    pip.classList.toggle("show", camOn);
+    if (!camOn && $("viewport").classList.contains("split")) {   // turning the camera off exits split
+      $("viewport").classList.remove("split");
+      if ($("cam-expand")) $("cam-expand").classList.remove("on");
+    }
     camOn ? start() : stop();
+    resize();
   };
   const mark = $("cam-mark"), info = $("cam-info");
   const CAM_W = 640, CAM_H = 480;
@@ -1187,7 +1197,16 @@ if (!PREVIEW && $("btn-cam")) {
   };
   const toWork = () => { sel.value = "cam_work"; updateCamActions(); if (camOn) start(); };
   sel.onchange = () => { showMark(null); updateCamActions(); if (camOn) start(); };
-  if ($("cam-expand")) $("cam-expand").onclick = () => pip.classList.toggle("big");
+  if ($("cam-expand")) $("cam-expand").onclick = () => {
+    const vp = $("viewport"), willSplit = !vp.classList.contains("split");
+    if (willSplit && !camOn) $("btn-cam").click();              // split needs the camera on
+    pip.style.left = pip.style.top = pip.style.right = pip.style.bottom = pip.style.width = "";  // drop any dragged position
+    vp.classList.toggle("split", willSplit);
+    $("cam-expand").classList.toggle("on", willSplit);
+    $("cam-expand").title = willSplit ? "Collapse the split (floating camera)"
+                                      : "Expand the camera (ego + exo, side by side)";
+    resize();
+  };
   $("cam-detect").onclick = async () => {
     toWork();
     info.textContent = "detecting…";
@@ -1611,6 +1630,7 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
   let drag = null;
   bar.addEventListener("pointerdown", (e) => {
     if (e.target.closest("button, select, option")) return;   // leave controls alone
+    if ($("viewport").classList.contains("split")) return;     // no dragging while split-docked
     const r = pip.getBoundingClientRect();
     const par = pip.offsetParent ? pip.offsetParent.getBoundingClientRect()
                                  : { left: 0, top: 0 };
