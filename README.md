@@ -72,7 +72,7 @@
   <img src="docs/img/skate_commander_lockup.png" width="560" alt="Skate Commander — web cockpit, digital twin, real robot">
 </div>
 
-> 🚧 **Early access · under active development** — v0.7.16 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
+> 🚧 **Early access · under active development** — v0.7.17 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
 
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
 
@@ -217,7 +217,7 @@ Tools get built because SkateArm needs them — then released standalone:
 | Tool | What it is | Status |
 |---|---|---|
 | [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified; MoveIt config next) |
-| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, cartesian jog, **mirror mode**, **dual-arm carry**, **singularity (SING) warning**, **jerk-limited motion**, **Python programs with Click-to-Step**, **teach-in recording**, waypoint **sequencer**, TCP tools & traces, **closed-loop visual servoing (SERVO)**, **contact reflex**, smooth **Home** + **waypoint moves** that **plan around self-collisions (RRT)**, **manipulability heat-map**, **work-camera point cloud**, **multi-object smart-pick (SMART) + colour/shape detector**, **ghost-robot move preview + approval gating**, **saveable view presets**, **collision guard** · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.7.16** (real-camera passthrough waits for hardware) |
+| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, cartesian jog, **mirror mode**, **dual-arm carry**, **singularity (SING) warning**, **jerk-limited motion**, **Python programs with Click-to-Step**, **teach-in recording**, waypoint **sequencer**, TCP tools & traces, **closed-loop visual servoing (SERVO)**, **contact reflex**, smooth **Home** + **waypoint moves** that **plan around self-collisions (RRT)**, **manipulability heat-map**, **work-camera point cloud**, **multi-object smart-pick (SMART) + colour/shape detector**, **ghost-robot move preview + approval gating**, **saveable view presets**, **ego + exo split view**, **collision guard** · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.7.17** (real-camera passthrough waits for hardware) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |
 | MuJoCo benchmark suite | Repeatable bimanual tasks for policy comparison | planned |
