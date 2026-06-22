@@ -72,6 +72,7 @@ function rpyToQuat(rpy) {  // URDF fixed-axis rpy -> quaternion
     new THREE.Euler(rpy[0], rpy[1], rpy[2], "ZYX"));
 }
 
+let robotRoots = [];
 function buildRobot() {
   const linkGroup = {};
   const g = (name) => linkGroup[name] ||
@@ -91,8 +92,9 @@ function buildRobot() {
       if (j.lower !== null) limits[j.index] = [j.lower, j.upper];
     }
   }
+  robotRoots = [];
   for (const name of Object.keys(model.links))
-    if (!children.has(name)) scene.add(g(name));   // root link(s)
+    if (!children.has(name)) { const root = g(name); scene.add(root); robotRoots.push(root); }   // root link(s)
 
   // visuals
   const loader = new STLLoader();
@@ -357,7 +359,8 @@ function updateSeqPanel() {
       <button data-a="goto" title="Glide to this pose">▶</button>
       <button data-a="del" title="Delete">✕</button>`;
     row.querySelector('[data-a="goto"]').onclick =
-      () => send({ type: "wp_goto", idx: i });
+      () => previewServer("waypoint", i, "Waypoint " + (i + 1) + " — glide to this pose",
+        () => send({ type: "wp_goto", idx: i }));
     row.querySelector('[data-a="del"]').onclick =
       () => send({ type: "wp_delete", idx: i });
     list.appendChild(row);
@@ -1057,40 +1060,67 @@ function updateTop() {
 
 $("btn-estop").onclick = () =>
   send({ type: state && state.estop ? "resume" : "estop" });
-let previewViz = null, previewPending = null;
+let previewViz = null, previewPending = null, ghostGroup = null;
+function clearGhost() {
+  if (!ghostGroup) return;
+  ghostGroup.traverse((o) => { if (o.isMesh && o.material) o.material.dispose(); });
+  scene.remove(ghostGroup); ghostGroup = null;
+}
+function makeGhost(q) {          // translucent robot at the target joint pose
+  clearGhost();
+  if (!q || !robotRoots.length) return;
+  const grp = new THREE.Group(), map = new Map();
+  const walk = (a, b) => { map.set(a, b); for (let i = 0; i < a.children.length; i++) walk(a.children[i], b.children[i]); };
+  for (const root of robotRoots) { const c = root.clone(true); walk(root, c); grp.add(c); }
+  grp.traverse((o) => { if (o.isMesh) {
+    o.material = new THREE.MeshBasicMaterial({ color: 0x3fc463, transparent: true, opacity: 0.2, depthWrite: false });
+    o.renderOrder = 6;
+  } });
+  for (const [idx, j] of Object.entries(jointGroups)) {
+    const cg = map.get(j.grp); if (!cg) continue;
+    cg.quaternion.copy(j.baseQuat).multiply(new THREE.Quaternion().setFromAxisAngle(j.axis, q[idx] || 0));
+  }
+  scene.add(grp); ghostGroup = grp;
+}
 function clearPreview() {
   if (previewViz) { scene.remove(previewViz); previewViz = null; }
+  clearGhost();
   previewPending = null;
   if ($("approve-bar")) $("approve-bar").style.display = "none";
 }
-function showHomePreview(d) {
-  if (previewViz) scene.remove(previewViz);
-  const grp = new THREE.Group();
-  for (const arm in (d.tcp || {})) {
-    const t = d.tcp[arm];
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.032, 18, 18),
-      new THREE.MeshBasicMaterial({ color: 0x3fc463, transparent: true, opacity: 0.4, depthTest: false }));
-    s.position.set(t[0], t[1], t[2]); s.renderOrder = 7; grp.add(s);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.042, 0.052, 28),
-      new THREE.MeshBasicMaterial({ color: 0x3fc463, transparent: true, opacity: 0.75,
-        side: THREE.DoubleSide, depthTest: false }));
-    ring.position.set(t[0], t[1], t[2]); ring.renderOrder = 7; grp.add(ring);
+function showPreview(text, opts) {          // opts: {q?, tcp?, onApprove}
+  clearPreview();
+  opts = opts || {};
+  if (opts.q) makeGhost(opts.q);
+  if (opts.tcp) {
+    const grp = new THREE.Group();
+    for (const arm in opts.tcp) {
+      const t = opts.tcp[arm];
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.042, 0.052, 28),
+        new THREE.MeshBasicMaterial({ color: 0x3fc463, transparent: true, opacity: 0.8,
+          side: THREE.DoubleSide, depthTest: false }));
+      ring.position.set(t[0], t[1], t[2]); ring.renderOrder = 7; grp.add(ring);
+    }
+    scene.add(grp); previewViz = grp;
   }
-  scene.add(grp); previewViz = grp; previewPending = "home";
-  if ($("approve-text")) $("approve-text").textContent = "HOME — glide arms to the safe pose";
+  previewPending = { onApprove: opts.onApprove };
+  if ($("approve-text")) $("approve-text").textContent = text;
   if ($("approve-bar")) $("approve-bar").style.display = "flex";
 }
-$("btn-home").onclick = async () => {
+async function previewServer(action, idx, text, onApprove) {
   if (PREVIEW || previewPending) return;
   try {
-    const d = await fetch("/api/preview?action=home").then((r) => r.json());
-    if (d && d.tcp && Object.keys(d.tcp).length) showHomePreview(d);
-    else send({ type: "home" });
-  } catch (_) { send({ type: "home" }); }
-};
+    const d = await fetch("/api/preview?action=" + action + (idx != null ? "&i=" + idx : ""))
+      .then((r) => r.json());
+    if (d && d.q) showPreview(text, { q: d.q, tcp: d.tcp, onApprove });
+    else onApprove();
+  } catch (_) { onApprove(); }
+}
+if ($("btn-home")) $("btn-home").onclick = () =>
+  previewServer("home", null, "HOME — glide arms to the safe pose", () => send({ type: "home" }));
 if ($("approve-go")) $("approve-go").onclick = () => {
-  if (previewPending === "home") send({ type: "home" });
-  clearPreview();
+  const p = previewPending; clearPreview();
+  if (p && p.onApprove) p.onApprove();
 };
 if ($("approve-cancel")) $("approve-cancel").onclick = clearPreview;
 if ($("chip-contact"))
@@ -1202,8 +1232,7 @@ if (!PREVIEW && $("btn-cam")) {
       }
     } catch (e) { info.textContent = "servo failed"; }
   };
-  $("cam-smart").onclick = async () => {
-    toWork();
+  const runSmartPick = async () => {
     info.textContent = "smart pick…";
     try {
       const sel = $("cam-obj");
@@ -1211,10 +1240,9 @@ if (!PREVIEW && $("btn-cam")) {
       const d = await (await fetch("/api/smart_pick" + q, { method: "POST" })).json();
       if (d.found && d.ran) {
         info.textContent = "smart pick  " + (d.label ? d.label + " · " : "") +
-          (d.center_mm ? d.center_mm.map((v) => v.toFixed(0)).join(" ") + " mm" : "") +
-          (d.ran ? "" : " — press RESUME");
+          (d.center_mm ? d.center_mm.map((v) => v.toFixed(0)).join(" ") + " mm" : "");
         graspOn = true; if ($("btn-grasp")) $("btn-grasp").classList.add("on");
-        await buildGrasp();                       // refresh overlay + selector
+        await buildGrasp();
       } else if (d.feasible === false) {
         info.textContent = d.error || "object too wide for the gripper";
         graspOn = true; await buildGrasp();
@@ -1222,6 +1250,15 @@ if (!PREVIEW && $("btn-cam")) {
         info.textContent = d.error ? "smart pick: " + d.error : "no object — armed?";
       }
     } catch (e) { info.textContent = "smart pick failed"; }
+  };
+  $("cam-smart").onclick = async () => {
+    toWork();
+    graspOn = true; if ($("btn-grasp")) $("btn-grasp").classList.add("on");
+    const ok = await buildGrasp();                // show what we'd grasp first
+    if (!ok) { info.textContent = "no object to pick"; return; }
+    const sel = $("cam-obj");
+    const label = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "object";
+    showPreview("Smart pick: " + label + " ?", { onApprove: runSmartPick });
   };
 } else if ($("btn-cam")) {
   $("btn-cam").disabled = true;

@@ -304,24 +304,30 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
         return JSONResponse(res)
 
     @app.get("/api/preview")
-    def api_preview(action: str = "home"):
+    def api_preview(action: str = "home", i: int = -1):
         """Preview a commanded motion WITHOUT executing — returns the target
-        TCP(s) so the cockpit can draw a ghost + require approval before the move
-        runs (MoveIt-Pro-style 'show intent before action')."""
-        if action != "home":
-            return JSONResponse({"error": "unknown action"})
+        joint pose + TCP(s) so the cockpit can draw a GHOST ROBOT and require
+        approval before the move runs (MoveIt-Pro-style 'show intent first')."""
         base = (bridge.targ if bridge.targ is not None
                 else np.array(names.DEFAULT_POSE, dtype=float))
         goal = np.array(base, dtype=float)
-        goal[8:] = np.array(names.DEFAULT_POSE, dtype=float)[8:]   # arms+head home
+        if action == "home":
+            goal[8:] = np.array(names.DEFAULT_POSE, dtype=float)[8:]   # arms+head home
+        elif action == "waypoint":
+            wps = getattr(bridge, "waypoints", [])
+            if not (0 <= i < len(wps)):
+                return JSONResponse({"error": "bad waypoint"})
+            goal = np.array(wps[i], dtype=float)
+        else:
+            return JSONResponse({"error": "unknown action"})
         tcp = {}
         for arm, k in bridge.kin.items():
             try:
-                p = k.fk(goal)
-                tcp[arm] = [round(float(v), 5) for v in p]
+                tcp[arm] = [round(float(v), 5) for v in k.fk(goal)]
             except Exception:
                 pass
-        return JSONResponse({"action": "home", "tcp": tcp})
+        return JSONResponse({"action": action,
+                             "q": [round(float(v), 6) for v in goal], "tcp": tcp})
 
     @app.get("/api/sequences")
     async def api_sequences():
