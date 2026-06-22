@@ -1690,7 +1690,61 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
     inspect: { "btn-cam": true, "btn-trace": false, "btn-dex": false, "btn-pcl": true, "btn-grasp": false },
     reach:   { "btn-trace": false, "btn-dex": true, "btn-pcl": false, "btn-grasp": false },
   };
-  for (const btn of document.querySelectorAll(".presets button")) {
+  for (const btn of document.querySelectorAll(".presets button[data-preset]")) {
     btn.onclick = () => { const p = P[btn.dataset.preset]; if (p) for (const id in p) setOv(id, p[id]); };
   }
+
+  // --- saveable custom presets (localStorage) ---
+  const TRACK = ["btn-cam", "btn-trace", "btn-dex", "btn-pcl", "btn-grasp"];
+  const KEY = "skate.presets.v1";
+  const wrap = $("saved-presets"), nameIn = $("preset-name"), saveBtn = $("preset-save");
+  if (!wrap || !nameIn || !saveBtn) return;
+  const opaInput = (ov) => document.querySelector('.lyr[data-ov="' + ov + '"] .opa');
+
+  const capture = () => {
+    const ov = {};
+    for (const id of TRACK) { const b = $(id); if (b) ov[id] = b.classList.contains("on"); }
+    const opa = {};
+    for (const k of ["dex", "pcl"]) { const s = opaInput(k); if (s) opa[k] = +s.value; }
+    return { ov, opa };
+  };
+  const apply = (s) => {
+    if (s.ov) for (const id in s.ov) setOv(id, s.ov[id]);
+    if (s.opa) for (const k in s.opa) {
+      const inp = opaInput(k);
+      if (inp) { inp.value = s.opa[k]; inp.dispatchEvent(new Event("input")); }
+    }
+  };
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (_) { return []; } };
+  const store = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (_) {} };
+
+  const render = () => {
+    const arr = load();
+    wrap.innerHTML = "";
+    arr.forEach((p, i) => {
+      const chip = document.createElement("button");
+      chip.className = "saved-chip"; chip.title = "apply preset: " + p.name;
+      const lab = document.createElement("span"); lab.textContent = p.name;
+      const del = document.createElement("i"); del.className = "del"; del.textContent = "×";
+      del.title = "delete preset";
+      chip.append(lab, del);
+      chip.onclick = (e) => {
+        if (e.target === del) { const a = load(); a.splice(i, 1); store(a); render(); return; }
+        apply(p);
+      };
+      wrap.appendChild(chip);
+    });
+    wrap.style.display = arr.length ? "grid" : "none";
+  };
+  const doSave = () => {
+    const name = (nameIn.value || "").trim().slice(0, 18);
+    if (!name) { nameIn.focus(); return; }
+    const arr = load(), st = capture(); st.name = name;
+    const ex = arr.findIndex((p) => p.name === name);
+    if (ex >= 0) arr[ex] = st; else arr.push(st);
+    store(arr); nameIn.value = ""; render();
+  };
+  saveBtn.onclick = doSave;
+  nameIn.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); doSave(); } };
+  render();
 })();
