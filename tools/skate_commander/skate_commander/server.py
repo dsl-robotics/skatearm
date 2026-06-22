@@ -543,15 +543,22 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                                                  timeout=1.0 / WS_HZ)
                 except asyncio.TimeoutError:
                     raw = None
+                pong = None
                 if raw is not None:                # one bad command must not
                     try:                           # drop the whole connection
-                        handle_command(bridge, json.loads(raw), runner=runner,
-                                       tools=tools, save_tools=save_tools)
+                        cmd = json.loads(raw)
+                        if isinstance(cmd, dict) and cmd.get("type") == "ping":
+                            pong = cmd.get("t")    # echo the client clock -> real RTT
+                        else:
+                            handle_command(bridge, cmd, runner=runner,
+                                           tools=tools, save_tools=save_tools)
                     except Exception as e:
                         print(f"[commander] ignored bad command: {e}")
                 snap = bridge.snapshot(ui_attached=app.state.clients > 0)
                 snap["prog"] = runner.snapshot()
                 snap["prog"]["rec"] = bridge.recorder.snapshot()
+                if pong is not None:
+                    snap["pong"] = pong
                 await sock.send_text(json.dumps(snap))
         except WebSocketDisconnect:
             pass

@@ -986,11 +986,20 @@ function updateTop() {
   chip("chip-link", state.connected, "LINK", "NO LINK");
   const lat = $("chip-lat");
   if (lat) {
-    if (wsOnline && frameMs) {
+    const ms = rttMs || frameMs;                   // prefer real RTT, fall back to freshness
+    if (wsOnline && ms) {
       lat.style.display = "";
-      lat.textContent = Math.round(frameMs) + "ms";
-      lat.className = "chip " + (frameMs > 260 ? "bad" : frameMs > 120 ? "warn" : "");
+      lat.textContent = Math.round(ms) + "ms";
+      lat.className = "chip " + (ms > 260 ? "bad" : ms > 120 ? "warn" : "");
     } else lat.style.display = "none";
+  }
+  const bw = $("chip-bw");
+  if (bw) {
+    if (wsOnline && kbps) {
+      bw.style.display = "";
+      bw.textContent = kbps >= 1000 ? (kbps / 1024).toFixed(1) + " MB/s"
+                                    : Math.round(kbps) + " KB/s";
+    } else bw.style.display = "none";
   }
   chip("chip-armed", state.armed, "ARMED", "ARMING…", "");
   chip("chip-live", state.live, "LIVE", "DAMPENED", "warn");
@@ -1300,11 +1309,17 @@ for (const tab of document.querySelectorAll("#tabs div")) {
 }
 
 // ---------------------------------------------------------------- data in
-let lastFrame = 0, frameMs = 0;        // link latency (telemetry freshness)
+let lastFrame = 0, frameMs = 0;        // telemetry freshness (inter-frame gap)
+let rttMs = 0;                          // real round-trip (ping echo)
+let bwBytes = 0, kbps = 0, bwT = 0;     // rolling downlink bandwidth
 function onState(s) {
   const _n = performance.now();
   if (lastFrame) frameMs = frameMs ? frameMs * 0.8 + (_n - lastFrame) * 0.2 : (_n - lastFrame);
   lastFrame = _n;
+  if (s.pong != null) {                 // real round-trip from the ping echo
+    const rtt = _n - s.pong;
+    rttMs = rttMs ? rttMs * 0.7 + rtt * 0.3 : rtt;
+  }
   const modeChanged = state && state.mode !== s.mode;
   state = s;
   setAngles(s.q || s.targ);
@@ -1327,6 +1342,7 @@ function connectWS() {
   ws.onopen = () => { wsOnline = true; reconnectMs = 1000; lastMsg = performance.now(); };
   ws.onmessage = (e) => {
     lastMsg = performance.now();
+    bwBytes += (e.data && e.data.length) || 0;     // rolling downlink bandwidth
     if (document.body.classList.contains("offline")) setOffline(false);
     onState(JSON.parse(e.data));
   };
@@ -1347,6 +1363,15 @@ setInterval(() => {
     try { ws.close(); } catch (_) {}
   }
 }, 500);
+
+// link probe: real round-trip ping + downlink bandwidth (1 Hz)
+setInterval(() => {
+  if (PREVIEW) return;
+  if (wsOnline) send({ type: "ping", t: performance.now() });
+  const now = performance.now();
+  if (bwT) { const dt = (now - bwT) / 1000; if (dt > 0) kbps = (bwBytes / 1024) / dt; }
+  bwBytes = 0; bwT = now;
+}, 1000);
 
 function startPlayback() {
   const frames = window.PREVIEW_DATA.frames;
