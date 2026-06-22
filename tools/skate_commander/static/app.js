@@ -1137,6 +1137,9 @@ if ($("approve-go")) $("approve-go").onclick = () => {
   if (p && p.onApprove) p.onApprove();
 };
 if ($("approve-cancel")) $("approve-cancel").onclick = clearPreview;
+document.addEventListener("keydown", (e) => {     // Escape cancels a pending move preview
+  if (e.key === "Escape" && previewPending) clearPreview();
+});
 if ($("chip-contact"))
   $("chip-contact").onclick = () => send({ type: "reset_contact" });
 $("btn-mirror").onclick = () =>
@@ -1214,6 +1217,9 @@ if (!PREVIEW && $("btn-cam")) {
     $("cam-expand").classList.toggle("on", willSplit);
     $("cam-expand").title = willSplit ? "Collapse the split (floating camera)"
                                       : "Expand the camera (ego + exo, side by side)";
+    $("cam-expand").setAttribute("aria-pressed", willSplit);
+    $("cam-expand").setAttribute("aria-label", willSplit ? "Collapse split, float the camera"
+                                                         : "Expand to ego + exo split view");
     resize();
   };
   $("cam-detect").onclick = async () => {
@@ -1767,16 +1773,19 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
     const arr = load();
     wrap.innerHTML = "";
     arr.forEach((p, i) => {
-      const chip = document.createElement("button");
-      chip.className = "saved-chip"; chip.title = "apply preset: " + p.name;
-      const lab = document.createElement("span"); lab.textContent = p.name;
-      const del = document.createElement("i"); del.className = "del"; del.textContent = "×";
+      const chip = document.createElement("div");
+      chip.className = "saved-chip";
+      const go = document.createElement("button");
+      go.className = "chip-apply"; go.textContent = p.name;
+      go.title = "apply preset: " + p.name;
+      go.setAttribute("aria-label", "Apply preset " + p.name);
+      go.onclick = () => apply(p);
+      const del = document.createElement("button");
+      del.className = "del"; del.textContent = "×";
       del.title = "delete preset";
-      chip.append(lab, del);
-      chip.onclick = (e) => {
-        if (e.target === del) { const a = load(); a.splice(i, 1); store(a); render(); return; }
-        apply(p);
-      };
+      del.setAttribute("aria-label", "Delete preset " + p.name);
+      del.onclick = () => { const a = load(); a.splice(i, 1); store(a); render(); };
+      chip.append(go, del);
       wrap.appendChild(chip);
     });
     wrap.style.display = arr.length ? "grid" : "none";

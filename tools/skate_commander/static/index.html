@@ -14,15 +14,15 @@
 </head>
 <body>
   <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.18</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.19</em></div>
     <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
     </div>
     <div class="status-cluster" role="status" aria-live="polite">
       <div class="chip" id="chip-link" title="Robot/sim link over the UDP wire — the browser↔server connection is shown by the banner">LINK</div>
-      <div class="chip" id="chip-lat" title="Round-trip latency - browser/server ping echo" style="display:none"></div>
-      <div class="chip" id="chip-bw" title="Downlink bandwidth - telemetry received from the server" style="display:none"></div>
+      <div class="chip" id="chip-lat" aria-hidden="true" title="Round-trip latency - browser/server ping echo" style="display:none"></div>
+      <div class="chip" id="chip-bw" aria-hidden="true" title="Downlink bandwidth - telemetry received from the server" style="display:none"></div>
       <div class="chip" id="chip-armed">ARMED</div>
       <div class="chip" id="chip-live">DAMPENED</div>
       <div class="chip" id="chip-temp">TEMP</div>
@@ -43,7 +43,7 @@
   <div id="main">
     <div id="viewport">
       <div id="banner"></div>
-      <div id="approve-bar"><span id="approve-text"></span><button id="approve-go">✓ Approve</button><button id="approve-cancel">✕ Cancel</button></div>
+      <div id="approve-bar" role="status" aria-live="assertive" aria-atomic="true"><span id="approve-text"></span><button id="approve-go">✓ Approve</button><button id="approve-cancel">✕ Cancel</button></div>
       <div class="overlay" id="overlay"></div>
       <div id="overlay-hint"></div>
       <div id="dock" class="frame">
@@ -88,7 +88,7 @@
           <div class="presets saved" id="saved-presets" style="display:none"></div>
           <div class="preset-save">
             <input id="preset-name" type="text" maxlength="18" placeholder="Save current view&hellip;" aria-label="Name for new preset">
-            <button id="preset-save" title="Save the current overlay layout as a preset">+</button>
+            <button id="preset-save" aria-label="Save the current view as a preset" title="Save the current overlay layout as a preset">+</button>
           </div>
           <div class="lyr" data-ov="trace"><button class="eye" title="toggle">●</button><span>Traces</span></div>
           <div class="lyr" data-ov="dex"><button class="eye" title="toggle">●</button><span>Dexterity</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Dexterity opacity"></div>
@@ -111,7 +111,7 @@
           <div id="cam-mark"></div>
         </div>
         <div id="cam-bar">
-          <button id="cam-expand" title="Expand the camera (ego + exo, side by side)">⤢</button>
+          <button id="cam-expand" aria-label="Expand to ego + exo split view" aria-pressed="false" title="Expand the camera (ego + exo, side by side)">⤢</button>
           <select id="cam-sel"></select>
           <button id="cam-detect" title="Find the workspace target with the camera">⌖ DETECT</button>
           <button id="cam-pick" title="Detect, then run a right-arm pick (needs RESUME)">▶ PICK</button>
