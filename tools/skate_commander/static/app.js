@@ -54,6 +54,7 @@ grid.rotation.x = Math.PI / 2;
 grid.position.z = FLOOR_Z;                 // floor under the wheels
 if (!CLEAN) scene.add(grid);
 const axes = new THREE.AxesHelper(0.22);   // world frame triad on the floor
+if (axes.setColors) axes.setColors(new THREE.Color(0xFF6981), new THREE.Color(0x3FB950), new THREE.Color(0x7A95FF)); // X/Y/Z tokens
 axes.material.transparent = true;
 axes.material.opacity = 0.55;
 axes.position.z = FLOOR_Z;
@@ -773,6 +774,7 @@ function buildPanel() {
                 thumb: row.querySelector(".jthumb"),
                 ang: row.querySelector(".ang"),
                 sub: row.querySelector(".sub"), bar, lo, hi, dragging: false };
+    if (r.ang) { r.ang.dataset.idx = idx; r.ang.dataset.lo = lo; r.ang.dataset.hi = hi; if (!locked) r.ang.classList.add("editable"); }
     if (locked) {
       bar.classList.add("disabled");
       bar.tabIndex = -1; bar.setAttribute("aria-disabled", "true");
@@ -1003,6 +1005,12 @@ function updateTop() {
   }
   chip("chip-armed", state.armed, "ARMED", "ARMING…", "");
   chip("chip-live", state.live, "LIVE", "DAMPENED", "warn");
+  const liveEl = $("chip-live");
+  if (liveEl) {
+    const moving = !!(state.homing || state.routing) || performance.now() < movingUntil;
+    if (state.live) { liveEl.textContent = moving ? "MOVING" : "LIVE"; liveEl.classList.toggle("moving", moving); }
+    else liveEl.classList.remove("moving");
+  }
   const gc = $("chip-guard");
   if (gc && state.guard) {
     gc.style.display = state.guard.on ? "" : "none";
@@ -1349,6 +1357,7 @@ for (const tab of document.querySelectorAll("#tabs div")) {
 let lastFrame = 0, frameMs = 0;        // telemetry freshness (inter-frame gap)
 let rttMs = 0;                          // real round-trip (ping echo)
 let bwBytes = 0, kbps = 0, bwT = 0;     // rolling downlink bandwidth
+let prevQ = null, movingUntil = 0;      // idle-vs-moving cue (Mecademic solid/blink)
 function onState(s) {
   const _n = performance.now();
   if (lastFrame) frameMs = frameMs ? frameMs * 0.8 + (_n - lastFrame) * 0.2 : (_n - lastFrame);
@@ -1357,6 +1366,12 @@ function onState(s) {
     const rtt = _n - s.pong;
     rttMs = rttMs ? rttMs * 0.7 + rtt * 0.3 : rtt;
   }
+  const _q = s.q || s.targ;
+  if (_q && prevQ && _q.length === prevQ.length) {
+    let d = 0; for (let i = 0; i < _q.length; i++) { const a = Math.abs(_q[i] - prevQ[i]); if (a > d) d = a; }
+    if (d > 0.0015) movingUntil = _n + 450;   // sticky so the cue doesn't flicker
+  }
+  if (_q) prevQ = _q.slice();
   const modeChanged = state && state.mode !== s.mode;
   state = s;
   setAngles(s.q || s.targ);
@@ -1832,4 +1847,333 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
   saveBtn.onclick = doSave;
   nameIn.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); doSave(); } };
   render();
+})();
+
+
+// ================= Isaac-style functional shell =================
+// tabs that switch, a gizmo that drives the camera, Stage selection that
+// drives Property, tool-rail transform modes, live RAW + CONSOLE + CONTENT.
+(function shellFunctions() {
+  const g = (id) => document.getElementById(id);
+
+  // --- generic tab switching ---
+  const wireTabs = (headSel) => document.querySelectorAll(headSel).forEach((hd) => {
+    const scope = hd.parentElement;
+    hd.querySelectorAll(".pt[data-tab]").forEach((pt) => pt.addEventListener("click", () => {
+      hd.querySelectorAll(".pt").forEach((x) => x.classList.remove("act"));
+      pt.classList.add("act");
+      scope.querySelectorAll(".tabpane").forEach((p) => {
+        p.style.display = (p.dataset.pane === pt.dataset.tab) ? "" : "none";
+      });
+    }));
+  });
+  wireTabs(".pane-hd.tabset"); wireTabs(".tl-hd");
+
+  // --- viewport camera snap views (functional nav gizmo + view buttons) ---
+  function setView(name) {
+    try {
+      const t = controls.target, D = 2.7;
+      const p = { top: [t.x, t.y, t.z + D], front: [t.x, t.y - D, t.z],
+                  side: [t.x + D, t.y, t.z], persp: [t.x + 1.9, t.y - 1.9, t.z + 0.7] }[name];
+      if (!p) return;
+      camera.position.set(p[0], p[1], p[2]); controls.update();
+      const sub = g("view-sub"); if (sub) sub.textContent = name === "persp" ? "exo - orbit" : name + " - ortho";
+      document.querySelectorAll(".hd-tools .vbtn").forEach((b) => b.classList.toggle("act", b.dataset.view === name));
+    } catch (_) {}
+  }
+  document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+
+  // --- Stage hierarchy: pick an arm node -> drive the Property arm tab ---
+  document.querySelectorAll(".snode[data-group]").forEach((n) => n.addEventListener("click", () => {
+    document.querySelectorAll(".snode").forEach((x) => x.classList.remove("sel"));
+    n.classList.add("sel");
+    const t = document.querySelector('#tabs div[data-group="' + n.dataset.group + '"]');
+    if (t) t.click();
+  }));
+  document.querySelectorAll(".snode[data-exp] .tw").forEach((tw) => tw.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const n = tw.closest(".snode"); n.classList.toggle("collapsed");
+    tw.innerHTML = n.classList.contains("collapsed") ? "▸" : "▾";
+  }));
+
+  // --- tool rail: active tool + transform mode on the IK gizmo ---
+  document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((x) => x.classList.remove("act"));
+    b.classList.add("act");
+    const m = b.dataset.tool;
+    try { if (typeof tc !== "undefined" && tc.setMode && (m === "translate" || m === "rotate" || m === "scale")) tc.setMode(m); } catch (_) {}
+  }));
+  if (g("btn-resume2")) g("btn-resume2").addEventListener("click", () => { if (state && state.estop) g("btn-estop").click(); });
+  if (g("btn-estop2")) g("btn-estop2").addEventListener("click", () => { if (state && !state.estop) g("btn-estop").click(); });
+
+  // --- CONTENT browser: preset cards apply on click ---
+  const grid = g("content-grid");
+  if (grid) {
+    const card = (label, onClick) => {
+      const c = document.createElement("button"); c.className = "asset";
+      c.innerHTML = '<span class="thumb"></span><span class="al"></span>';
+      c.querySelector(".al").textContent = label; c.onclick = onClick; return c;
+    };
+    [["clean", "Clean"], ["pick", "Pick"], ["inspect", "Inspect"], ["reach", "Reach"]].forEach(([p, l]) =>
+      grid.appendChild(card(l, () => { const b = document.querySelector('.presets button[data-preset="' + p + '"]'); if (b) b.click(); })));
+    try {
+      (JSON.parse(localStorage.getItem("skate.presets.v1")) || []).forEach((pr) =>
+        grid.appendChild(card(pr.name, () => {
+          const chip = [...document.querySelectorAll("#saved-presets .saved-chip .chip-apply")].find((x) => x.textContent === pr.name);
+          if (chip) chip.click();
+        })));
+    } catch (_) {}
+  }
+
+  // --- live RAW readout + CONSOLE event log, polled from telemetry ---
+  const raw = g("raw-readout"), clog = g("console-log");
+  let prev = {};
+  const log = (msg, cls) => {
+    if (!clog) return;
+    const ln = document.createElement("div"); ln.className = "cl " + (cls || "");
+    ln.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+    clog.appendChild(ln);
+    while (clog.children.length > 200) clog.removeChild(clog.firstChild);
+    clog.scrollTop = clog.scrollHeight;
+  };
+  log("Skate Commander ready - shell initialised", "ok");
+  setInterval(() => {
+    if (typeof state === "undefined" || !state) return;
+    if (raw && raw.parentElement && raw.parentElement.style.display !== "none") {
+      const q = state.q || state.targ || [];
+      let s = "JOINT ANGLES (deg)\n";
+      for (let i = 0; i < q.length; i++) s += " q" + String(i).padStart(2, "0") + "  " + (q[i] * 180 / Math.PI).toFixed(2).padStart(9) + "\n";
+      if (state.temps) s += "\nTEMPS  " + state.temps.map((t) => t.toFixed(0) + "C").join("  ") + "\n";
+      s += "\nMODE " + state.mode + "   " + (state.estop ? "E-STOP" : state.live ? "LIVE" : "DAMPENED");
+      raw.textContent = s;
+    }
+    const cur = { estop: state.estop, live: state.live, homing: !!(state.homing || state.routing),
+      contact: !!(state.contact && state.contact.tripped), mode: state.mode, connected: state.connected };
+    if (prev.estop !== undefined) {
+      if (cur.estop !== prev.estop) log(cur.estop ? "E-STOP engaged - motion dampened" : "RESUME - motion enabled", cur.estop ? "bad" : "ok");
+      else if (cur.live !== prev.live) log(cur.live ? "Motion enabled (LIVE)" : "Motion dampened", "");
+      if (cur.homing !== prev.homing) log(cur.homing ? "HOME - gliding to safe pose" : "HOME - reached", "");
+      if (cur.contact && !prev.contact) log("CONTACT reflex tripped - arm dampened", "bad");
+      if (cur.mode !== prev.mode) log("Mode -> " + cur.mode, "");
+      if (cur.connected !== prev.connected) log(cur.connected ? "UDP link up" : "UDP link lost", cur.connected ? "ok" : "bad");
+    }
+    prev = cur;
+  }, 250);
+})();
+
+
+// ================= Isaac functional add-ons =================
+// visibility eyes, click-to-select in 3D, editable joint values, resizable panels.
+(function shellInteractions() {
+  const g = (id) => document.getElementById(id);
+
+  // --- 1) STAGE visibility eyes actually show/hide robot, grid, axes ---
+  const setVis = (which, on) => {
+    try {
+      if ((which === "robot" || which === "world") && typeof robotRoots !== "undefined")
+        robotRoots.forEach((r) => { r.visible = on; });
+      if (which === "grid" || which === "world") {
+        if (typeof grid !== "undefined") grid.visible = on;
+        if (typeof axes !== "undefined") axes.visible = on;
+      }
+    } catch (_) {}
+  };
+  document.querySelectorAll(".stage-tree .snode .eye").forEach((eye) => {
+    const node = eye.closest(".snode");
+    const nm = (node.querySelector(".nm").textContent || "").toLowerCase();
+    const which = nm.includes("world") ? "world" : nm.includes("grid") ? "grid" : "robot";
+    eye.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const on = !eye.classList.contains("on");
+      eye.classList.toggle("on", on);
+      setVis(which, on);
+    });
+  });
+
+  // --- 2) click a robot part in the viewport -> select its arm in Stage + Property ---
+  const armOf = (i) => i >= 8 && i <= 15 ? "left" : i >= 16 && i <= 23 ? "right" : i >= 24 ? "head" : "legs";
+  const selectArm = (group) => { const sn = document.querySelector('.snode[data-group="' + group + '"]'); if (sn) sn.click(); };
+  try {
+    const ray2 = new THREE.Raycaster();
+    let dn = null;
+    renderer.domElement.addEventListener("pointerdown", (e) => { dn = [e.clientX, e.clientY]; });
+    renderer.domElement.addEventListener("pointerup", (e) => {
+      if (!dn) return;
+      const moved = Math.hypot(e.clientX - dn[0], e.clientY - dn[1]); dn = null;
+      if (moved > 5) return;                                  // was an orbit-drag, not a click
+      const rect = renderer.domElement.getBoundingClientRect();
+      const m = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1,
+                                  -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      ray2.setFromCamera(m, camera);
+      const meshes = [];
+      (typeof robotRoots !== "undefined" ? robotRoots : []).forEach((r) => r.traverse((o) => { if (o.isMesh) meshes.push(o); }));
+      const hit = ray2.intersectObjects(meshes, false)[0];
+      if (!hit) return;
+      const anc = new Set(); let p = hit.object; while (p) { anc.add(p); p = p.parent; }
+      let best = -1;
+      for (const [i, j] of Object.entries(jointGroups)) if (anc.has(j.grp) && +i > best) best = +i;
+      if (best >= 0) selectArm(armOf(best));
+    });
+  } catch (_) {}
+
+  // --- 3) editable joint angles: click the value, type degrees, Enter to send ---
+  let editor = null;
+  const closeEditor = () => { if (editor) { editor.remove(); editor = null; } };
+  document.addEventListener("click", (e) => {
+    const ang = e.target.closest ? e.target.closest("#joints .ang.editable") : null;
+    if (!ang) { if (editor && e.target !== editor) closeEditor(); return; }
+    closeEditor();
+    const idx = +ang.dataset.idx, lo = +ang.dataset.lo, hi = +ang.dataset.hi;
+    const cur = parseFloat((ang.textContent || "0").replace(/[^0-9.\-]/g, "")) || 0;
+    const r = ang.getBoundingClientRect();
+    editor = document.createElement("input"); editor.className = "ang-edit"; editor.value = cur.toFixed(1);
+    editor.style.left = r.left + "px"; editor.style.top = r.top + "px"; editor.style.width = Math.max(56, r.width + 8) + "px";
+    document.body.appendChild(editor); editor.focus(); editor.select();
+    const commit = (ok) => {
+      if (ok) { const d = parseFloat(editor.value);
+        if (!isNaN(d)) { let v = d * Math.PI / 180; v = Math.min(hi, Math.max(lo, v)); send({ type: "set_joint", idx, value: v }); } }
+      closeEditor();
+    };
+    editor.addEventListener("keydown", (ev) => { if (ev.key === "Enter") commit(true); else if (ev.key === "Escape") commit(false); ev.stopPropagation(); });
+    editor.addEventListener("blur", () => commit(true));
+  });
+
+  // --- 4) resizable panels (Isaac-style grab handles) ---
+  const makeResizer = (handle, onDrag) => handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); handle.setPointerCapture(e.pointerId);
+    const move = (ev) => onDrag(ev);
+    const up = () => { try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+      handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); try { resize(); } catch (_) {} };
+    handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up);
+  });
+  const rd = g("rightdock"), main = g("main");
+  if (rd && main) {
+    const h = document.createElement("div"); h.className = "rsz rsz-v"; rd.appendChild(h);
+    makeResizer(h, (ev) => {
+      const w = Math.min(540, Math.max(240, main.getBoundingClientRect().right - ev.clientX));
+      main.style.gridTemplateColumns = "48px 1fr " + w + "px"; try { resize(); } catch (_) {}
+    });
+  }
+  const sp = g("stage-pane");
+  if (sp) {
+    const h = document.createElement("div"); h.className = "rsz rsz-h"; sp.appendChild(h);
+    makeResizer(h, (ev) => {
+      const rect = g("rightdock").getBoundingClientRect();
+      const pct = Math.min(75, Math.max(20, ((ev.clientY - rect.top) / rect.height) * 100));
+      sp.style.flex = "0 0 " + pct + "%";
+    });
+  }
+})();
+
+
+// ================= Isaac refinements: menus, expandable joints, live gizmo, quality =================
+(function shellRefinements() {
+  const g = (id) => document.getElementById(id);
+  const click = (id) => { const e = g(id); if (e) e.click(); };
+  const showTab = (name) => { const pt = document.querySelector('.pt[data-tab="' + name + '"]'); if (pt) pt.click(); };
+  function setLayout(name) {
+    const m = g("main"), sp = g("stage-pane");
+    if (name === "wide") m.style.gridTemplateColumns = "48px 1fr 276px";
+    else if (name === "tallstage") { if (sp) sp.style.flex = "0 0 62%"; }
+    else { m.style.gridTemplateColumns = "48px 1fr 330px"; if (sp) sp.style.flex = "0 0 40%"; }
+    try { resize(); } catch (_) {}
+  }
+
+  // ---- 1) working menu-bar dropdowns ----
+  const MENUS = {
+    File: [["Reload cockpit", () => location.reload()], ["Keyboard shortcuts...", () => click("btn-keys")]],
+    Edit: [["Home (safe pose)", () => click("btn-home")], ["Clear traces", () => click("btn-clear-trace")],
+           ["Reset contact reflex", () => click("chip-contact")]],
+    Create: [["Detect target", () => click("cam-detect")], ["Smart pick", () => click("cam-smart")]],
+    Window: ["__panels__"],
+    Tools: [["Mirror arms", () => click("btn-mirror")], ["Dual-arm carry", () => click("btn-carry")],
+            ["Dexterity map", () => click("btn-dex")], ["Point cloud", () => click("btn-pcl")], ["Grasps", () => click("btn-grasp")]],
+    Utilities: [["Console", () => showTab("console")], ["Raw values", () => showTab("raw")], ["Camera feed", () => click("btn-cam")]],
+    Layout: [["Default", () => setLayout("default")], ["Wide viewport", () => setLayout("wide")], ["Tall Stage", () => setLayout("tallstage")]],
+    Help: [["Keyboard shortcuts", () => click("btn-keys")],
+           ["About", () => alert("Skate Commander - web cockpit for the R.Botic Skate humanoid work-cell.")]],
+  };
+  let openMenu = null;
+  const closeMenus = () => { document.querySelectorAll(".menu-dd").forEach((d) => d.remove());
+    document.querySelectorAll("#menus .menu").forEach((m) => m.classList.remove("open")); openMenu = null; };
+  document.querySelectorAll("#menus .menu").forEach((mEl) => mEl.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const name = mEl.textContent.trim();
+    if (openMenu === name) { closeMenus(); return; }
+    closeMenus();
+    const items = MENUS[name]; if (!items) return;
+    openMenu = name; mEl.classList.add("open");
+    const dd = document.createElement("div"); dd.className = "menu-dd";
+    const r = mEl.getBoundingClientRect(); dd.style.left = r.left + "px"; dd.style.top = (r.bottom + 2) + "px";
+    if (items[0] === "__panels__") {
+      [["Tool rail", "toolrail"], ["Stage", "stage-pane"], ["Property", "panel"], ["Timeline", "timeline"]].forEach(([lab, id]) => {
+        const el = g(id); const it = document.createElement("button"); it.className = "ddi";
+        const vis = el && el.style.display !== "none";
+        it.innerHTML = '<span class="ck">' + (vis ? "✓" : "") + "</span>" + lab;
+        it.onclick = () => { if (el) el.style.display = el.style.display === "none" ? "" : "none"; try { resize(); } catch (_) {} closeMenus(); };
+        dd.appendChild(it);
+      });
+    } else items.forEach(([lab, fn]) => {
+      const it = document.createElement("button"); it.className = "ddi"; it.textContent = lab;
+      it.onclick = () => { try { fn(); } catch (_) {} closeMenus(); }; dd.appendChild(it);
+    });
+    document.body.appendChild(dd);
+  }));
+  document.addEventListener("click", () => closeMenus());
+
+  // ---- 2) expandable joints in the Stage tree ----
+  const ARMN = { left: 8, right: 8, head: 2, legs: 8 };
+  document.querySelectorAll(".snode[data-group]").forEach((node) => {
+    const grp = node.dataset.group, n = ARMN[grp] || 0;
+    const tw = node.querySelector(".tw"); if (!tw) return;
+    tw.innerHTML = "&#9656;"; tw.style.cursor = "pointer";
+    tw.addEventListener("click", (e) => {
+      e.stopPropagation();
+      let kids = node.nextElementSibling;
+      if (kids && kids.classList.contains("jkids")) { kids.remove(); tw.innerHTML = "&#9656;"; return; }
+      kids = document.createElement("div"); kids.className = "jkids";
+      for (let i = 1; i <= n; i++) {
+        const j = document.createElement("div"); j.className = "snode lv3 jchild";
+        j.innerHTML = '<span class="tw"></span><span class="nm">J' + i + '</span><em class="ty">Revolute</em>';
+        j.onclick = () => {
+          node.click();
+          const ji = i - 1;
+          setTimeout(() => { const rows = g("joints").children; if (rows[ji]) { rows[ji].scrollIntoView({ block: "center" }); rows[ji].classList.add("flash"); setTimeout(() => rows[ji].classList.remove("flash"), 700); } }, 130);
+        };
+        kids.appendChild(j);
+      }
+      node.after(kids); tw.innerHTML = "&#9662;";
+    });
+  });
+
+  // ---- 3) live-rotating nav gizmo (tracks camera orientation) ----
+  const gz = { x: document.querySelector("#nav-gizmo .gz-x"), y: document.querySelector("#nav-gizmo .gz-y"), z: document.querySelector("#nav-gizmo .gz-z") };
+  const av = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+  function updateGizmo() {
+    try {
+      const q = camera.quaternion.clone().invert(); const C = 28, R = 17;
+      for (const k of ["x", "y", "z"]) {
+        const el = gz[k]; if (!el) continue;
+        const d = av[k].clone().applyQuaternion(q);
+        el.style.right = "auto";
+        el.style.left = (C + d.x * R - 8.5) + "px";
+        el.style.top = (C - d.y * R - 8.5) + "px";
+        el.style.opacity = (0.5 + 0.5 * (d.z + 1) / 2).toFixed(2);
+        el.style.zIndex = d.z > 0 ? 6 : 4;
+      }
+    } catch (_) {}
+  }
+  setInterval(updateGizmo, 50);
+  updateGizmo();
+
+  // ---- 4) render-quality toggle in the viewport toolbar ----
+  const rtx = document.querySelector(".hd-render");
+  if (rtx) {
+    let hi = true; rtx.style.cursor = "pointer"; rtx.title = "Toggle render quality";
+    rtx.addEventListener("click", () => {
+      hi = !hi;
+      try { renderer.setPixelRatio(hi ? Math.min(2, window.devicePixelRatio || 1) : 1); resize(); } catch (_) {}
+      rtx.textContent = hi ? "RTX" : "LOW"; rtx.classList.toggle("lo", !hi);
+    });
+  }
 })();

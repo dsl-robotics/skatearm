@@ -13,154 +13,247 @@
 </script>
 </head>
 <body>
-  <div id="topbar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.21</em></div>
-    <div id="mode-toggle" title="Same UDP wire — SIM targets 127.0.0.1, REAL targets the robot">
+<div id="app">
+
+  <!-- ============ MENU BAR ============ -->
+  <div id="menubar">
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.22</em></div>
+    <nav id="menus">
+      <span class="menu">File</span><span class="menu">Edit</span><span class="menu">Create</span>
+      <span class="menu">Window</span><span class="menu">Tools</span><span class="menu">Utilities</span>
+      <span class="menu">Layout</span><span class="menu">Help</span>
+    </nav>
+    <div class="mb-sp"></div>
+    <div id="mode-toggle" title="Same UDP wire - SIM targets 127.0.0.1, REAL targets the robot">
       <div id="mode-sim" class="active sim">SIM</div>
       <div id="mode-real">REAL</div>
     </div>
     <div class="status-cluster" role="status" aria-live="polite">
-      <div class="chip" id="chip-link" title="Robot/sim link over the UDP wire — the browser↔server connection is shown by the banner">LINK</div>
+      <div class="chip" id="chip-link" title="Robot/sim link over the UDP wire">LINK</div>
       <div class="chip" id="chip-lat" aria-hidden="true" title="Round-trip latency - browser/server ping echo" style="display:none"></div>
       <div class="chip" id="chip-bw" aria-hidden="true" title="Downlink bandwidth - telemetry received from the server" style="display:none"></div>
       <div class="chip" id="chip-armed">ARMED</div>
       <div class="chip" id="chip-live">DAMPENED</div>
       <div class="chip" id="chip-temp">TEMP</div>
-      <div class="chip" id="chip-guard" style="display:none"
-           title="Self-collision guard: impossible poses are rejected before being sent">GUARD</div>
-      <div class="chip" id="chip-sing" style="display:none"
-           title="Near a singularity — the arm is nearly straight, so a cartesian move in some direction needs large joint speeds">SING</div>
-      <div class="chip" id="chip-rec" style="display:none"
-           title="Teach-in recording — every settled pose becomes a line of the program (PROG tab)">REC</div>
-      <div class="chip" id="chip-home" style="display:none"
-           title="Homing — gliding to the safe default pose (jerk-limited); shows ROUTING when the RRT planner routes around a self-collision">HOMING</div>
-      <div class="chip" id="chip-contact" style="display:none"
-           title="Contact reflex tripped — an arm joint pushed into something (loaded but stalled) and the arm dampened. Click to reset.">CONTACT</div>
+      <div class="chip" id="chip-guard" style="display:none" title="Self-collision guard: impossible poses are rejected before being sent">GUARD</div>
+      <div class="chip" id="chip-sing" style="display:none" title="Near a singularity - the arm is nearly straight">SING</div>
+      <div class="chip" id="chip-rec" style="display:none" title="Teach-in recording">REC</div>
+      <div class="chip" id="chip-home" style="display:none" title="Homing - gliding to the safe default pose; ROUTING when routing around a self-collision">HOMING</div>
+      <div class="chip" id="chip-contact" style="display:none" title="Contact reflex tripped - click to reset">CONTACT</div>
     </div>
     <button id="btn-keys" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (press ?)">?</button>
     <button id="btn-estop">E-STOP</button>
   </div>
 
+  <!-- ============ MAIN ============ -->
   <div id="main">
-    <div id="viewport">
-      <div id="banner"></div>
-      <div id="approve-bar" role="status" aria-live="assertive" aria-atomic="true"><span id="approve-text"></span><button id="approve-go">✓ Approve</button><button id="approve-cancel">✕ Cancel</button></div>
-      <div class="overlay" id="overlay"></div>
-      <div id="overlay-hint"></div>
-      <div id="keys-legend" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" style="display:none">
-        <div class="keys-card">
-          <div class="keys-head">KEYBOARD SHORTCUTS<button id="keys-close" aria-label="Close shortcuts">×</button></div>
-          <div class="keys-grid">
-            <div><kbd>Space</kbd> E-stop / Resume</div>
-            <div><kbd>H</kbd> Home</div>
-            <div><kbd>C</kbd> Camera</div>
-            <div><kbd>E</kbd> Ego + exo split</div>
-            <div><kbd>T</kbd> Traces</div>
-            <div><kbd>D</kbd> Dexterity</div>
-            <div><kbd>P</kbd> Point cloud</div>
-            <div><kbd>G</kbd> Grasps</div>
-            <div><kbd>L</kbd> Overlay layers</div>
-            <div><kbd>M</kbd> Mirror</div>
-            <div><kbd>1</kbd>-<kbd>6</kbd> Arm-group tabs</div>
-            <div><kbd>Esc</kbd> Cancel / close</div>
-            <div><kbd>?</kbd> This legend</div>
-          </div>
+
+    <!-- LEFT: vertical Main Toolbar -->
+    <div id="toolrail">
+      <button class="rail-tool act tri" data-tool="select" title="Select (default viewport behaviour)"><svg viewBox="0 0 24 24"><path d="M5 3l14 9-6 1 3 6-2 1-3-6-4 4z"/></svg></button>
+      <button class="rail-tool tri" data-tool="translate" title="Move / translate the IK target"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg></button>
+      <button class="rail-tool tri" data-tool="rotate" title="Rotate the IK target"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.3 5.6M4 12V7M4 12h5"/></svg></button>
+      <button class="rail-tool" data-tool="scale" title="Scale"><svg viewBox="0 0 24 24"><path d="M4 20l7-7M4 20v-5M4 20h5M20 4l-7 7M20 4v5M20 4h-5"/></svg></button>
+      <button class="rail-tool" data-tool="snap" title="Snap to increments"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 4v16M15 4v16M4 9h16M4 15h16"/></svg></button>
+      <span class="rail-div"></span>
+      <button id="btn-home" class="rail-tool" title="HOME - glide to the documented safe pose"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg></button>
+      <button id="btn-mirror" class="rail-tool amber" title="MIRROR - commands to one arm are reflected onto the other"><svg viewBox="0 0 24 24"><path d="M12 3v18M7 8l-3 4 3 4M17 8l3 4-3 4"/></svg></button>
+      <button id="btn-carry" class="rail-tool amber" title="CARRY - both wrists hold one object and move together"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg></button>
+      <span class="rail-sp"></span>
+      <button id="btn-resume2" class="rail-tool" title="Play / Resume simulation"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
+      <button id="btn-estop2" class="rail-tool" title="Stop / E-stop"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg></button>
+      <div id="carry-pad" class="carry-pop" style="display:none">
+        <div class="cp-head">CARRY - MOVE OBJECT</div>
+        <div class="cp-grid">
+          <button data-cd="-1,0,0" title="carry the object -X">X-</button><button data-cd="1,0,0" title="carry +X">X+</button>
+          <button data-cd="0,-1,0" title="carry -Y (toward base)">Y-</button><button data-cd="0,1,0" title="carry +Y (away)">Y+</button>
+          <button data-cd="0,0,-1" title="carry down">Z-</button><button data-cd="0,0,1" title="carry up">Z+</button>
+          <div class="cp-axis">both wrists - world axes</div>
         </div>
-      </div>
-      <div id="dock" class="frame">
-        <div class="dock-sec">
-          <div class="dock-lbl">CAMERA</div>
-          <div class="dock-row">
-            <button id="btn-cam" class="tbtn" title="Toggle the rendered robot camera view"><svg viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg><span>CAM</span></button>
-          </div>
-        </div>
-        <div class="dock-sec">
-          <div class="dock-lbl">TRACES</div>
-          <div class="dock-row">
-            <button id="btn-trace" class="tbtn on" title="Record wrist (TCP) trajectories in the viewport"><svg viewBox="0 0 24 24"><path d="M3 17c4 0 4-10 8-10s4 10 9 10"/></svg><span>TRACE</span></button>
-            <button id="btn-clear-trace" class="tbtn" title="Erase recorded trajectories"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/></svg><span>CLEAR</span></button>
-          </div>
-        </div>
-        <div class="dock-sec">
-          <button class="dock-lbl dock-lbl-btn" id="btn-layers" title="Layer visibility + opacity">OVERLAYS<span class="lbl-caret"> ▸</span></button>
-          <div class="dock-row">
-            <button id="btn-dex" class="tbtn" title="Manipulability heat-map — a dexterity cloud over the reachable workspace (blue = near-singular, warm = isotropic). First toggle samples it (~2 s)."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/></svg><span>DEX</span></button>
-            <button id="btn-pcl" class="tbtn" title="Work-camera point cloud — what the work camera sees, depth-back-projected to a coloured 3D cloud in the twin. First toggle renders it."><svg viewBox="0 0 24 24"><circle cx="7" cy="8" r="1.3"/><circle cx="12.5" cy="6" r="1.3"/><circle cx="17" cy="9" r="1.3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="14" r="1.3"/><circle cx="11.5" cy="18" r="1.3"/></svg><span>PCL</span></button>
-            <button id="btn-grasp" class="tbtn" title="Smart-pick grasp — synthesised on the work-camera point cloud (table removed, object clustered): the object footprint, the parallel-jaw line (closes across the minor axis) and the top-down approach, drawn in the twin. First toggle computes it."><svg viewBox="0 0 24 24"><path d="M7 3v7l2 2M17 3v7l-2 2"/><circle cx="12" cy="17" r="2.4"/></svg><span>GRASP</span></button>
-          </div>
-        </div>
-        <div class="dock-sec">
-          <div class="dock-lbl">POSE</div>
-          <button id="btn-home" class="tbtn home" title="Glide to the documented safe pose"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg><span>HOME</span></button>
-        </div>
-        <div class="dock-sec">
-          <div class="dock-lbl">BIMANUAL</div>
-          <div class="dock-row">
-            <button id="btn-mirror" class="tbtn amber" title="Bimanual mirror: commands to one arm are reflected onto the other (sign map measured from the model)"><svg viewBox="0 0 24 24"><path d="M12 3v18M7 8l-3 4 3 4M17 8l3 4-3 4"/></svg><span>MIRROR</span></button>
-            <button id="btn-carry" class="tbtn amber" title="Dual-arm carry: both wrists hold one object and move together (preserving their separation)"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg><span>CARRY</span></button>
-          </div>
-        </div>
-        <div id="layers-pop" class="layers-pop" style="display:none">
-          <div class="cp-head">OVERLAY LAYERS</div>
-          <div class="presets">
-            <button data-preset="clean">Clean</button><button data-preset="pick">Pick</button>
-            <button data-preset="inspect">Inspect</button><button data-preset="reach">Reach</button>
-          </div>
-          <div class="presets saved" id="saved-presets" style="display:none"></div>
-          <div class="preset-save">
-            <input id="preset-name" type="text" maxlength="18" placeholder="Save current view&hellip;" aria-label="Name for new preset">
-            <button id="preset-save" aria-label="Save the current view as a preset" title="Save the current overlay layout as a preset">+</button>
-          </div>
-          <div class="lyr" data-ov="trace"><button class="eye" title="toggle">●</button><span>Traces</span></div>
-          <div class="lyr" data-ov="dex"><button class="eye" title="toggle">●</button><span>Dexterity</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Dexterity opacity"></div>
-          <div class="lyr" data-ov="pcl"><button class="eye" title="toggle">●</button><span>Point cloud</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Point cloud opacity"></div>
-          <div class="lyr" data-ov="grasp"><button class="eye" title="toggle">●</button><span>Grasps</span></div>
-        </div>
-        <div id="carry-pad" class="carry-pop" style="display:none">
-          <div class="cp-head">CARRY · MOVE OBJECT</div>
-          <div class="cp-grid">
-            <button data-cd="-1,0,0" title="carry the object -X">X−</button><button data-cd="1,0,0" title="carry +X">X+</button>
-            <button data-cd="0,-1,0" title="carry -Y (toward base)">Y−</button><button data-cd="0,1,0" title="carry +Y (away)">Y+</button>
-            <button data-cd="0,0,-1" title="carry down">Z−</button><button data-cd="0,0,1" title="carry up">Z+</button>
-            <div class="cp-axis">both wrists · world axes</div>
-          </div>
-        </div>
-      </div>
-      <div id="cam-pip">
-        <div id="cam-stage">
-          <img id="cam-img" alt="rendered robot camera">
-          <div id="cam-mark"></div>
-        </div>
-        <div id="cam-bar">
-          <button id="cam-expand" aria-label="Expand to ego + exo split view" aria-pressed="false" title="Expand the camera (ego + exo, side by side)">⤢</button>
-          <select id="cam-sel"></select>
-          <button id="cam-detect" title="Find the workspace target with the camera">⌖ DETECT</button>
-          <button id="cam-pick" title="Detect, then run a right-arm pick (needs RESUME)">▶ PICK</button>
-          <button id="cam-servo" title="Closed-loop visual servo pick — re-aims as it descends, robust to camera miscalibration (needs RESUME)">◎ SERVO</button>
-          <select id="cam-obj" title="Detected objects (toggle GRASP to populate) — SMART picks this one" style="display:none"></select>
-          <button id="cam-smart" title="Smart pick: synthesise a grasp on the work-camera point cloud, then pick at the measured centre/height — no colour or fixed-height prior (needs RESUME)">▦ SMART</button>
-        </div>
-        <div id="cam-info">—</div>
       </div>
     </div>
-    <div id="panel">
-      <div id="tabs">
-        <div data-group="left" class="active">LEFT</div>
-        <div data-group="right">RIGHT</div>
-        <div data-group="head">HEAD</div>
-        <div data-group="legs">LEGS</div>
-        <div data-group="seq">SEQ</div>
-        <div data-group="prog">PROG</div>
+
+    <!-- CENTER: 3D VIEW -->
+    <div id="center-pane" class="pane center">
+      <div class="pane-hd">3D&nbsp;VIEW<span class="hd-sub" id="view-sub">exo - orbit</span>
+        <span class="hd-tools">
+          <button class="vbtn" data-view="persp">Persp</button>
+          <button class="vbtn" data-view="top">Top</button>
+          <button class="vbtn" data-view="front">Front</button>
+          <button class="vbtn" data-view="side">Side</button>
+          <span class="hd-render">RTX</span>
+        </span>
       </div>
-      <div id="joints"></div>
-      <div id="footer">
-        <span>skate_ros2 wire · UDP :2000</span>
-        <span id="foot-mode">mode: sim</span>
-        <span id="foot-rate"></span>
+      <div id="viewport">
+        <div id="banner"></div>
+        <div id="approve-bar" role="status" aria-live="assertive" aria-atomic="true"><span id="approve-text"></span><button id="approve-go">&#10003; Approve</button><button id="approve-cancel">&#10005; Cancel</button></div>
+        <div class="overlay" id="overlay"></div>
+        <div id="overlay-hint"></div>
+        <div id="nav-gizmo" title="Click an axis to snap the view">
+          <button class="gz gz-x" data-view="side">X</button>
+          <button class="gz gz-y" data-view="front">Y</button>
+          <button class="gz gz-z" data-view="top">Z</button>
+          <button class="gz gz-c" data-view="persp" title="Perspective">&#9737;</button>
+        </div>
+        <div id="keys-legend" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" style="display:none">
+          <div class="keys-card">
+            <div class="keys-head">KEYBOARD SHORTCUTS<button id="keys-close" aria-label="Close shortcuts">&#215;</button></div>
+            <div class="keys-grid">
+              <div><kbd>Space</kbd> E-stop / Resume</div>
+              <div><kbd>H</kbd> Home</div>
+              <div><kbd>C</kbd> Camera</div>
+              <div><kbd>E</kbd> Ego + exo split</div>
+              <div><kbd>T</kbd> Traces</div>
+              <div><kbd>D</kbd> Dexterity</div>
+              <div><kbd>P</kbd> Point cloud</div>
+              <div><kbd>G</kbd> Grasps</div>
+              <div><kbd>L</kbd> Overlay layers</div>
+              <div><kbd>M</kbd> Mirror</div>
+              <div><kbd>1</kbd>-<kbd>6</kbd> Arm-group tabs</div>
+              <div><kbd>Esc</kbd> Cancel / close</div>
+              <div><kbd>?</kbd> This legend</div>
+            </div>
+          </div>
+        </div>
+        <div id="cam-pip">
+          <div id="cam-stage">
+            <img id="cam-img" alt="rendered robot camera">
+            <div id="cam-mark"></div>
+          </div>
+          <div id="cam-bar">
+            <button id="cam-expand" aria-label="Expand to ego + exo split view" aria-pressed="false" title="Expand the camera (ego + exo, side by side)">&#10530;</button>
+            <select id="cam-sel"></select>
+            <button id="cam-detect" title="Find the workspace target with the camera">&#9023; DETECT</button>
+            <button id="cam-pick" title="Detect, then run a right-arm pick (needs RESUME)">&#9654; PICK</button>
+            <button id="cam-servo" title="Closed-loop visual servo pick (needs RESUME)">&#9678; SERVO</button>
+            <select id="cam-obj" title="Detected objects (toggle GRASP to populate) - SMART picks this one" style="display:none"></select>
+            <button id="cam-smart" title="Smart pick on the work-camera point cloud (needs RESUME)">&#9638; SMART</button>
+          </div>
+          <div id="cam-info">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT DOCK -->
+    <div id="rightdock">
+
+      <div id="stage-pane" class="pane">
+        <div class="pane-hd tabset"><span class="pt act" data-tab="stage">STAGE</span><span class="pt" data-tab="frames">FRAMES</span></div>
+        <div class="pane-body">
+          <div id="dock" class="tabpane" data-pane="stage">
+            <div class="stage-tree">
+              <div class="snode" data-exp="1"><span class="tw">&#9662;</span><button class="eye on"></button><span class="nm">World</span><em class="ty">Scene</em></div>
+              <div class="snode lv1" data-exp="1"><span class="tw">&#9662;</span><button class="eye on"></button><span class="nm">Skate (robot twin)</span><em class="ty">Xform</em></div>
+              <div class="snode lv2 sel" data-group="left"><span class="tw"></span><span class="nm">Left arm</span><em class="ty">8 J</em></div>
+              <div class="snode lv2" data-group="right"><span class="tw"></span><span class="nm">Right arm</span><em class="ty">8 J</em></div>
+              <div class="snode lv2" data-group="head"><span class="tw"></span><span class="nm">Head</span><em class="ty">2 J</em></div>
+              <div class="snode lv2" data-group="legs"><span class="tw"></span><span class="nm">Legs</span><em class="ty">8 J</em></div>
+              <div class="snode lv1"><span class="tw"></span><button class="eye on"></button><span class="nm">Grid / floor</span><em class="ty">Helper</em></div>
+            </div>
+            <div class="dock-sec">
+              <div class="dock-lbl">SENSORS</div>
+              <div class="dock-row">
+                <button id="btn-cam" class="tbtn" title="Toggle the rendered robot camera view"><svg viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg><span>Work camera</span><em class="ty">Sensor</em></button>
+              </div>
+            </div>
+            <div class="dock-sec">
+              <div class="dock-lbl">TRACES</div>
+              <div class="dock-row">
+                <button id="btn-trace" class="tbtn on" title="Record wrist (TCP) trajectories"><svg viewBox="0 0 24 24"><path d="M3 17c4 0 4-10 8-10s4 10 9 10"/></svg><span>TCP traces</span><em class="ty">Path</em></button>
+                <button id="btn-clear-trace" class="tbtn" title="Erase recorded trajectories"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/></svg><span>Clear traces</span></button>
+              </div>
+            </div>
+            <div class="dock-sec">
+              <button class="dock-lbl dock-lbl-btn" id="btn-layers" title="Layer visibility + opacity">OVERLAYS<span class="lbl-caret"> &#9656;</span></button>
+              <div class="dock-row">
+                <button id="btn-dex" class="tbtn" title="Manipulability heat-map. First toggle samples it (~2 s)."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/></svg><span>Dexterity</span><em class="ty">Field</em></button>
+                <button id="btn-pcl" class="tbtn" title="Work-camera point cloud. First toggle renders it."><svg viewBox="0 0 24 24"><circle cx="7" cy="8" r="1.3"/><circle cx="12.5" cy="6" r="1.3"/><circle cx="17" cy="9" r="1.3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="14" r="1.3"/><circle cx="11.5" cy="18" r="1.3"/></svg><span>Point cloud</span><em class="ty">Cloud</em></button>
+                <button id="btn-grasp" class="tbtn" title="Smart-pick grasp. First toggle computes it."><svg viewBox="0 0 24 24"><path d="M7 3v7l2 2M17 3v7l-2 2"/><circle cx="12" cy="17" r="2.4"/></svg><span>Grasps</span><em class="ty">Mesh</em></button>
+              </div>
+            </div>
+            <div id="layers-pop" class="layers-pop" style="display:none">
+              <div class="cp-head">OVERLAY LAYERS</div>
+              <div class="presets">
+                <button data-preset="clean">Clean</button><button data-preset="pick">Pick</button>
+                <button data-preset="inspect">Inspect</button><button data-preset="reach">Reach</button>
+              </div>
+              <div class="presets saved" id="saved-presets" style="display:none"></div>
+              <div class="preset-save">
+                <input id="preset-name" type="text" maxlength="18" placeholder="Save current view&hellip;" aria-label="Name for new preset">
+                <button id="preset-save" aria-label="Save the current view as a preset" title="Save the current overlay layout as a preset">+</button>
+              </div>
+              <div class="lyr" data-ov="trace"><button class="eye" title="toggle">&#9679;</button><span>Traces</span></div>
+              <div class="lyr" data-ov="dex"><button class="eye" title="toggle">&#9679;</button><span>Dexterity</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Dexterity opacity"></div>
+              <div class="lyr" data-ov="pcl"><button class="eye" title="toggle">&#9679;</button><span>Point cloud</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Point cloud opacity"></div>
+              <div class="lyr" data-ov="grasp"><button class="eye" title="toggle">&#9679;</button><span>Grasps</span></div>
+            </div>
+          </div>
+          <div class="tabpane" data-pane="frames" style="display:none">
+            <div class="frames-list">
+              <div class="fr"><span class="ax" style="background:var(--x)"></span>world<em>fixed</em></div>
+              <div class="fr"><span class="ax" style="background:var(--y)"></span>base_link<em>root</em></div>
+              <div class="fr"><span class="ax" style="background:var(--z)"></span>armL_flange<em>TCP L</em></div>
+              <div class="fr"><span class="ax" style="background:var(--z)"></span>armR_flange<em>TCP R</em></div>
+              <div class="fr"><span class="ax" style="background:var(--accent)"></span>cam_work<em>sensor</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel" class="pane">
+        <div class="pane-hd tabset"><span class="pt act" data-tab="property">PROPERTY</span><span class="pt" data-tab="raw">RAW</span></div>
+        <div class="pane-body">
+          <div class="tabpane" data-pane="property">
+            <div id="tabs">
+              <div data-group="left" class="active">LEFT</div>
+              <div data-group="right">RIGHT</div>
+              <div data-group="head">HEAD</div>
+              <div data-group="legs">LEGS</div>
+              <div data-group="seq">SEQ</div>
+              <div data-group="prog">PROG</div>
+            </div>
+            <div id="joints"></div>
+          </div>
+          <div class="tabpane" data-pane="raw" style="display:none">
+            <pre id="raw-readout" class="raw">waiting for telemetry...</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ BROWSERS / TIMELINE ============ -->
+  <div id="timeline">
+    <div class="tl-hd">
+      <span class="pt act" data-tab="tltimeline">TIMELINE</span><span class="pt" data-tab="console">CONSOLE</span><span class="pt" data-tab="content">CONTENT</span>
+      <span class="tl-foot">skate_ros2 wire - UDP :2000</span>
+      <span id="foot-mode">mode: sim</span>
+      <span class="tl-sp"></span>
+      <span id="foot-rate"></span>
+    </div>
+    <div class="tl-wrap">
+      <div class="tabpane" data-pane="tltimeline">
+        <div class="tl-body">
+          <div class="tl-streams">
+            <div class="s">traces</div><div class="s">work cam</div><div class="s">joints</div>
+          </div>
+          <div class="tl-track">
+            <div class="lane"></div><div class="lane"></div><div class="lane"></div>
+            <div class="ph"></div>
+          </div>
+        </div>
+      </div>
+      <div class="tabpane" data-pane="console" style="display:none">
+        <div id="console-log" class="console"></div>
+      </div>
+      <div class="tabpane" data-pane="content" style="display:none">
+        <div id="content-grid" class="content-grid"></div>
       </div>
     </div>
   </div>
 
+</div>
 <script type="module" src="/static/app.js"></script>
 </body>
 </html>
