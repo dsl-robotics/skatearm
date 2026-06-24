@@ -55,6 +55,7 @@ class RobotBridge:
         self.mode = "sim"                  # "sim" | "real"
         self.link = SkateLink(*self.sim_addr)
         self.jog_rate = float(jog_rate)
+        self.speed_scale = 1.0             # global velocity override (0.1-1.0), teach-pendant style
         self.jog_accel = float(jog_accel)   # rad/s^2 smooth jog ramp
         if limits is not None:
             self.lo = np.asarray(limits[0], dtype=float)
@@ -170,6 +171,15 @@ class RobotBridge:
         self.ik_targets = {"left": None, "right": None}
         self.carry = False
         self.estop = True                  # explicit resume required
+
+    def set_speed(self, scale):
+        """Global velocity override (teach-pendant): clamp to 0.1-1.0 and
+        scale jog + sequence-glide cruise speeds."""
+        try:
+            self.speed_scale = float(max(0.1, min(1.0, scale)))
+        except (TypeError, ValueError):
+            pass
+        return self.speed_scale
 
     def trigger_estop(self):
         self.estop = True
@@ -319,7 +329,7 @@ class RobotBridge:
         distance). Returns ``(new_vel, remaining_before_step)``. Shared by the
         waypoint sequencer and home() so both ease in and out identically."""
         remaining = float(np.max(np.abs(goal - self.targ)))
-        vel = min(self.seq_rate, vel + self.seq_accel * dt)
+        vel = min(self.seq_rate * self.speed_scale, vel + self.seq_accel * dt)
         vel = min(vel, float(np.sqrt(2.0 * self.seq_accel * max(remaining, 0.0))))
         step = vel * dt
         self.targ = np.clip(self.targ + np.clip(goal - self.targ, -step, step),
@@ -699,7 +709,7 @@ class RobotBridge:
             if live:
                 # acceleration-limited jog: chase jog_dir*rate so a held jog
                 # eases in, and on release eases out, instead of snapping.
-                target_vel = self.jog_dir * self.jog_rate
+                target_vel = self.jog_dir * self.jog_rate * self.speed_scale
                 dv = self.jog_accel * dt
                 self.jog_vel += np.clip(target_vel - self.jog_vel, -dv, dv)
                 if self.jog_vel.any():
@@ -770,6 +780,7 @@ class RobotBridge:
                       "blocking": self.guard_blocking},
             "mirror": self.mirror,
             "carry": self.carry,
+            "speed_scale": self.speed_scale,
             "homing": self.home_active or self.plan_nodes is not None,
             "routing": (self.plan_nodes is not None
                         or (self.seq_route is not None and len(self.seq_route) > 1)),

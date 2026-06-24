@@ -311,3 +311,17 @@ if __name__ == "__main__":
     test_seq_routes_around_collision()
     test_bridge_full_cycle(); print("PASS test_bridge_full_cycle")
     test_cart_step_and_mirror()
+
+
+def test_set_speed_clamps_and_scales():
+    """F4 global speed override: clamps to 0.1-1.0, ignores bad input,
+    and feeds the jog + glide cruise scaling."""
+    br = RobotBridge(sim_host="127.0.0.1", sim_port=_free_port(), jog_rate=0.6)
+    assert br.speed_scale == 1.0                 # full speed by default
+    assert br.set_speed(0.5) == 0.5 and br.speed_scale == 0.5
+    assert br.set_speed(5.0) == 1.0              # clamp high
+    assert br.set_speed(0.0) == 0.1              # clamp low
+    br.set_speed("bad")                          # non-numeric ignored, no raise
+    assert br.speed_scale == 0.1
+    # snapshot exposes the scale so the UI can reflect it
+    assert br.snapshot()["speed_scale"] == 0.1

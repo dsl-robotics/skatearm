@@ -17,7 +17,7 @@
 
   <!-- ============ MENU BAR ============ -->
   <div id="menubar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.22</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.23</em></div>
     <nav id="menus">
       <span class="menu">File</span><span class="menu">Edit</span><span class="menu">Create</span>
       <span class="menu">Window</span><span class="menu">Tools</span><span class="menu">Utilities</span>
@@ -75,7 +75,7 @@
 
     <!-- CENTER: 3D VIEW -->
     <div id="center-pane" class="pane center">
-      <div class="pane-hd">3D&nbsp;VIEW<span class="hd-sub" id="view-sub">exo - orbit</span>
+      <div class="pane-hd">3D&nbsp;VIEW<span class="hd-sub" id="view-sub">exo - orbit</span><div id="speed-ctl" title="Global motion speed override — scales jog + all glides (home, sequences)"><span class="sc-lbl">SPD</span><input type="range" id="speed-slider" min="10" max="100" step="5" value="100" aria-label="Motion speed override"><span id="speed-val">100%</span></div>
         <span class="hd-tools">
           <button class="vbtn" data-view="persp">Persp</button>
           <button class="vbtn" data-view="top">Top</button>
@@ -89,6 +89,7 @@
         <div id="approve-bar" role="status" aria-live="assertive" aria-atomic="true"><span id="approve-text"></span><button id="approve-go">&#10003; Approve</button><button id="approve-cancel">&#10005; Cancel</button></div>
         <div class="overlay" id="overlay"></div>
         <div id="overlay-hint"></div>
+        <div id="giz-hud"></div>
         <div id="nav-gizmo" title="Click an axis to snap the view">
           <button class="gz gz-x" data-view="side">X</button>
           <button class="gz gz-y" data-view="front">Y</button>
@@ -190,11 +191,10 @@
           </div>
           <div class="tabpane" data-pane="frames" style="display:none">
             <div class="frames-list">
-              <div class="fr"><span class="ax" style="background:var(--x)"></span>world<em>fixed</em></div>
-              <div class="fr"><span class="ax" style="background:var(--y)"></span>base_link<em>root</em></div>
-              <div class="fr"><span class="ax" style="background:var(--z)"></span>armL_flange<em>TCP L</em></div>
-              <div class="fr"><span class="ax" style="background:var(--z)"></span>armR_flange<em>TCP R</em></div>
-              <div class="fr"><span class="ax" style="background:var(--accent)"></span>cam_work<em>sensor</em></div>
+              <div class="fr" data-frame="world"><button class="eye on" title="toggle axis triad"></button><span class="fr-nm">world</span><em class="fr-xyz" data-xyz="world">0 · 0 · 0</em></div>
+              <div class="fr lv1" data-frame="base"><button class="eye" title="toggle axis triad"></button><span class="fr-nm">base_link</span><em class="fr-xyz" data-xyz="base">—</em></div>
+              <div class="fr lv2" data-frame="left"><button class="eye" title="toggle axis triad"></button><span class="fr-nm">armL_flange</span><em class="fr-xyz" data-xyz="left">—</em></div>
+              <div class="fr lv2" data-frame="right"><button class="eye" title="toggle axis triad"></button><span class="fr-nm">armR_flange</span><em class="fr-xyz" data-xyz="right">—</em></div>
             </div>
           </div>
         </div>
@@ -234,14 +234,21 @@
     </div>
     <div class="tl-wrap">
       <div class="tabpane" data-pane="tltimeline">
-        <div class="tl-body">
-          <div class="tl-streams">
-            <div class="s">traces</div><div class="s">work cam</div><div class="s">joints</div>
+        <div class="plot">
+          <div class="plot-bar">
+            <select id="plot-metric" title="Signal to plot">
+              <option value="angle">Joint angle °</option>
+              <option value="vel">Joint velocity r/s</option>
+              <option value="temp">Joint temp °C</option>
+              <option value="tcp">TCP X·Y·Z mm</option>
+              <option value="rtt">Link RTT · KB/s</option>
+            </select>
+            <div id="plot-legend"></div>
+            <span class="tl-sp"></span>
+            <button id="plot-pause" title="Pause / resume the plot">❚❚ Pause</button>
+            <span class="plot-win" id="plot-win">15s</span>
           </div>
-          <div class="tl-track">
-            <div class="lane"></div><div class="lane"></div><div class="lane"></div>
-            <div class="ph"></div>
-          </div>
+          <canvas id="plot-canvas"></canvas>
         </div>
       </div>
       <div class="tabpane" data-pane="console" style="display:none">

@@ -40,11 +40,20 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.22)
+## Features (v0.7.23)
 
 The cockpit is structured as a NVIDIA-Isaac-Sim-style workstation: a **menu bar**, a left vertical **tool rail**, a center **3D View**, a right **STAGE** (scene hierarchy) over **PROPERTY** (inspector), and a bottom **TIMELINE / CONSOLE / CONTENT** browser - on a flat, token-driven dark theme.
 
 
+* **Live telemetry plots** (Foxglove / PlotJuggler style) — the TIMELINE pane
+  plots real scrolling strip charts of the live signals (joint angle /
+  velocity / temperature / TCP / link RTT) at 30 Hz, with a colour-coded
+  legend, click-to-toggle lines, pause and current-value end markers
+* **Live TF frame tree** (RViz2 style) — the FRAMES tab is a live transform
+  tree (world ▸ base_link ▸ armL/armR_flange) with world-mm readouts and
+  eye-toggled RGB axis triads (with frame-name labels) that track the kinematics
+* **Global speed override** (teach-pendant) — a SPD slider scales all motion
+  server-side (jog + every glide: home, sequences, RRT routes)
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
   material colors)

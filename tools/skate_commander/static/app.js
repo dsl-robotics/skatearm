@@ -38,7 +38,7 @@ const scene = new THREE.Scene();          // transparent: CSS gradient shows
 const FLOOR_Z = -0.95;                    // wheel contact plane of skt_v3
 const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 50);
 camera.up.set(0, 0, 1);
-camera.position.set(2.0, -2.0, 0.55);
+camera.position.set(1.65, -1.65, 0.46);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 $("viewport").appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -163,6 +163,7 @@ function setupGizmo() {
   scene.add(tc);
   tc.addEventListener("dragging-changed", (e) => {
     controls.enabled = !e.value;
+      { const _gh = document.getElementById("giz-hud"); if (_gh) _gh.style.display = e.value ? "block" : "none"; }
     if (e.value) {
       draggingArm = tc.object ? tc.object.userData.arm : null;
     } else {
@@ -172,6 +173,10 @@ function setupGizmo() {
   });
   let lastSend = 0;
   tc.addEventListener("objectChange", () => {
+    { const _p2 = tc.object && tc.object.position, _gh = document.getElementById("giz-hud");
+      if (_p2 && _gh) { _gh.style.display = "block"; _gh.textContent =
+        (tc.getMode ? tc.getMode().toUpperCase() : "MOVE") + "   " +
+        (_p2.x * 1000).toFixed(0) + " · " + (_p2.y * 1000).toFixed(0) + " · " + (_p2.z * 1000).toFixed(0) + " mm"; } }
     if (!draggingArm || !state || !state.live) return;
     const now = performance.now();
     if (now - lastSend < 50) return;          // 20 Hz target stream
@@ -1898,6 +1903,18 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
 
   // --- tool rail: active tool + transform mode on the IK gizmo ---
   document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.tool === "snap") {
+      const on = !b.classList.contains("on"); b.classList.toggle("on", on);
+      try { if (typeof tc !== "undefined" && tc.setTranslationSnap) {
+        tc.setTranslationSnap(on ? 0.01 : null);
+        tc.setRotationSnap(on ? THREE.MathUtils.degToRad(15) : null);
+        tc.setScaleSnap(on ? 0.1 : null);
+      } } catch (_) {}
+      const _gh = document.getElementById("giz-hud");
+      if (_gh) { _gh.style.display = "block"; _gh.textContent = on ? "SNAP ON · 10 mm / 15°" : "SNAP OFF";
+        setTimeout(() => { if (!draggingArm) _gh.style.display = "none"; }, 1100); }
+      return;
+    }
     document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((x) => x.classList.remove("act"));
     b.classList.add("act");
     const m = b.dataset.tool;
@@ -2176,4 +2193,235 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
       rtx.textContent = hi ? "RTX" : "LOW"; rtx.classList.toggle("lo", !hi);
     });
   }
+})();
+
+
+/* ============================================================
+   LIVE TELEMETRY PLOTS  (Foxglove / PlotJuggler-style strip charts)
+   Self-contained: samples the global `state` at 30 Hz into a ring
+   buffer and draws scrolling line charts in the TIMELINE pane.
+   setInterval (not rAF) so it keeps sampling in a backgrounded tab.
+   ============================================================ */
+(function setupPlots() {
+  const cv = document.getElementById("plot-canvas");
+  if (!cv || !cv.getContext) return;
+  const ctx = cv.getContext("2d");
+  const legendEl = document.getElementById("plot-legend");
+  const metricEl = document.getElementById("plot-metric");
+  const pauseBtn = document.getElementById("plot-pause");
+  const winEl = document.getElementById("plot-win");
+
+  const PAL = ["#3B82F6", "#F5A623", "#3FB950", "#A78BFA", "#22D3EE", "#FF6981", "#E3B341", "#7A95FF"];
+  const AXC = { x: "#FF6981", y: "#3FB950", z: "#7A95FF" };
+  const WINDOW_S = 15, HZ = 30, CAP = WINDOW_S * HZ + 90;
+  const buf = [];
+  const _v = new THREE.Vector3();
+  let paused = false, pauseT = 0, metric = "angle";
+  let hidden = {}, lastGroup = null, lastMetric = null, lastN = -1;
+
+  function lineDefs() {
+    if (metric === "tcp")
+      return [{ k: "x", label: "X", c: AXC.x }, { k: "y", label: "Y", c: AXC.y }, { k: "z", label: "Z", c: AXC.z }];
+    if (metric === "rtt")
+      return [{ k: "rtt", label: "RTT", c: "#3B82F6" }, { k: "kbps", label: "KB/s", c: "#F5A623" }];
+    const idx = (GROUPS[curGroup] && GROUPS[curGroup].idx) || [];
+    return idx.map((ji, n) => ({ k: ji, label: "J" + (n + 1), c: PAL[n % PAL.length] }));
+  }
+
+  function valOf(s, d) {
+    if (metric === "tcp") return s.tcp ? s.tcp[d.k] : null;
+    if (metric === "rtt") return s[d.k];
+    const arr = metric === "vel" ? s.dq : metric === "temp" ? s.temps : s.q;
+    if (!arr) return null;
+    let v = arr[d.k];
+    if (v == null) return null;
+    if (metric === "angle") v = v * 180 / Math.PI;
+    return v;
+  }
+
+  function sample() {
+    if (!state) return;
+    const s = {
+      t: performance.now(),
+      q: state.q ? state.q.slice() : null,
+      dq: state.dq ? state.dq.slice() : null,
+      temps: state.temps ? state.temps.slice() : null,
+      rtt: rttMs || 0, kbps: kbps || 0, tcp: null
+    };
+    try { const p = tcpWorld(curGroup, _v); if (p) s.tcp = { x: p.x * 1000, y: p.y * 1000, z: p.z * 1000 }; } catch (_) {}
+    buf.push(s);
+    while (buf.length > CAP) buf.shift();
+  }
+
+  function buildLegend(defs) {
+    hidden = {};
+    legendEl.innerHTML = "";
+    defs.forEach((d, i) => {
+      const chip = document.createElement("button");
+      chip.className = "plg";
+      chip.innerHTML = '<i style="background:' + d.c + '"></i><b>' + d.label + '</b><em></em>';
+      chip.addEventListener("click", () => { hidden[i] = !hidden[i]; chip.classList.toggle("off", !!hidden[i]); });
+      legendEl.appendChild(chip);
+    });
+  }
+
+  function fit() {
+    const w = cv.clientWidth, h = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w, h };
+  }
+
+  function draw() {
+    if (cv.offsetParent === null) return;            // TIMELINE pane hidden
+    const { w, h } = fit();
+    const defs = lineDefs();
+    if (curGroup !== lastGroup || metric !== lastMetric || defs.length !== lastN) {
+      buildLegend(defs); lastGroup = curGroup; lastMetric = metric; lastN = defs.length;
+    }
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#08090B"; ctx.fillRect(0, 0, w, h);
+    if (!defs.length) { ctx.fillStyle = "#5A616B"; ctx.font = "11px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText("no joint signals — pick an arm tab (LEFT / RIGHT / HEAD / LEGS)", w / 2, h / 2); ctx.textAlign = "left"; return; }
+    { const U = { angle: "deg", vel: "rad/s", temp: "°C", tcp: "mm", rtt: "ms" }[metric]; if (U) { ctx.fillStyle = "#5A616B"; ctx.font = "9px ui-monospace, monospace"; ctx.textAlign = "right"; ctx.fillText(U, w - 6, 11); ctx.textAlign = "left"; } }
+    const x0 = 40, x1 = w - 8, y0 = 8, y1 = h - 14;
+    const now = paused ? pauseT : performance.now(), t0 = now - WINDOW_S * 1000;
+    const xFor = t => x1 - (now - t) / 1000 / WINDOW_S * (x1 - x0);
+
+    let mn = Infinity, mx = -Infinity;
+    for (const s of buf) {
+      if (s.t < t0) continue;
+      defs.forEach((d, i) => {
+        if (hidden[i]) return;
+        const v = valOf(s, d);
+        if (v == null || !isFinite(v)) return;
+        if (v < mn) mn = v; if (v > mx) mx = v;
+      });
+    }
+    if (!isFinite(mn)) { mn = -1; mx = 1; }
+    if (mx - mn < 1e-6) { mn -= 1; mx += 1; }
+    const pd = (mx - mn) * 0.12; mn -= pd; mx += pd;
+    const yFor = v => y1 - (v - mn) / (mx - mn) * (y1 - y0);
+
+    ctx.lineWidth = 1; ctx.font = "9px ui-monospace, monospace"; ctx.textBaseline = "middle";
+    for (let g = 0; g <= 4; g++) {
+      const yy = y0 + (y1 - y0) * g / 4, val = mx - (mx - mn) * g / 4;
+      ctx.strokeStyle = "#2A2F37"; ctx.globalAlpha = .55; ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.fillStyle = "#8B929C"; ctx.fillText(val.toFixed(1), 3, yy);
+    }
+    ctx.textBaseline = "alphabetic";
+    for (let ts = 5; ts < WINDOW_S; ts += 5) {
+      const xx = xFor(now - ts * 1000);
+      ctx.strokeStyle = "#2A2F37"; ctx.globalAlpha = .35; ctx.beginPath(); ctx.moveTo(xx, y0); ctx.lineTo(xx, y1); ctx.stroke();
+      ctx.globalAlpha = .8; ctx.fillStyle = "#5A616B"; ctx.fillText("-" + ts + "s", xx - 8, h - 3);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.lineWidth = 1.5; ctx.lineJoin = "round";
+    defs.forEach((d, i) => {
+      if (hidden[i]) return;
+      ctx.strokeStyle = d.c; ctx.beginPath();
+      let started = false, lastV = null, lastX = 0, lastY = 0;
+      for (const s of buf) {
+        if (s.t < t0) continue;
+        const v = valOf(s, d);
+        if (v == null || !isFinite(v)) { started = false; continue; }
+        const X = xFor(s.t), Y = yFor(v);
+        if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+        lastV = v; lastX = X; lastY = Y;
+      }
+      ctx.stroke();
+      if (started) { ctx.fillStyle = d.c; ctx.beginPath(); ctx.arc(lastX, lastY, 2.6, 0, 6.283); ctx.fill(); }
+      const chip = legendEl.children[i];
+      if (chip) { const em = chip.querySelector("em"); if (em) em.textContent = lastV == null ? "—" : lastV.toFixed(metric === "vel" ? 2 : 1); }
+    });
+  }
+
+  setInterval(() => { if (!paused) sample(); draw(); }, Math.round(1000 / HZ));
+
+  if (metricEl) metricEl.addEventListener("change", () => { metric = metricEl.value; lastN = -1; });
+  if (pauseBtn) pauseBtn.addEventListener("click", () => {
+    paused = !paused; if (paused) pauseT = performance.now();
+    pauseBtn.classList.toggle("on", paused);
+    pauseBtn.innerHTML = paused ? "▶ Resume" : "❚❚ Pause";
+  });
+  if (winEl) winEl.textContent = WINDOW_S + "s";
+})();
+
+
+/* ============================================================
+   F2: LIVE TF FRAME TREE  (RViz2-style)
+   Parents token-coloured AxesHelper triads to base + each flange so
+   they track the kinematics automatically; the FRAMES tab toggles
+   them and shows each frame's live world position (mm).
+   ============================================================ */
+(function setupFrames() {
+  const frEls = {
+    base: document.querySelector('[data-xyz="base"]'),
+    left: document.querySelector('[data-xyz="left"]'),
+    right: document.querySelector('[data-xyz="right"]'),
+  };
+  if (!frEls.base) return;
+  const triads = {};
+  const _p = new THREE.Vector3();
+  const TOK = [0xFF6981, 0x3FB950, 0x7A95FF];
+  function mkTriad(parent, size, name) {
+    const a = new THREE.AxesHelper(size);
+    if (a.setColors) a.setColors(new THREE.Color(TOK[0]), new THREE.Color(TOK[1]), new THREE.Color(TOK[2]));
+    a.material.transparent = true; a.material.opacity = 0.95;
+    a.material.depthTest = false; a.renderOrder = 6;
+    a.visible = false; parent.add(a);
+    if (name && typeof makeLabel === "function") { const lab = makeLabel(name, 0xD6DAE0, true); lab.position.set(size * 0.6, size * 0.6, size * 0.8); a.add(lab); }
+    return a;
+  }
+  function ensureTriads() {
+    if (!triads.base && robotRoots[0]) triads.base = mkTriad(robotRoots[0], 0.14, "base_link");
+    if (!triads.left && eeObjs.left) triads.left = mkTriad(eeObjs.left, 0.11, "armL_flange");
+    if (!triads.right && eeObjs.right) triads.right = mkTriad(eeObjs.right, 0.11, "armR_flange");
+  }
+  document.querySelectorAll(".frames-list .fr").forEach((fr) => {
+    const key = fr.dataset.frame, eye = fr.querySelector(".eye");
+    if (!eye) return;
+    eye.addEventListener("click", () => {
+      ensureTriads();
+      const on = !eye.classList.contains("on");
+      eye.classList.toggle("on", on);
+      if (key === "world") { try { axes.visible = on; } catch (_) {} }
+      else if (triads[key]) triads[key].visible = on;
+    });
+  });
+  const visible = () => { const p = document.querySelector('.tabpane[data-pane="frames"]'); return p && p.offsetParent !== null; };
+  const objOf = { base: () => robotRoots[0], left: () => eeObjs.left, right: () => eeObjs.right };
+  setInterval(() => {
+    if (!visible()) return;
+    ensureTriads();
+    for (const key of ["base", "left", "right"]) {
+      const o = objOf[key](), el = frEls[key];
+      if (!o || !el) continue;
+      o.getWorldPosition(_p);
+      el.textContent = (_p.x * 1000).toFixed(0) + " · " + (_p.y * 1000).toFixed(0) + " · " + (_p.z * 1000).toFixed(0);
+    }
+  }, 120);
+})();
+
+
+/* ============================================================
+   F4: GLOBAL SPEED OVERRIDE  (teach-pendant velocity scaling)
+   Sends {type:"speed", scale} on slider input; the bridge scales jog
+   + glide cruise speeds. Reflects state.speed_scale when not dragging
+   (so multiple clients stay in sync).
+   ============================================================ */
+(function setupSpeed() {
+  const sl = document.getElementById("speed-slider"), v = document.getElementById("speed-val");
+  if (!sl) return;
+  let dragging = false;
+  const apply = () => { v.textContent = sl.value + "%"; send({ type: "speed", scale: (+sl.value) / 100 }); };
+  sl.addEventListener("input", () => { dragging = true; apply(); });
+  sl.addEventListener("change", () => { dragging = false; });
+  setInterval(() => {
+    if (dragging || !state || state.speed_scale == null) return;
+    const pct = Math.round(state.speed_scale * 100);
+    if (+sl.value !== pct) { sl.value = pct; v.textContent = pct + "%"; }
+  }, 400);
 })();

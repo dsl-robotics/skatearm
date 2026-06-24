@@ -663,6 +663,8 @@ def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
         bridge.jog_start(int(cmd["idx"]), int(cmd["dir"]))
     elif t == "jog_stop":
         bridge.jog_stop(cmd.get("idx"))
+    elif t == "speed":
+        bridge.set_speed(cmd.get("scale"))
     elif t == "jog_step":
         bridge.jog_step(int(cmd["idx"]), float(cmd["delta"]))
     elif t == "set_joint":
