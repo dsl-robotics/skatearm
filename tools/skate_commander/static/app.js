@@ -1314,6 +1314,37 @@ for (const tab of document.querySelectorAll("#tabs div")) {
   };
 }
 
+// ---- keyboard shortcuts + legend (operator hotkeys) ----------------------
+(function keyboardShortcuts() {
+  const MAP = { " ": "btn-estop", h: "btn-home", c: "btn-cam", e: "cam-expand",
+                t: "btn-trace", d: "btn-dex", p: "btn-pcl", g: "btn-grasp",
+                l: "btn-layers", m: "btn-mirror" };
+  const legend = $("keys-legend");
+  const setLegend = (show) => { if (legend) legend.style.display = show ? "flex" : "none"; };
+  const legendOpen = () => legend && legend.style.display === "flex";
+  const typing = (el) => el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ||
+                                el.tagName === "SELECT" || el.isContentEditable);
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Escape") { setLegend(false); return; }
+    if (e.key === "?") { e.preventDefault(); setLegend(!legendOpen()); return; }
+    if (typing(document.activeElement)) return;            // don't hijack text fields
+    if (legendOpen()) return;                              // legend up: only Esc / ? act
+    if (document.activeElement && document.activeElement.tagName === "BUTTON" &&
+        (e.key === " " || e.key === "Enter")) return;      // let a focused button self-activate
+    if (e.key >= "1" && e.key <= "6") {                    // arm-group tabs
+      const t = document.querySelectorAll("#tabs div")[+e.key - 1];
+      if (t) { t.click(); e.preventDefault(); }
+      return;
+    }
+    const id = MAP[e.key.toLowerCase()];
+    if (id) { const b = $(id); if (b && !b.disabled) { b.click(); e.preventDefault(); } }
+  });
+  if ($("btn-keys")) $("btn-keys").onclick = () => setLegend(!legendOpen());
+  if ($("keys-close")) $("keys-close").onclick = () => setLegend(false);
+  if (legend) legend.addEventListener("click", (e) => { if (e.target === legend) setLegend(false); });
+})();
+
 // ---------------------------------------------------------------- data in
 let lastFrame = 0, frameMs = 0;        // telemetry freshness (inter-frame gap)
 let rttMs = 0;                          // real round-trip (ping echo)
