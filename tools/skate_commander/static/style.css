@@ -628,7 +628,7 @@ body.offline #menubar .chip { opacity: .35; filter: grayscale(1); }
    ISAAC-SIM STRUCTURE  (left tool rail + right Stage/Property dock)
    ============================================================ */
 #app { grid-template-rows: auto 1fr auto; }              /* menubar / main / timeline */
-#main { grid-template-columns: 60px 1fr 384px; }
+#main { grid-template-columns: 60px 1fr 384px; grid-template-rows: minmax(0, 1fr); min-height: 0; }
 #toolbar { display: none; }                              /* legacy horizontal toolbar removed */
 
 /* left vertical Main Toolbar (Isaac) */
@@ -811,3 +811,40 @@ body.offline #menubar .chip { opacity: .35; filter: grayscale(1); }
 #speed-slider { width: 84px; accent-color: var(--accent); cursor: pointer; }
 #speed-val { font: 700 10px var(--mono); color: var(--fg2); min-width: 34px; text-align: right;
   font-variant-numeric: tabular-nums; }
+
+
+/* ============================================================
+   I1: ISAAC SIM-TRANSPORT BAR  (Play / Pause / Stop / Step / Reset + time)
+   ============================================================ */
+#transport { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 4px; padding: 4px 7px;
+  background: rgba(14,16,20,.82); border: 1px solid var(--line2); border-radius: 99px;
+  box-shadow: 0 8px 24px -16px rgba(0,0,0,.6); }
+#transport button { width: 30px; height: 26px; padding: 0; font-size: 13px; line-height: 1; cursor: pointer;
+  color: var(--fg2); background: none; border: 1px solid transparent; border-radius: 7px; }
+#transport button:hover { color: var(--fg); background: var(--panel3); border-color: var(--line2); }
+#transport.paused #tp-play { color: var(--accent); }
+#tp-stop:hover { color: var(--bad); border-color: rgba(229,72,77,.5); }
+#tp-time { font: 700 11px var(--mono); color: var(--fg2); min-width: 40px; text-align: center;
+  font-variant-numeric: tabular-nums; padding: 0 5px; border-left: 1px solid var(--line2); margin-left: 2px; }
+
+
+/* ============================================================
+   I3: VIEWPORT STATS HUD  (Isaac-style FPS / draw-calls / triangles)
+   ============================================================ */
+#stats-hud { position: absolute; top: 46px; left: 14px; z-index: 6; display: none;
+  padding: 6px 10px; border-radius: 8px; pointer-events: none;
+  background: rgba(10,12,16,.78); border: 1px solid var(--line2);
+  font: 600 10px/1.55 var(--mono); color: var(--fg2); letter-spacing: .03em; }
+#stats-hud b { color: var(--accent); font-weight: 700; }
+#btn-stats.act { color: var(--accent); border-color: rgba(59,130,246,.4); background: var(--accent-soft); }
+
+
+/* ============================================================
+   I4: STAGE SEARCH + SELECTION OUTLINE
+   ============================================================ */
+#stage-search { width: calc(100% - 16px); margin: 6px 8px 4px; padding: 4px 9px;
+  font: 500 11px var(--sans); color: var(--fg); background: var(--panel2);
+  border: 1px solid var(--line); border-radius: 6px; }
+#stage-search::placeholder { color: var(--faint); }
+#stage-search:focus { outline: none; border-color: var(--accent-lt); }

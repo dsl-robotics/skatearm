@@ -56,6 +56,8 @@ class RobotBridge:
         self.link = SkateLink(*self.sim_addr)
         self.jog_rate = float(jog_rate)
         self.speed_scale = 1.0             # global velocity override (0.1-1.0), teach-pendant style
+        self.paused = False        # sim-transport: freeze autonomous motion
+        self._step_ticks = 0       # >0 = advance N autonomous ticks while paused
         self.jog_accel = float(jog_accel)   # rad/s^2 smooth jog ramp
         if limits is not None:
             self.lo = np.asarray(limits[0], dtype=float)
@@ -180,6 +182,22 @@ class RobotBridge:
         except (TypeError, ValueError):
             pass
         return self.speed_scale
+
+    def set_paused(self, on):
+        """Sim-transport pause: freeze autonomous motion (sequences / home /
+        plan glides) so the arm holds its pose. Manual jog / IK still work."""
+        self.paused = bool(on)
+        if not self.paused:
+            self._step_ticks = 0
+        return self.paused
+
+    def step(self, n=1):
+        """Advance paused autonomous motion by n ticks (Isaac single-step)."""
+        try:
+            self._step_ticks += max(1, int(n))
+        except (TypeError, ValueError):
+            self._step_ticks += 1
+        return self._step_ticks
 
     def trigger_estop(self):
         self.estop = True
@@ -730,9 +748,12 @@ class RobotBridge:
                             self._ik_prev[arm] = err
                             if err < 0.003 or self._ik_stall[arm] > 0.8:
                                 self._clear_one(arm)         # arrived/stuck
-                self._seq_tick(dt)
-                self._home_tick(dt)
-                self._plan_tick(dt)
+                if not self.paused or self._step_ticks > 0:
+                    self._seq_tick(dt)
+                    self._home_tick(dt)
+                    self._plan_tick(dt)
+                    if self._step_ticks > 0:
+                        self._step_ticks -= 1
                 # a planner route is already collision-verified at the guard's
                 # own resolution; re-checking it per-tick (at the finer glide
                 # step) only false-stalls on grazing corners. Guard only the
@@ -781,6 +802,7 @@ class RobotBridge:
             "mirror": self.mirror,
             "carry": self.carry,
             "speed_scale": self.speed_scale,
+            "paused": self.paused,
             "homing": self.home_active or self.plan_nodes is not None,
             "routing": (self.plan_nodes is not None
                         or (self.seq_route is not None and len(self.seq_route) > 1)),

@@ -15,15 +15,15 @@
 <meta name="twitter:image" content="https://dsl-robotics.github.io/skatearm/img/skate_commander_lockup.png">
 <style>
   :root{
-    --bg:#0e0f12; --panel:#15171b; --line:#262931; --fg:#ecedef; --fg2:#aab2bd;
-    --dim:#828a94; --accent:#38a0ff; --accent2:#1f5d99;
+    --bg:#0E1013; --bg2:#08090B; --panel:#16191E; --panel2:#1E222A; --line:#2A2F37; --fg:#D6DAE0; --fg2:#9AA1AB;
+    --dim:#8B929C; --accent:#3B82F6; --accent2:#2D6FE0;
     --mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",monospace;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--fg);font:16px/1.65 "Inter","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
   a{color:var(--accent);text-decoration:none;} a:hover{text-decoration:underline;}
   .wrap{max-width:900px;margin:0 auto;padding:0 22px;}
-  header{padding:54px 0 22px;text-align:center;background:radial-gradient(ellipse at 50% -10%, #161a20 0%, var(--bg) 70%);}
+  header{padding:54px 0 22px;text-align:center;background:var(--bg2);border-bottom:1px solid var(--line);}
   .kicker{font:600 13px var(--mono);letter-spacing:.28em;text-transform:uppercase;color:var(--dim);}
   h1{font-size:46px;line-height:1.05;letter-spacing:-.02em;margin:12px 0 8px;}
   h1 span{color:var(--accent);}
@@ -41,7 +41,7 @@
   nav.toc{display:flex;flex-wrap:wrap;gap:8px 16px;font:600 13px var(--mono);margin:16px 0 0;justify-content:center;}
   nav.toc a{color:var(--fg2);}
   pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;font:13px/1.6 var(--mono);color:var(--fg);margin:14px 0;}
-  code{font:13px var(--mono);color:var(--accent);background:rgba(56,160,255,.09);padding:1px 5px;border-radius:5px;}
+  code{font:13px var(--mono);color:var(--accent);background:rgba(59,130,246,.1);padding:1px 5px;border-radius:5px;}
   pre code{color:var(--fg);background:none;padding:0;}
   table.api{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px;}
   table.api th,table.api td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line);}
@@ -95,19 +95,49 @@ python3 -m skate_commander</code></pre>
 <section id="cockpit">
   <div class="wrap">
     <h2>The cockpit</h2>
-    <p class="sub">Everything goes over the same UDP wire the robot speaks — the twin and the real robot are one switch apart.</p>
+    <p class="sub">A <b>NVIDIA-Isaac-Sim-style robotics workstation</b>, in the browser: a menu bar, a left vertical tool rail, a center 3D view, a right <b>STAGE</b> (scene hierarchy) over <b>PROPERTY</b> (inspector), and a bottom <b>TIMELINE / CONSOLE / CONTENT</b> browser — flat, token-driven dark theme. Everything goes over the same UDP wire the robot speaks, so the twin and the real robot are one switch apart.</p>
+
+    <h3>Motion &amp; IK</h3>
     <ul class="feat">
       <li><b>Jog &amp; sliders</b> — hold −/+, drag the thumb, or jump to a limit. Amber = your command, azure = the actual position.</li>
-      <li><b>Cartesian jog</b> — step the tool point (TCP) along world X/Y/Z in mm; server-side IK, auto-stops on arrival.</li>
-      <li><b>Drag-IK</b> — grab a wrist sphere in 3D; damped-least-squares IK glides all 7 arm joints.</li>
-      <li><b>Singularity awareness</b> — manipulability is tracked live; a <code>SING</code> chip warns near a near-straight pose where a small cartesian move would need huge joint speeds.</li>
-      <li><b>Mirror mode</b> — one input drives both arms; the sign map is measured from the model, not guessed.</li>
-      <li><b>Dual-arm carry</b> — <code>CARRY</code> holds one object with both wrists and moves them together via an X/Y/Z pad, preserving their separation.</li>
-      <li><b>Jerk-limited motion</b> — jog and replay ease in and out (acceleration-limited / trapezoidal profiles); safety stops still drop motion instantly.</li>
-      <li><b>Teach-in (● REC)</b> — move the robot by hand; every settled pose becomes a line of <code>rbt</code> code in the PROG tab.</li>
+      <li><b>Cartesian jog</b> — step the tool point (TCP) along world X/Y/Z (1–50 mm); server-side IK, auto-stops on arrival.</li>
+      <li><b>Drag-IK gizmo</b> — grab a wrist in 3D; damped-least-squares IK glides all 7 arm joints — with grid/angle <b>snap</b> (10 mm / 15°) and an on-drag coordinate HUD.</li>
+      <li><b>Mirror &amp; dual-arm carry</b> — one input drives both arms (sign map measured from the model); <code>CARRY</code> holds one object with both wrists and moves them together.</li>
+      <li><b>Jerk-limited motion</b> — jog and replay ease in/out (trapezoidal); safety stops still drop motion instantly.</li>
+      <li><b>Plan around self-collisions (RRT)</b> — Home and waypoint glides route <i>around</i> a self-collision the straight path can't pass, instead of giving up.</li>
+      <li><b>Contact reflex</b> — a torque spike while barely moving latches a soft-stop (pushing into an obstacle, not a fast commanded move).</li>
+      <li><b>Global speed override</b> — a teach-pendant SPD slider scales <i>all</i> motion (jog + every glide) server-side.</li>
+    </ul>
+
+    <h3>Programs &amp; teaching</h3>
+    <ul class="feat">
+      <li><b>Teach-in (● REC)</b> — move the robot; every settled pose becomes a line of <code>rbt</code> code.</li>
       <li><b>Sequencer</b> — record poses, play with pause/loop, save/load named sequences.</li>
+      <li><b>Python programs</b> — the <code>rbt</code> API (below) with <b>Click-to-Step</b>, autocomplete and ready examples.</li>
       <li><b>Tools &amp; traces</b> — named end-of-arm TCP offsets; colored tool-path traces in the viewport.</li>
-      <li><b>Vision-guided pick + visual servoing</b> — the work camera detects a target and <code>PICK</code> drives the right arm to it; <code>SERVO</code> closes the loop in image space as it descends — robust to camera miscalibration (open-loop ~43 mm vs IBVS ~5 mm in sim).</li>
+    </ul>
+
+    <h3>Vision &amp; autonomy</h3>
+    <ul class="feat">
+      <li><b>Vision pick + visual servoing</b> — the work camera detects a target, <code>PICK</code> drives the right arm to it, and <code>SERVO</code> closes the loop in image space (open-loop ~43 mm vs IBVS ~5 mm in sim).</li>
+      <li><b>Smart-pick on the point cloud</b> — a work-camera <b>point cloud (PCL)</b>, multi-object grasp synthesis (<code>SMART</code>) + a colour/shape detector (optional YOLO), picking by id / colour / label.</li>
+      <li><b>Manipulability heat-map (DEX)</b> — a dexterity cloud over the arm's workspace: warm = isotropic, blue = near-singular; a <code>SING</code> chip warns at near-straight poses.</li>
+      <li><b>Ghost-robot move preview</b> — risky moves draw a translucent ghost at the target pose behind an Approve / Cancel gate.</li>
+    </ul>
+
+    <h3>Inspection &amp; telemetry — RViz · Foxglove · Isaac</h3>
+    <ul class="feat">
+      <li><b>Live telemetry plots</b> — Foxglove-style scrolling strip charts (joint angle / velocity / temperature / TCP / link RTT) with a colour legend, pause and auto-ranging.</li>
+      <li><b>Live TF frame tree</b> — RViz-style transform tree with world-mm readouts and eye-toggled RGB axis triads (frame-labelled) that track the kinematics.</li>
+      <li><b>Sim transport</b> — Play / Pause / Stop / Step / Reset with a run clock and real server-side pause and single-step.</li>
+      <li><b>Measure, stats &amp; search</b> — a click-two-points measure tool, an FPS / draw-calls / triangles HUD, a Stage-tree search, and a selection outline around the picked arm.</li>
+      <li><b>Views &amp; presets</b> — a nav gizmo + Persp/Top/Front/Side, saveable view presets, an ego + exo split view, and a live <b>RTT + bandwidth</b> readout.</li>
+    </ul>
+
+    <h3>Safety &amp; access</h3>
+    <ul class="feat">
+      <li><b>Collision guard</b> — every target is checked for self-collision (incl. arm-vs-arm) along the interpolated path before it is sent.</li>
+      <li><b>Accessible</b> — real ARIA sliders, keyboard control, a screen-reader-aware status cluster, and operator hotkeys + a legend.</li>
       <li><b>SIM / REAL</b> — same protocol either way; switching always re-latches the E-STOP.</li>
     </ul>
   </div>

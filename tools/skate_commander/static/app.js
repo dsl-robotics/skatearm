@@ -28,6 +28,7 @@ let rows = {};              // idx -> row elements
 let eeObjs = {};            // "left"/"right" -> THREE.Object3D (wrist link)
 const markers = {};         // "left"/"right" -> gizmo sphere
 let draggingArm = null;
+let measureOn = false;          // I2: measure tool active (click two points)
 let traceOn = true;
 let wsOnline = false;       // browser <-> server WebSocket up?
 let lastMsg = 0;            // perf-time (ms) of the last telemetry frame
@@ -285,6 +286,7 @@ function setAngles(q) {
   controls.update();
   updateEE();
   renderer.render(scene, camera);
+  if (window.__statsTick) window.__statsTick();
 })();
 
 // ---------------------------------------------------------------- panel
@@ -1903,6 +1905,13 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
 
   // --- tool rail: active tool + transform mode on the IK gizmo ---
   document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.tool === "measure") {
+      measureOn = !b.classList.contains("on"); b.classList.toggle("on", measureOn);
+      if (!measureOn && window.__measureClear) window.__measureClear();
+      const _h = document.getElementById("overlay-hint");
+      if (_h) { _h.style.display = measureOn ? "block" : "none"; if (measureOn) _h.textContent = "Measure: click two points on the robot"; }
+      return;
+    }
     if (b.dataset.tool === "snap") {
       const on = !b.classList.contains("on"); b.classList.toggle("on", on);
       try { if (typeof tc !== "undefined" && tc.setTranslationSnap) {
@@ -2424,4 +2433,134 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
     const pct = Math.round(state.speed_scale * 100);
     if (+sl.value !== pct) { sl.value = pct; v.textContent = pct + "%"; }
   }, 400);
+})();
+
+
+/* ============================================================
+   I1: ISAAC SIM-TRANSPORT BAR
+   Play/Pause toggle (resume + un/pause), Stop (E-stop), Step (one
+   autonomous tick while paused), Reset (home). A run-time clock that
+   counts only while playing. Wires to existing + new server commands.
+   ============================================================ */
+(function setupTransport() {
+  const play = $("tp-play"), stop = $("tp-stop"), step = $("tp-step"),
+        reset = $("tp-reset"), tEl = $("tp-time"), bar = $("transport");
+  if (!play) return;
+  let simMs = 0, lastT = performance.now();
+  play.addEventListener("click", () => {
+    const running = state && !state.estop && !state.paused;
+    if (running) { send({ type: "pause", on: true }); }
+    else { if (state && state.estop) send({ type: "resume" }); send({ type: "pause", on: false }); }
+  });
+  stop.addEventListener("click", () => send({ type: "estop" }));
+  step.addEventListener("click", () => send({ type: "step", n: 1 }));
+  reset.addEventListener("click", () => { const h = $("btn-home"); if (h) h.click(); });
+  setInterval(() => {
+    const now = performance.now(), dt = now - lastT; lastT = now;
+    const running = state && !state.estop && !state.paused;
+    if (running) simMs += dt;
+    play.innerHTML = running ? "&#10074;&#10074;" : "&#9654;";
+    play.title = running ? "Pause" : "Play / Resume";
+    if (bar) bar.classList.toggle("paused", !!(state && state.paused));
+    const s = Math.floor(simMs / 1000);
+    tEl.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }, 250);
+})();
+
+
+/* ============================================================
+   I2: MEASURE TOOL  (Isaac Utilities) — click two points on the robot,
+   draw an amber line + the distance (mm) at the midpoint. Capture-phase
+   pointerdown so a hit overrides the gizmo, but empty-space drags still orbit.
+   ============================================================ */
+(function setupMeasure() {
+  if (typeof renderer === "undefined" || !renderer || !renderer.domElement) return;
+  const ray = new THREE.Raycaster();
+  let pts = [], line = null, label = null, dots = [];
+  function robotMeshes() { const m = []; (robotRoots || []).forEach(r => r.traverse(o => { if (o.isMesh) m.push(o); })); return m; }
+  function clear() {
+    if (line) { scene.remove(line); line.geometry.dispose(); line = null; }
+    if (label) { scene.remove(label); label = null; }
+    dots.forEach(d => scene.remove(d)); dots = [];
+    pts = [];
+  }
+  window.__measureClear = clear;
+  function dot(p) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xF5A623, depthTest: false }));
+    d.renderOrder = 8; d.position.copy(p); scene.add(d); dots.push(d);
+  }
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    if (!measureOn || e.button !== 0) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1,
+                                  -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(robotMeshes(), false)[0];
+    if (!hit) return;                    // miss -> let orbit / gizmo handle the drag
+    e.stopPropagation(); e.preventDefault();
+    if (pts.length >= 2) clear();        // start a fresh measurement
+    pts.push(hit.point.clone()); dot(hit.point);
+    if (pts.length === 2) {
+      line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: 0xF5A623, depthTest: false }));
+      line.renderOrder = 7; scene.add(line);
+      const dist = pts[0].distanceTo(pts[1]) * 1000;
+      label = makeLabel(dist.toFixed(1) + " mm", 0xF5A623, true);
+      label.position.copy(pts[0]).add(pts[1]).multiplyScalar(0.5);
+      scene.add(label);
+    }
+  }, true);   // capture phase: runs before the gizmo's pointerdown
+})();
+
+
+/* ============================================================
+   I3: VIEWPORT STATS HUD  (Isaac-style) — FPS / frame-ms / draw-calls /
+   triangles from the Three.js renderer.info, toggled by the STATS button.
+   ============================================================ */
+(function setupStats() {
+  const hud = $("stats-hud"), btn = $("btn-stats");
+  if (!hud || !btn) return;
+  let frames = 0, lastT = performance.now(), on = false;
+  window.__statsTick = () => { frames++; };
+  btn.addEventListener("click", () => { on = !on; btn.classList.toggle("act", on); hud.style.display = on ? "block" : "none"; });
+  setInterval(() => {
+    if (!on) return;
+    const now = performance.now(), dt = now - lastT;
+    const fps = dt > 0 ? Math.round(frames * 1000 / dt) : 0;
+    frames = 0; lastT = now;
+    const ri = (typeof renderer !== "undefined" && renderer.info) ? renderer.info.render : { calls: 0, triangles: 0 };
+    const tris = ri.triangles > 999 ? (ri.triangles / 1000).toFixed(1) + "k" : ri.triangles;
+    hud.innerHTML = "FPS <b>" + fps + "</b> &middot; <b>" + (fps ? (1000 / fps).toFixed(1) : "—") + "</b> ms<br>" +
+      "calls <b>" + ri.calls + "</b> &middot; tris <b>" + tris + "</b>";
+  }, 1000);
+})();
+
+
+/* ============================================================
+   I4: STAGE SEARCH + SELECTION OUTLINE
+   Search filters the Stage rows by text; clicking an arm node draws a
+   blue BoxHelper around that arm in 3D, updated live as it moves.
+   ============================================================ */
+(function setupStageSearchOutline() {
+  const inp = document.getElementById("stage-search");
+  if (inp) inp.addEventListener("input", () => {
+    const q = inp.value.trim().toLowerCase();
+    document.querySelectorAll("#dock .snode, #dock .tbtn").forEach((el) => {
+      const t = (el.textContent || "").toLowerCase();
+      el.style.display = (!q || t.includes(q)) ? "" : "none";
+    });
+  });
+  let selBox = null;
+  function outline(group) {
+    if (selBox) { scene.remove(selBox); if (selBox.geometry) selBox.geometry.dispose(); selBox = null; }
+    const idx = GROUPS[group] && GROUPS[group].idx;
+    if (!idx || !idx.length || !jointGroups[idx[0]]) return;
+    selBox = new THREE.BoxHelper(jointGroups[idx[0]].grp, 0x3B82F6);
+    if (selBox.material) { selBox.material.depthTest = false; selBox.material.transparent = true; }
+    selBox.renderOrder = 7; scene.add(selBox);
+  }
+  document.querySelectorAll(".snode[data-group]").forEach((n) =>
+    n.addEventListener("click", () => outline(n.dataset.group)));
+  setInterval(() => { if (selBox) selBox.update(); }, 120);
 })();

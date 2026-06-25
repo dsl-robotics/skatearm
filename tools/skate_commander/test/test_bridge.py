@@ -325,3 +325,16 @@ def test_set_speed_clamps_and_scales():
     assert br.speed_scale == 0.1
     # snapshot exposes the scale so the UI can reflect it
     assert br.snapshot()["speed_scale"] == 0.1
+
+
+def test_pause_and_step():
+    """I1 sim-transport: pause freezes autonomous motion, step queues ticks,
+    and unpause clears the pending step counter."""
+    br = RobotBridge(sim_host="127.0.0.1", sim_port=_free_port(), jog_rate=0.6)
+    assert br.paused is False
+    assert br.set_paused(True) is True and br.paused is True
+    assert br._step_ticks == 0
+    assert br.step(3) == 3 and br._step_ticks == 3
+    assert br.step() == 4                          # default n=1
+    assert br.set_paused(False) is False and br._step_ticks == 0   # unpause clears steps
+    assert br.snapshot()["paused"] is False

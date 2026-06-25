@@ -40,7 +40,7 @@ redistributed).
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
 </div>
 
-## Features (v0.7.23)
+## Features (v0.7.24)
 
 The cockpit is structured as a NVIDIA-Isaac-Sim-style workstation: a **menu bar**, a left vertical **tool rail**, a center **3D View**, a right **STAGE** (scene hierarchy) over **PROPERTY** (inspector), and a bottom **TIMELINE / CONSOLE / CONTENT** browser - on a flat, token-driven dark theme.
 
@@ -54,6 +54,10 @@ The cockpit is structured as a NVIDIA-Isaac-Sim-style workstation: a **menu bar*
   eye-toggled RGB axis triads (with frame-name labels) that track the kinematics
 * **Global speed override** (teach-pendant) — a SPD slider scales all motion
   server-side (jog + every glide: home, sequences, RRT routes)
+* **Isaac inspection tools** — a **sim transport** (Play / Pause / Step / Reset
+  with real server-side pause / single-step of the autonomous motion), a
+  click-two-points **measure** tool, a viewport **stats HUD** (FPS / draw-calls
+  / triangles), and **Stage search** + a 3D **selection outline**
 * **3D digital twin** built in-browser from the official `skt_v3.urdf`
   (Three.js; kinematic math validated against MuJoCo to < 0.001 mm; URDF
   material colors)

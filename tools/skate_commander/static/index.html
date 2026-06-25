@@ -17,7 +17,7 @@
 
   <!-- ============ MENU BAR ============ -->
   <div id="menubar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.23</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.24</em></div>
     <nav id="menus">
       <span class="menu">File</span><span class="menu">Edit</span><span class="menu">Create</span>
       <span class="menu">Window</span><span class="menu">Tools</span><span class="menu">Utilities</span>
@@ -55,6 +55,7 @@
       <button class="rail-tool tri" data-tool="rotate" title="Rotate the IK target"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.3 5.6M4 12V7M4 12h5"/></svg></button>
       <button class="rail-tool" data-tool="scale" title="Scale"><svg viewBox="0 0 24 24"><path d="M4 20l7-7M4 20v-5M4 20h5M20 4l-7 7M20 4v5M20 4h-5"/></svg></button>
       <button class="rail-tool" data-tool="snap" title="Snap to increments"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 4v16M15 4v16M4 9h16M4 15h16"/></svg></button>
+      <button class="rail-tool" data-tool="measure" title="Measure — click two points on the robot"><svg viewBox="0 0 24 24"><path d="M3 8h18v8H3z"/><path d="M7 8v4M11 8v3M15 8v4M19 8v3"/></svg></button>
       <span class="rail-div"></span>
       <button id="btn-home" class="rail-tool" title="HOME - glide to the documented safe pose"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg></button>
       <button id="btn-mirror" class="rail-tool amber" title="MIRROR - commands to one arm are reflected onto the other"><svg viewBox="0 0 24 24"><path d="M12 3v18M7 8l-3 4 3 4M17 8l3 4-3 4"/></svg></button>
@@ -81,6 +82,7 @@
           <button class="vbtn" data-view="top">Top</button>
           <button class="vbtn" data-view="front">Front</button>
           <button class="vbtn" data-view="side">Side</button>
+          <button class="vbtn" id="btn-stats" title="Toggle viewport stats (FPS / draw-calls / triangles)">STATS</button>
           <span class="hd-render">RTX</span>
         </span>
       </div>
@@ -90,6 +92,14 @@
         <div class="overlay" id="overlay"></div>
         <div id="overlay-hint"></div>
         <div id="giz-hud"></div>
+        <div id="stats-hud"></div>
+        <div id="transport" title="Sim transport — Play / Pause / Stop / Step / Reset">
+          <button id="tp-play" title="Play / Pause">&#9654;</button>
+          <button id="tp-stop" title="Stop (E-stop)">&#9632;</button>
+          <button id="tp-step" title="Step one autonomous tick (while paused)">&#9197;</button>
+          <button id="tp-reset" title="Reset to the home pose">&#8635;</button>
+          <span id="tp-time" title="Sim run time (counts while playing)">0:00</span>
+        </div>
         <div id="nav-gizmo" title="Click an axis to snap the view">
           <button class="gz gz-x" data-view="side">X</button>
           <button class="gz gz-y" data-view="front">Y</button>
@@ -142,6 +152,7 @@
         <div class="pane-hd tabset"><span class="pt act" data-tab="stage">STAGE</span><span class="pt" data-tab="frames">FRAMES</span></div>
         <div class="pane-body">
           <div id="dock" class="tabpane" data-pane="stage">
+            <input id="stage-search" type="text" placeholder="Search stage…" aria-label="Search the stage tree">
             <div class="stage-tree">
               <div class="snode" data-exp="1"><span class="tw">&#9662;</span><button class="eye on"></button><span class="nm">World</span><em class="ty">Scene</em></div>
               <div class="snode lv1" data-exp="1"><span class="tw">&#9662;</span><button class="eye on"></button><span class="nm">Skate (robot twin)</span><em class="ty">Xform</em></div>

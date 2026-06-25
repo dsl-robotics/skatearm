@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit</title>
-<meta name="description" content="Open-source bimanual work-cell and web cockpit for the R.Botic Skate robot: a 3D digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs and closed-loop visual servoing — sim-first in MuJoCo, deployed over the native UDP wire.">
+<meta name="description" content="Open-source bimanual work-cell and Isaac-Sim-style browser cockpit for the R.Botic Skate robot: a 3D digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots and closed-loop visual servoing — sim-first in MuJoCo, deployed over the native UDP wire.">
 <meta name="keywords" content="bimanual manipulation, humanoid robot, MuJoCo, ROS 2, digital twin, teleoperation, vision-guided grasping, inverse kinematics, collision guard, R.Botic Skate, robot arm, robotics">
 <meta name="author" content="DSL Robotics">
 <link rel="canonical" href="https://dsl-robotics.github.io/skatearm/">
@@ -13,26 +13,26 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SkateArm">
 <meta property="og:title" content="SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit">
-<meta property="og:description" content="Open bimanual work-cell + browser cockpit for the R.Botic Skate: digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs, closed-loop visual servoing. Sim-first in MuJoCo.">
+<meta property="og:description" content="Open bimanual work-cell + Isaac-Sim-style browser cockpit for the R.Botic Skate: digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots, closed-loop visual servoing. Sim-first in MuJoCo.">
 <meta property="og:url" content="https://dsl-robotics.github.io/skatearm/">
 <meta property="og:image" content="https://dsl-robotics.github.io/skatearm/img/og_card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit">
-<meta name="twitter:description" content="Digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs, closed-loop visual servoing — sim-first in MuJoCo, on the native UDP wire.">
+<meta name="twitter:description" content="Digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots, closed-loop visual servoing — sim-first in MuJoCo, on the native UDP wire.">
 <meta name="twitter:image" content="https://dsl-robotics.github.io/skatearm/img/og_card.png">
 <meta name="theme-color" content="#0a0b0e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SkateArm — Skate Commander","applicationCategory":"DeveloperApplication","operatingSystem":"Web, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","codeRepository":"https://github.com/dsl-robotics/skatearm","url":"https://dsl-robotics.github.io/skatearm/","description":"Open-source bimanual work-cell and browser cockpit for the R.Botic Skate: MuJoCo digital twin, drag-IK, mirror mode, dual-arm carry, teach-in, natural-language programs, closed-loop visual servoing, ROS 2 over the native UDP wire.","author":{"@type":"Organization","name":"DSL Robotics"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SkateArm — Skate Commander","applicationCategory":"DeveloperApplication","operatingSystem":"Web, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","codeRepository":"https://github.com/dsl-robotics/skatearm","url":"https://dsl-robotics.github.io/skatearm/","description":"Open-source bimanual work-cell and Isaac-Sim-style browser cockpit for the R.Botic Skate: MuJoCo digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots, closed-loop visual servoing, ROS 2 over the native UDP wire.","author":{"@type":"Organization","name":"DSL Robotics"}}
 </script>
 <style>
   :root{
-    --bg:#0a0b0e; --bg2:#0e1015; --panel:#121419; --panel2:#171a21; --panel3:#1b1f27;
-    --line:#20242d; --line2:#2c313c; --fg:#f0f2f6; --fg2:#a6afba; --dim:#8b95a2; --faint:#828c9a;
-    --accent:#38a0ff; --accent-lt:#7cc0ff; --accent-dk:#1f7fe0; --accent-ink:#03101c; --amber:#f0b13d;
-    --grid:rgba(99,170,255,.045); --grid2:rgba(99,170,255,.09);
+    --bg:#0E1013; --bg2:#08090B; --panel:#16191E; --panel2:#1E222A; --panel3:#1E222A;
+    --line:#2A2F37; --line2:#2A2F37; --fg:#D6DAE0; --fg2:#9AA1AB; --dim:#8B929C; --faint:#5A616B;
+    --accent:#3B82F6; --accent-lt:#6AA0F8; --accent-dk:#2D6FE0; --accent-ink:#0a1220; --amber:#F5A623;
+    --grid:rgba(150,160,175,.05); --grid2:rgba(150,160,175,.09);
     --sans:"Inter","Segoe UI",system-ui,sans-serif;
     --mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",monospace;
     --maxw:1140px;
@@ -40,11 +40,11 @@
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html{scroll-behavior:smooth;}
-  ::selection{background:rgba(56,160,255,.32);color:#fff;}
+  ::selection{background:rgba(59,130,246,.32);color:#fff;}
   ::-webkit-scrollbar{width:12px;}
   ::-webkit-scrollbar-track{background:var(--bg);}
   ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px;border:3px solid var(--bg);}
-  ::-webkit-scrollbar-thumb:hover{background:#3a414f;}
+  ::-webkit-scrollbar-thumb:hover{background:#3A414F;}
   a:focus-visible,.btn:focus-visible,.nav-cta:focus-visible,.credit:focus-visible{outline:2px solid var(--accent-lt);outline-offset:3px;border-radius:8px;}
   body{background:var(--bg);color:var(--fg);font:400 16px/1.65 var(--sans);
     -webkit-font-smoothing:antialiased;overflow-x:hidden;}
@@ -59,8 +59,8 @@
     mask-image:radial-gradient(120% 90% at 70% 0%,#000 35%,transparent 92%);}
   body::after{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
     background:
-      radial-gradient(1100px 640px at 76% -8%, rgba(56,160,255,.16), transparent 60%),
-      radial-gradient(900px 620px at -4% 102%, rgba(31,127,224,.10), transparent 60%),
+      radial-gradient(1100px 640px at 76% -8%, rgba(59,130,246,.16), transparent 60%),
+      radial-gradient(900px 620px at -4% 102%, rgba(45,111,224,.10), transparent 60%),
       radial-gradient(140% 120% at 50% 40%, transparent 60%, rgba(0,0,0,.55));}
   .grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.06;mix-blend-mode:overlay;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
@@ -84,7 +84,7 @@
   .nav-links a:hover{color:var(--fg);text-decoration:none;}
   .nav-cta{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);border-radius:9px;padding:9px 14px;color:var(--fg)!important;
     background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01));transition:.18s var(--ease);}
-  .nav-cta:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(56,160,255,.25),0 8px 24px -12px rgba(56,160,255,.6);}
+  .nav-cta:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(59,130,246,.25),0 8px 24px -12px rgba(59,130,246,.6);}
   .nav-cta svg{width:14px;height:14px;}
   @media(max-width:680px){.nav-links a.hidexs{display:none;}.nav-links{gap:16px;}}
 
@@ -105,14 +105,14 @@
     backdrop-filter:blur(6px);transition:transform .18s var(--ease),box-shadow .18s var(--ease),border-color .18s var(--ease);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
   .btn svg{width:15px;height:15px;flex:none;}
-  .btn:hover{border-color:rgba(56,160,255,.55);transform:translateY(-2px);text-decoration:none;
-    box-shadow:0 14px 34px -16px rgba(0,0,0,.7),0 0 0 1px rgba(56,160,255,.18),inset 0 1px 0 rgba(255,255,255,.07);}
+  .btn:hover{border-color:rgba(59,130,246,.55);transform:translateY(-2px);text-decoration:none;
+    box-shadow:0 14px 34px -16px rgba(0,0,0,.7),0 0 0 1px rgba(59,130,246,.18),inset 0 1px 0 rgba(255,255,255,.07);}
   .btn.primary{color:#021019;border:1px solid var(--accent-lt);
-    background:linear-gradient(180deg,#7cc4ff,#3aa0fa 55%,#2a8cee);
-    box-shadow:0 12px 36px -12px rgba(56,160,255,.7),inset 0 1px 0 rgba(255,255,255,.6);}
+    background:linear-gradient(180deg,#6AA0F8,#3B82F6 55%,#2D6FE0);
+    box-shadow:0 12px 36px -12px rgba(59,130,246,.7),inset 0 1px 0 rgba(255,255,255,.6);}
   .btn.primary:hover{transform:translateY(-2px);
-    background:linear-gradient(180deg,#8ccbff,#46a8ff 55%,#2f93f2);
-    box-shadow:0 18px 48px -12px rgba(56,160,255,.92),inset 0 1px 0 rgba(255,255,255,.65);}
+    background:linear-gradient(180deg,#7FB0FF,#3B82F6 55%,#2D6FE0);
+    box-shadow:0 18px 48px -12px rgba(59,130,246,.92),inset 0 1px 0 rgba(255,255,255,.65);}
   .specstrip{display:flex;flex-wrap:wrap;gap:9px;margin-top:30px;}
   .chip{font:500 12px var(--mono);letter-spacing:.04em;color:var(--fg2);
     border:1px solid var(--line);border-radius:8px;padding:7px 12px;
@@ -123,7 +123,7 @@
 
   .hero-photo{position:relative;display:flex;align-items:center;justify-content:center;min-height:520px;}
   .hero-photo::before{content:"";position:absolute;width:82%;height:82%;left:2%;top:0;border-radius:50%;
-    background:radial-gradient(closest-side at 24% 20%,rgba(56,160,255,.30),rgba(56,160,255,.07) 48%,transparent 70%);filter:blur(10px);}
+    background:radial-gradient(closest-side at 24% 20%,rgba(59,130,246,.30),rgba(59,130,246,.07) 48%,transparent 70%);filter:blur(10px);}
   .hero-photo::after{content:"";position:absolute;bottom:46px;left:50%;transform:translateX(-50%);
     width:54%;height:30px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.62),transparent 76%);filter:blur(10px);}
   .hero-photo img{position:relative;width:96%;max-width:600px;transform:translateY(-6px);height:auto;
@@ -136,7 +136,7 @@
     background:linear-gradient(90deg,transparent,var(--line2) 20%,var(--line2) 80%,transparent);}
   #stack{background:linear-gradient(180deg,rgba(255,255,255,.018),transparent 40%);}
   .shead{display:flex;align-items:baseline;gap:16px;margin-bottom:9px;}
-  .snum{font:600 13px var(--mono);color:var(--accent-lt);letter-spacing:.1em;text-shadow:0 0 16px rgba(56,160,255,.4);}
+  .snum{font:600 13px var(--mono);color:var(--accent-lt);letter-spacing:.1em;text-shadow:0 0 16px rgba(59,130,246,.4);}
   h2{font:800 clamp(27px,3.5vw,36px)/1.08 var(--sans);letter-spacing:-.022em;}
   .ssub{color:var(--fg2);margin:0 0 28px;max-width:720px;font-size:15.5px;}
   .ssub .hl{color:var(--accent-lt);font-weight:600;}
@@ -151,7 +151,7 @@
     background:linear-gradient(180deg,var(--panel2),var(--panel));padding:12px;
     box-shadow:0 40px 90px -50px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.04);
     transition:transform .25s var(--ease),box-shadow .25s var(--ease);}
-  .frame:hover{transform:translateY(-3px);box-shadow:0 50px 110px -50px rgba(0,0,0,.95),0 0 0 1px rgba(56,160,255,.12),inset 0 1px 0 rgba(255,255,255,.05);}
+  .frame:hover{transform:translateY(-3px);box-shadow:0 50px 110px -50px rgba(0,0,0,.95),0 0 0 1px rgba(59,130,246,.12),inset 0 1px 0 rgba(255,255,255,.05);}
   .frame::before{content:"";position:absolute;inset:7px;pointer-events:none;z-index:2;opacity:.5;
     background:
       linear-gradient(var(--accent),var(--accent)) top left/15px 1.5px no-repeat,
@@ -179,7 +179,7 @@
   .feat .ix{font:600 12px var(--mono);color:var(--accent-lt);padding-top:2px;min-width:24px;}
   .feat h4{font-size:15.5px;font-weight:600;margin-bottom:3px;}
   .feat p{color:var(--fg2);font-size:13.5px;line-height:1.55;}
-  .feat code{font-family:var(--mono);font-size:12.5px;color:var(--accent-lt);background:rgba(56,160,255,.1);padding:1px 5px;border-radius:4px;}
+  .feat code{font-family:var(--mono);font-size:12.5px;color:var(--accent-lt);background:rgba(59,130,246,.1);padding:1px 5px;border-radius:4px;}
 
   .stack{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
   .scard{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
@@ -188,7 +188,7 @@
   .scard::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
     background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity .2s var(--ease);}
   .scard:hover{transform:translateY(-3px);border-color:var(--line2);
-    box-shadow:0 24px 56px -34px rgba(0,0,0,.9),0 0 0 1px rgba(56,160,255,.1);}
+    box-shadow:0 24px 56px -34px rgba(0,0,0,.9),0 0 0 1px rgba(59,130,246,.1);}
   .scard:hover::before{opacity:.9;}
   .scard .k{font:600 11px var(--mono);letter-spacing:.16em;color:var(--accent-lt);text-transform:uppercase;}
   .scard h3{font-size:16px;margin:13px 0 7px;letter-spacing:-.01em;}
@@ -198,7 +198,7 @@
     background:linear-gradient(180deg,var(--panel3),var(--panel));padding:46px 40px;text-align:center;
     position:relative;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
   .band::before{content:"";position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(680px 320px at 50% -10%,rgba(56,160,255,.22),transparent 65%);}
+    background:radial-gradient(680px 320px at 50% -10%,rgba(59,130,246,.22),transparent 65%);}
   .band h2{margin-bottom:11px;position:relative;}
   .band p{color:var(--fg2);max-width:560px;margin:0 auto 24px;position:relative;}
 
@@ -290,10 +290,10 @@
     <figcaption style="margin-top:13px;"><b>Product video</b> — a 50-second tour: digital twin, drag-IK, mirror mode and teach-in <span class="hl">(recorded on an earlier UI — the cockpit has since been redesigned; see the still below)</span>.</figcaption>
     <div class="media2">
       <figure class="reveal">
-        <div class="frame"><span class="cap">Cockpit · v0.7.5</span>
+        <div class="frame"><span class="cap">Cockpit · earlier UI</span>
           <img src="img/commander_v075_cockpit.webp" loading="lazy" decoding="async" alt="The redesigned Skate Commander cockpit: a slim status bar, a floating control dock and the MuJoCo digital twin">
         </div>
-        <figcaption><b>The cockpit</b> — slim status bar, a floating control dock, and the MuJoCo twin; the whole UI in one visual language.</figcaption>
+        <figcaption><b>The cockpit</b> — since rebuilt as an <b>Isaac-Sim-style workstation</b> (menu bar, tool rail, STAGE / PROPERTY dock, timeline); fresh screenshots land with the next media pass.</figcaption>
       </figure>
       <figure class="reveal">
         <div class="frame"><span class="cap">MuJoCo · vision</span>
@@ -308,21 +308,24 @@
 <section id="features">
   <div class="wrap">
     <div class="shead"><span class="snum">02</span><h2>What it does</h2></div>
-    <p class="ssub">Thirteen capabilities, one cockpit — every motion checked for self-collision before it reaches the robot.</p>
+    <p class="ssub">A robotics-workstation's worth of capability in one browser cockpit — an <span class="hl">Isaac-Sim-style</span> shell over a safe, wire-honest control core; every motion is checked for self-collision before it reaches the robot.</p>
     <ul class="feat reveal">
-      <li><span class="ix">01</span><div><h4>3D digital twin</h4><p>Built from the official URDF in Three.js; forward kinematics cross-checked against MuJoCo link positions (numpy FK replica).</p></div></li>
-      <li><span class="ix">02</span><div><h4>Joint &amp; cartesian jog</h4><p>Sliders, hold-to-jog, jump-to-limit, and world X/Y/Z TCP steps.</p></div></li>
-      <li><span class="ix">03</span><div><h4>Drag-IK</h4><p>Grab a wrist in 3D; server-side damped-least-squares IK glides all 7 revolute arm joints.</p></div></li>
-      <li><span class="ix">04</span><div><h4>Singularity awareness</h4><p>Manipulability is tracked live; a <code>SING</code> warning flags near-straight poses where a small cartesian move would need huge joint speeds.</p></div></li>
-      <li><span class="ix">05</span><div><h4>Mirror mode</h4><p>Bimanual — one input drives both arms, with the sign map measured from FK.</p></div></li>
-      <li><span class="ix">06</span><div><h4>Dual-arm carry</h4><p>Both wrists hold one object and move together via an X/Y/Z pad, preserving their separation — a true two-handed carry.</p></div></li>
-      <li><span class="ix">07</span><div><h4>Jerk-limited motion</h4><p>Jog and replay use acceleration-limited / trapezoidal profiles — motion eases in and out instead of snapping.</p></div></li>
-      <li><span class="ix">08</span><div><h4>Python programs</h4><p>Sandboxed <code>rbt</code> API with Click-to-Step execution.</p></div></li>
-      <li><span class="ix">09</span><div><h4>Natural-language programs</h4><p>Describe a task in English; a deterministic parser (with an optional, AST-validated LLM fallback) writes the program.</p></div></li>
-      <li><span class="ix">10</span><div><h4>Teach-in</h4><p>Move the robot by hand; every settled pose becomes a line of code.</p></div></li>
-      <li><span class="ix">11</span><div><h4>Closed-loop visual servoing</h4><p>A workspace camera locks the gripper onto the target in image space as it descends — robust to camera-calibration error (open-loop misses ~43&nbsp;mm, IBVS ~5&nbsp;mm in sim).</p></div></li>
-      <li><span class="ix">12</span><div><h4>Collision guard</h4><p>Every target checked against a capsule self-collision model — incl. arm-vs-arm — before it is sent.</p></div></li>
-      <li><span class="ix">13</span><div><h4>Deadman-first safety</h4><p>Software E-STOP + deadman watchdog (sim today); the same UDP wire will drive the real Skate.</p></div></li>
+      <li><span class="ix">01</span><div><h4>Isaac-Sim-style workstation</h4><p>A menu bar, a left tool rail, a center 3D view, a right <b>STAGE</b> (scene tree) over <b>PROPERTY</b> (inspector), and a <b>TIMELINE / CONSOLE / CONTENT</b> browser — flat, token-driven dark theme.</p></div></li>
+      <li><span class="ix">02</span><div><h4>3D digital twin</h4><p>Built from the official URDF in Three.js; forward kinematics cross-checked against MuJoCo link positions.</p></div></li>
+      <li><span class="ix">03</span><div><h4>Jog &amp; cartesian</h4><p>Sliders, hold-to-jog, jump-to-limit, and world X/Y/Z TCP steps (1–50 mm).</p></div></li>
+      <li><span class="ix">04</span><div><h4>Drag-IK gizmo</h4><p>Grab a wrist in 3D; damped-least-squares IK glides all 7 arm joints — with snap (10 mm / 15°) and an on-drag coordinate HUD.</p></div></li>
+      <li><span class="ix">05</span><div><h4>Mirror &amp; dual-arm carry</h4><p>One input drives both arms; <code>CARRY</code> holds one object with both wrists and moves them together.</p></div></li>
+      <li><span class="ix">06</span><div><h4>Plan around collisions</h4><p>Home and waypoint glides route <i>around</i> a self-collision (RRT) the straight joint path can't pass.</p></div></li>
+      <li><span class="ix">07</span><div><h4>Contact reflex</h4><p>A torque spike while barely moving latches a soft-stop — pushing into an obstacle, not a fast commanded move.</p></div></li>
+      <li><span class="ix">08</span><div><h4>Jerk-limited + speed override</h4><p>Trapezoidal ease-in/out, plus a teach-pendant <b>SPD</b> slider scaling all motion server-side.</p></div></li>
+      <li><span class="ix">09</span><div><h4>Vision pick + servoing</h4><p>The work camera detects a target; <code>SERVO</code> closes the loop in image space (open-loop ~43&nbsp;mm vs IBVS ~5&nbsp;mm in sim).</p></div></li>
+      <li><span class="ix">10</span><div><h4>Point cloud + smart-pick</h4><p>A work-camera point cloud, multi-object grasp synthesis (<code>SMART</code>) and a colour/shape detector.</p></div></li>
+      <li><span class="ix">11</span><div><h4>Manipulability heat-map</h4><p>A <code>DEX</code> dexterity cloud over the workspace; a <code>SING</code> chip warns at near-singular poses.</p></div></li>
+      <li><span class="ix">12</span><div><h4>Ghost-robot preview</h4><p>Risky moves draw a translucent ghost at the target pose behind an Approve / Cancel gate.</p></div></li>
+      <li><span class="ix">13</span><div><h4>Live plots + TF tree</h4><p>Foxglove-style telemetry strip charts, and an RViz-style live TF frame tree with toggleable 3D axis triads.</p></div></li>
+      <li><span class="ix">14</span><div><h4>Sim transport + tools</h4><p>Play / Pause / Step / Reset, a measure tool, an FPS / draw-call stats HUD, and Stage search + a selection outline.</p></div></li>
+      <li><span class="ix">15</span><div><h4>Programs &amp; teaching</h4><p>The sandboxed <code>rbt</code> Python API with Click-to-Step, teach-in recording, and a waypoint sequencer.</p></div></li>
+      <li><span class="ix">16</span><div><h4>Safety-first</h4><p>Collision guard (incl. arm-vs-arm) along the path, a software E-STOP + deadman, and keyboard / screen-reader access.</p></div></li>
     </ul>
   </div>
 </section>
@@ -334,7 +337,7 @@
     <div class="stack">
       <div class="scard reveal"><span class="k">Layer 01</span><h3>Sim-first</h3><p>Control-ready MuJoCo model + capsule collision layer; kinematics validated against MuJoCo link positions.</p></div>
       <div class="scard reveal"><span class="k">Layer 02</span><h3>skate_ros2 — the wire</h3><p>One UDP protocol (SkateLink) for both the MuJoCo sim endpoint and the real robot, with a software E-STOP / deadman watchdog.</p></div>
-      <div class="scard reveal"><span class="k">Layer 03</span><h3>Skate Commander</h3><p>FastAPI + WebSocket cockpit; in-browser Three.js twin; server-side IK, collision guard, jerk-limited motion, programs, visual servoing.</p></div>
+      <div class="scard reveal"><span class="k">Layer 03</span><h3>Skate Commander</h3><p>An Isaac-Sim-style browser cockpit (FastAPI + WebSocket, Three.js twin): server-side IK + collision guard, RRT routing, vision pick, live telemetry plots, a TF tree and a full inspection toolset.</p></div>
       <div class="scard reveal"><span class="k">Layer 04</span><h3>Autonomous work-cell</h3><p>Phase 1: a GRAFCET-sequenced two-handed assembly cycle with camera quality inspection and a SCADA dashboard.</p></div>
     </div>
   </div>
