@@ -79,10 +79,12 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 <div align="center">
 <table>
   <tr>
-    <td width="25%"><img src="docs/img/cockpit_dex.webp" alt="Manipulability dexterity cloud rendered around the robot"><br><sub><b>Manipulability cloud</b> — warm where dexterous, blue near singular reach</sub></td>
-    <td width="25%"><img src="docs/img/cockpit_pcl.webp" alt="Work-camera point cloud of the table and target"><br><sub><b>Work-camera point cloud</b> — the depth the grasp planner consumes</sub></td>
-    <td width="25%"><img src="docs/img/cockpit_grasp.webp" alt="Smart-pick top-down grasp on a detected cube"><br><sub><b>Smart-pick</b> — a top-down grasp fit to each detected object</sub></td>
-    <td width="25%"><img src="docs/img/cockpit_ghost.webp" alt="Translucent ghost-robot preview with an Approve / Cancel gate"><br><sub><b>Ghost preview</b> — risky moves wait behind an Approve / Cancel gate</sub></td>
+    <td width="50%"><img width="100%" src="docs/img/cockpit_dex.webp" alt="Manipulability dexterity cloud rendered around the robot"><br><sub><b>Manipulability cloud</b> — warm where dexterous, blue near singular reach</sub></td>
+    <td width="50%"><img width="100%" src="docs/img/cockpit_pcl.webp" alt="Work-camera point cloud of the table and target"><br><sub><b>Work-camera point cloud</b> — the depth the grasp planner consumes</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img width="100%" src="docs/img/cockpit_grasp.webp" alt="Smart-pick top-down grasp on a detected cube"><br><sub><b>Smart-pick</b> — a top-down grasp fit to each detected object</sub></td>
+    <td width="50%"><img width="100%" src="docs/img/cockpit_ghost.webp" alt="Translucent ghost-robot preview with an Approve / Cancel gate"><br><sub><b>Ghost preview</b> — risky moves wait behind an Approve / Cancel gate</sub></td>
   </tr>
 </table>
 </div>
