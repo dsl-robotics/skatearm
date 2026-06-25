@@ -21,9 +21,9 @@ redistributed).
 📖 **Docs & `rbt` API reference → [dsl-robotics.github.io/skatearm/commander.html](https://dsl-robotics.github.io/skatearm/commander.html)**
 
 <div align="center">
-  <img src="../../docs/img/commander_v075_cockpit.webp" width="680px" alt="The redesigned Skate Commander cockpit (v0.7.5): a slim status bar, a floating control dock, and the MuJoCo digital twin">
+  <img src="../../docs/img/cockpit_v0724_cockpit.webp" width="680px" alt="The Skate Commander cockpit (v0.7.24): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
   <br>
-  <em><strong>v0.7.5 cockpit</strong> — redesigned to share one visual language with the project site: a slim status bar, a floating control dock (view / pose / bimanual) and the MuJoCo twin.</em>
+  <em><strong>v0.7.24 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots.</em>
 </div>
 
 <div align="center">
@@ -38,6 +38,17 @@ redistributed).
   <img src="../../docs/img/commander_v06_pick.gif" width="680px" alt="Vision-guided pick: the work camera detects the magenta target and the right arm is driven to it by IK">
   <br>
   <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
+</div>
+
+<div align="center">
+<table>
+  <tr>
+    <td width="25%"><img src="../../docs/img/cockpit_dex.webp" alt="Manipulability dexterity cloud rendered around the robot"><br><sub><b>Manipulability cloud</b> — warm where dexterous, blue near singular reach</sub></td>
+    <td width="25%"><img src="../../docs/img/cockpit_pcl.webp" alt="Work-camera point cloud of the table and target"><br><sub><b>Work-camera point cloud</b> — the depth the grasp planner consumes</sub></td>
+    <td width="25%"><img src="../../docs/img/cockpit_grasp.webp" alt="Smart-pick top-down grasp on a detected cube"><br><sub><b>Smart-pick</b> — a top-down grasp fit to each detected object</sub></td>
+    <td width="25%"><img src="../../docs/img/cockpit_ghost.webp" alt="Translucent ghost-robot preview with an Approve / Cancel gate"><br><sub><b>Ghost preview</b> — risky moves wait behind an Approve / Cancel gate</sub></td>
+  </tr>
+</table>
 </div>
 
 ## Features (v0.7.24)
