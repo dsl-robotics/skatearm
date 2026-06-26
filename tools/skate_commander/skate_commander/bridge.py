@@ -156,6 +156,8 @@ class RobotBridge:
         self._plan_prev = None
         self._plan_stall = 0.0
         self.plan_joints = np.arange(8, 24)   # default planning set: arm chains
+        self.obstacles = []                # user-placed virtual obstacles the planner avoids
+        self._obs_id = 0
 
     # -- mode / safety -------------------------------------------------------
     def set_mode(self, mode):
@@ -183,6 +185,35 @@ class RobotBridge:
             pass
         return self.speed_scale
 
+    # motion-feel tuning ranges (cockpit-side, NOT robot firmware gains)
+    _TUNE_RANGES = {
+        "jog_rate":    (0.05, 1.5),    # rad/s   — jog cruise
+        "jog_accel":   (0.5, 12.0),    # rad/s^2 — jog ramp
+        "seq_rate":    (0.1, 1.5),     # rad/s   — glide cruise (home/waypoint/replay)
+        "seq_accel":   (0.5, 8.0),     # rad/s^2 — glide ramp
+        "contact_tau": (2.0, 25.0),    # N·m     — contact-reflex trip threshold (lower = touchier)
+    }
+
+    def set_tuning(self, **kw):
+        """Live motion-feel tuning: jog + glide cruise speed and ramp, plus the
+        contact-reflex sensitivity. Each known key is clamped to a safe range;
+        unknown keys are ignored. Read every tick, so changes apply at once."""
+        for k, (lo, hi) in self._TUNE_RANGES.items():
+            if kw.get(k) is not None:
+                try:
+                    setattr(self, k, float(max(lo, min(hi, float(kw[k])))))
+                except (TypeError, ValueError):
+                    pass
+        return self.tuning()
+
+    def tuning(self):
+        """Current motion-tuning values (for the cockpit panel)."""
+        return {"jog_rate": round(self.jog_rate, 3),
+                "jog_accel": round(self.jog_accel, 2),
+                "seq_rate": round(self.seq_rate, 3),
+                "seq_accel": round(self.seq_accel, 2),
+                "contact_tau": round(self.contact_tau, 2)}
+
     def set_paused(self, on):
         """Sim-transport pause: freeze autonomous motion (sequences / home /
         plan glides) so the arm holds its pose. Manual jog / IK still work."""
@@ -190,6 +221,77 @@ class RobotBridge:
         if not self.paused:
             self._step_ticks = 0
         return self.paused
+
+    def set_show_collision(self, on):
+        """Toggle the collision-mesh overlay — when on, snapshot() carries the
+        guard model's geom world-poses (+ per-geom hit flags) for the client."""
+        self.show_collision = bool(on)
+        return self.show_collision
+
+    def set_show_force(self, on):
+        """Toggle the TCP-force overlay — when on, snapshot() carries each arm's
+        TCP force estimate (N, world frame) derived from the joint torques."""
+        self.show_force = bool(on)
+        return self.show_force
+
+    def add_obstacle(self, shape, p, s):
+        """Add a user-placed virtual obstacle the planner/guard avoids."""
+        self._obs_id += 1
+        o = {"id": self._obs_id,
+             "type": ("cyl" if shape == "cyl" else "box"),
+             "p": [float(p[0]), float(p[1]), float(p[2])],
+             "s": [float(v) for v in s]}
+        self.obstacles.append(o)
+        return o
+
+    def clear_obstacles(self):
+        self.obstacles = []
+        return True
+
+    def delete_obstacle(self, oid):
+        self.obstacles = [o for o in self.obstacles if o.get("id") != oid]
+        return True
+
+    def update_obstacle(self, oid, p):
+        for o in self.obstacles:
+            if o.get("id") == oid and p:
+                o["p"] = [float(p[0]), float(p[1]), float(p[2])]
+                return True
+        return False
+
+    def resize_obstacle(self, oid, s):
+        """Set a user obstacle's half-extents (m); clamped 0.01..0.75 (2..150 cm full)."""
+        if not s or len(s) != 3:
+            return False
+        for o in self.obstacles:
+            if o.get("id") == oid:
+                o["s"] = [min(0.75, max(0.01, float(v))) for v in s]
+                return True
+        return False
+
+    def _tcp_force(self, st):
+        """Estimate each arm's TCP force (N, world frame) from the joint
+        torques: tau = Jᵀ·F  ⇒  F = (J·Jᵀ)⁻¹·J·tau, using the 3×N position
+        Jacobian. Position-only (no moments), matching the kinematics; reflects
+        gravity-hold + any contact, like a teach-pendant's TCP-force readout."""
+        tau = st.dof_torque()
+        q = st.dof_pos()
+        if tau is None or q is None:
+            return None
+        tau = np.asarray(tau, dtype=float)
+        out = {}
+        for arm, kin in self.kin.items():
+            p, J = kin._fk_jac_fast(q)
+            ta = tau[np.asarray(kin.idx, dtype=int)]
+            JJt = J @ J.T + 1e-9 * np.eye(3)
+            try:
+                F = np.linalg.solve(JJt, J @ ta)
+            except np.linalg.LinAlgError:
+                F = np.zeros(3)
+            out[arm] = {"p": [round(float(v), 4) for v in p],
+                        "f": [round(float(v), 3) for v in F],
+                        "mag": round(float(np.linalg.norm(F)), 2)}
+        return out
 
     def step(self, n=1):
         """Advance paused autonomous motion by n ticks (Isaac single-step)."""
@@ -587,6 +689,23 @@ class RobotBridge:
                 if other in self.kin:
                     self._ik_one(other, self._mirror_vec(pos), auto)
 
+    def reachable(self, arm, pos, tol=0.015, iters=160):
+        """IK feasibility test: can ``arm`` put its TCP at world point ``pos``
+        (metres)? Runs a hypothetical IK solve (does NOT move the robot) from
+        the current pose and reports the residual. None if arm/model absent."""
+        if arm not in self.kin or self.targ is None or len(pos) != 3:
+            return None
+        q = np.array(self.targ, dtype=float)
+        tgt = np.asarray(pos, dtype=float)
+        err = 1e9
+        for _ in range(int(iters)):
+            q, err = self.kin[arm].ik_step(q, tgt, step_m=0.08,
+                                           q_ref=self.ik_comfort)
+            if err < tol:
+                break
+        final = float(np.linalg.norm(tgt - self.kin[arm].fk(q)))
+        return {"reachable": bool(final < tol), "err_mm": round(final * 1000.0, 1)}
+
     def cart_step(self, arm, delta):
         """Cartesian nudge: glide the TCP by ``delta`` (world meters) via IK.
         The target auto-clears once reached (or once it stops improving, e.g.
@@ -802,7 +921,15 @@ class RobotBridge:
             "mirror": self.mirror,
             "carry": self.carry,
             "speed_scale": self.speed_scale,
+            "tuning": self.tuning(),
+            "obstacles": self.obstacles,
             "paused": self.paused,
+            "collision": (self.guard.collision_view(st.dof_pos())
+                          if (getattr(self, "show_collision", False)
+                              and self.guard is not None
+                              and hasattr(self.guard, "collision_view")) else None),
+            "force": (self._tcp_force(st)
+                      if getattr(self, "show_force", False) else None),
             "homing": self.home_active or self.plan_nodes is not None,
             "routing": (self.plan_nodes is not None
                         or (self.seq_route is not None and len(self.seq_route) > 1)),

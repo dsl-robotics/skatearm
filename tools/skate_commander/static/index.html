@@ -17,7 +17,7 @@
 
   <!-- ============ MENU BAR ============ -->
   <div id="menubar">
-    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.7.24</em></div>
+    <div id="logo">SKATE <span>COMMANDER</span><em id="ver">v0.8.0</em></div>
     <nav id="menus">
       <span class="menu">File</span><span class="menu">Edit</span><span class="menu">Create</span>
       <span class="menu">Window</span><span class="menu">Tools</span><span class="menu">Utilities</span>
@@ -56,13 +56,13 @@
       <button class="rail-tool" data-tool="scale" title="Scale"><svg viewBox="0 0 24 24"><path d="M4 20l7-7M4 20v-5M4 20h5M20 4l-7 7M20 4v5M20 4h-5"/></svg></button>
       <button class="rail-tool" data-tool="snap" title="Snap to increments"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 4v16M15 4v16M4 9h16M4 15h16"/></svg></button>
       <button class="rail-tool" data-tool="measure" title="Measure — click two points on the robot"><svg viewBox="0 0 24 24"><path d="M3 8h18v8H3z"/><path d="M7 8v4M11 8v3M15 8v4M19 8v3"/></svg></button>
+      <button class="rail-tool" data-tool="marker" title="Annotate — click to drop a labeled marker in the scene"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></svg></button>
+      <button class="rail-tool" data-tool="obstacle" title="Obstacle: add a box (+ box), then drag its gizmo to place it; the planner routes around it"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/><path d="M12 2v9M4 6.5l8 4.5 8-4.5"/></svg></button>
       <span class="rail-div"></span>
       <button id="btn-home" class="rail-tool" title="HOME - glide to the documented safe pose"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg></button>
       <button id="btn-mirror" class="rail-tool amber" title="MIRROR - commands to one arm are reflected onto the other"><svg viewBox="0 0 24 24"><path d="M12 3v18M7 8l-3 4 3 4M17 8l3 4-3 4"/></svg></button>
       <button id="btn-carry" class="rail-tool amber" title="CARRY - both wrists hold one object and move together"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg></button>
-      <span class="rail-sp"></span>
-      <button id="btn-resume2" class="rail-tool" title="Play / Resume simulation"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
-      <button id="btn-estop2" class="rail-tool" title="Stop / E-stop"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg></button>
+      <!-- rail Play/Stop removed 2026-06-26: duplicated the top E-STOP/RESUME; rail tightened so tools clear the timeline -->
       <div id="carry-pad" class="carry-pop" style="display:none">
         <div class="cp-head">CARRY - MOVE OBJECT</div>
         <div class="cp-grid">
@@ -84,6 +84,8 @@
           <button class="vbtn" data-view="side">Side</button>
           <button class="vbtn" id="btn-stats" title="Toggle viewport stats (FPS / draw-calls / triangles)">STATS</button>
           <span class="hd-render">RTX</span>
+          <button class="vbtn" id="btn-tune" title="Motion tuning — jog/glide cruise speed + accel, contact sensitivity">TUNE</button>
+          <button class="vbtn" id="btn-vset" title="Viewport display settings">&#9881;</button>
         </span>
       </div>
       <div id="viewport">
@@ -92,7 +94,26 @@
         <div class="overlay" id="overlay"></div>
         <div id="overlay-hint"></div>
         <div id="giz-hud"></div>
+        <div id="marker-list" class="marker-list" style="display:none"></div>
+        <div id="obstacle-list" class="marker-list" style="display:none"></div>
         <div id="stats-hud"></div>
+        <div id="vset-pop" class="vset-pop" style="display:none">
+          <div class="vset-hd">DISPLAY</div>
+          <label class="vset-row"><span>Grid</span><input type="checkbox" id="vs-grid" checked></label>
+          <label class="vset-row"><span>World axes</span><input type="checkbox" id="vs-axes" checked></label>
+          <div class="vset-row"><span>Field of view</span><input type="range" id="vs-fov" min="30" max="75" value="50" aria-label="Field of view"><em id="vs-fov-v">50&deg;</em></div>
+          <div class="vset-row vset-bg"><span>Background</span><span class="vs-sw on" data-bg="#08090B" style="background:#08090B" title="Near-black"></span><span class="vs-sw" data-bg="#0B1220" style="background:#0B1220" title="Deep blue"></span><span class="vs-sw" data-bg="#15171C" style="background:#15171C" title="Charcoal"></span></div>
+          <label class="vset-row"><span>HD render</span><input type="checkbox" id="vs-hd"></label>
+        </div>
+        <div id="tune-pop" class="vset-pop" style="display:none">
+          <div class="vset-hd">MOTION TUNING</div>
+          <div class="tune-ctl"><div class="tune-lab"><span>Jog speed</span><span class="tv"><em id="tn-jr-v">0.35</em><i>rad/s</i></span></div><input type="range" id="tn-jr" min="5" max="150" step="5" value="35" aria-label="Jog speed rad/s"></div>
+          <div class="tune-ctl"><div class="tune-lab"><span>Jog accel</span><span class="tv"><em id="tn-ja-v">3.0</em><i>rad/s&sup2;</i></span></div><input type="range" id="tn-ja" min="5" max="120" step="5" value="30" aria-label="Jog accel rad per s squared"></div>
+          <div class="tune-ctl"><div class="tune-lab"><span>Glide speed</span><span class="tv"><em id="tn-sr-v">0.60</em><i>rad/s</i></span></div><input type="range" id="tn-sr" min="10" max="150" step="5" value="60" aria-label="Glide cruise speed rad/s"></div>
+          <div class="tune-ctl"><div class="tune-lab"><span>Glide accel</span><span class="tv"><em id="tn-sa-v">2.0</em><i>rad/s&sup2;</i></span></div><input type="range" id="tn-sa" min="5" max="80" step="5" value="20" aria-label="Glide accel rad per s squared"></div>
+          <div class="tune-ctl"><div class="tune-lab"><span>Contact sens.</span><span class="tv"><em id="tn-ct-v">8.0</em><i>N&middot;m</i></span></div><input type="range" id="tn-ct" min="20" max="250" step="5" value="80" aria-label="Contact reflex threshold Nm — lower is touchier"></div>
+          <button id="tn-reset" class="tn-reset">Reset defaults</button>
+        </div>
         <div id="transport" title="Sim transport — Play / Pause / Stop / Step / Reset">
           <button id="tp-play" title="Play / Pause">&#9654;</button>
           <button id="tp-stop" title="Stop (E-stop)">&#9632;</button>
@@ -112,12 +133,11 @@
             <div class="keys-grid">
               <div><kbd>Space</kbd> E-stop / Resume</div>
               <div><kbd>H</kbd> Home</div>
-              <div><kbd>C</kbd> Camera</div>
-              <div><kbd>E</kbd> Ego + exo split</div>
+              <div><kbd>C</kbd> <span style="opacity:.45">Camera (under development)</span></div>
               <div><kbd>T</kbd> Traces</div>
               <div><kbd>D</kbd> Dexterity</div>
-              <div><kbd>P</kbd> Point cloud</div>
-              <div><kbd>G</kbd> Grasps</div>
+              <div><kbd>B</kbd> Collision model</div>
+            <div><kbd>F</kbd> TCP force</div>
               <div><kbd>L</kbd> Overlay layers</div>
               <div><kbd>M</kbd> Mirror</div>
               <div><kbd>1</kbd>-<kbd>6</kbd> Arm-group tabs</div>
@@ -126,22 +146,8 @@
             </div>
           </div>
         </div>
-        <div id="cam-pip">
-          <div id="cam-stage">
-            <img id="cam-img" alt="rendered robot camera">
-            <div id="cam-mark"></div>
-          </div>
-          <div id="cam-bar">
-            <button id="cam-expand" aria-label="Expand to ego + exo split view" aria-pressed="false" title="Expand the camera (ego + exo, side by side)">&#10530;</button>
-            <select id="cam-sel"></select>
-            <button id="cam-detect" title="Find the workspace target with the camera">&#9023; DETECT</button>
-            <button id="cam-pick" title="Detect, then run a right-arm pick (needs RESUME)">&#9654; PICK</button>
-            <button id="cam-servo" title="Closed-loop visual servo pick (needs RESUME)">&#9678; SERVO</button>
-            <select id="cam-obj" title="Detected objects (toggle GRASP to populate) - SMART picks this one" style="display:none"></select>
-            <button id="cam-smart" title="Smart pick on the work-camera point cloud (needs RESUME)">&#9638; SMART</button>
-          </div>
-          <div id="cam-info">-</div>
-        </div>
+        <!-- camera PiP + actions removed 2026-06-26: real camera under development; archived in skatearm_archive/camera_pcl_grasp_2026-06-26 -->
+
       </div>
     </div>
 
@@ -162,10 +168,14 @@
               <div class="snode lv2" data-group="legs"><span class="tw"></span><span class="nm">Legs</span><em class="ty">8 J</em></div>
               <div class="snode lv1"><span class="tw"></span><button class="eye on"></button><span class="nm">Grid / floor</span><em class="ty">Helper</em></div>
             </div>
+            <div id="stage-inspector" class="stage-insp" style="display:none">
+              <div class="si-hd"><span id="si-name">—</span><em id="si-type"></em></div>
+              <div class="si-rows" id="si-rows"></div>
+            </div>
             <div class="dock-sec">
               <div class="dock-lbl">SENSORS</div>
               <div class="dock-row">
-                <button id="btn-cam" class="tbtn" title="Toggle the rendered robot camera view"><svg viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg><span>Work camera</span><em class="ty">Sensor</em></button>
+                <button id="cam-wip" class="tbtn" disabled title="Real camera — under development (arrives with hardware)"><svg viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg><span>Camera</span><em class="ty">WIP</em></button>
               </div>
             </div>
             <div class="dock-sec">
@@ -179,8 +189,10 @@
               <button class="dock-lbl dock-lbl-btn" id="btn-layers" title="Layer visibility + opacity">OVERLAYS<span class="lbl-caret"> &#9656;</span></button>
               <div class="dock-row">
                 <button id="btn-dex" class="tbtn" title="Manipulability heat-map. First toggle samples it (~2 s)."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l1.6 1.6M17.4 17.4L19 19M19 5l-1.6 1.6M6.6 17.4L5 19"/></svg><span>Dexterity</span><em class="ty">Field</em></button>
-                <button id="btn-pcl" class="tbtn" title="Work-camera point cloud. First toggle renders it."><svg viewBox="0 0 24 24"><circle cx="7" cy="8" r="1.3"/><circle cx="12.5" cy="6" r="1.3"/><circle cx="17" cy="9" r="1.3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="14" r="1.3"/><circle cx="11.5" cy="18" r="1.3"/></svg><span>Point cloud</span><em class="ty">Cloud</em></button>
-                <button id="btn-grasp" class="tbtn" title="Smart-pick grasp. First toggle computes it."><svg viewBox="0 0 24 24"><path d="M7 3v7l2 2M17 3v7l-2 2"/><circle cx="12" cy="17" r="2.4"/></svg><span>Grasps</span><em class="ty">Mesh</em></button>
+                <!-- Point cloud overlay removed 2026-06-26 (camera under development) -->
+                <!-- Grasp overlay removed 2026-06-26 (camera under development) -->
+                <button id="btn-coll" class="tbtn" title="Collision model. Shows the capsule/box model the guard reasons over; geoms redden where they collide."><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.2"/><path d="M11 7.2h4.3a1.5 1.5 0 0 1 1.5 1.5V13"/></svg><span>Collision</span><em class="ty">Guard</em></button>
+                <button id="btn-force" class="tbtn" title="TCP force. Each arm's end-effector force estimate (N) from joint torques, drawn as a 3D arrow at the TCP."><svg viewBox="0 0 24 24"><path d="M5 19L19 5"/><path d="M11 5h8v8"/></svg><span>TCP force</span><em class="ty">Wrench</em></button>
               </div>
             </div>
             <div id="layers-pop" class="layers-pop" style="display:none">
@@ -196,8 +208,10 @@
               </div>
               <div class="lyr" data-ov="trace"><button class="eye" title="toggle">&#9679;</button><span>Traces</span></div>
               <div class="lyr" data-ov="dex"><button class="eye" title="toggle">&#9679;</button><span>Dexterity</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Dexterity opacity"></div>
-              <div class="lyr" data-ov="pcl"><button class="eye" title="toggle">&#9679;</button><span>Point cloud</span><input type="range" class="opa" min="15" max="100" value="100" aria-label="Point cloud opacity"></div>
-              <div class="lyr" data-ov="grasp"><button class="eye" title="toggle">&#9679;</button><span>Grasps</span></div>
+              <!-- pcl layer row removed 2026-06-26 -->
+              <!-- grasp layer row removed 2026-06-26 -->
+              <div class="lyr" data-ov="coll"><button class="eye" title="toggle">&#9679;</button><span>Collision</span></div>
+              <div class="lyr" data-ov="force"><button class="eye" title="toggle">&#9679;</button><span>TCP force</span></div>
             </div>
           </div>
           <div class="tabpane" data-pane="frames" style="display:none">
@@ -237,7 +251,7 @@
   <!-- ============ BROWSERS / TIMELINE ============ -->
   <div id="timeline">
     <div class="tl-hd">
-      <span class="pt act" data-tab="tltimeline">TIMELINE</span><span class="pt" data-tab="console">CONSOLE</span><span class="pt" data-tab="content">CONTENT</span>
+      <span class="pt act" data-tab="tltimeline">TIMELINE</span><span class="pt" data-tab="console">CONSOLE</span><span class="pt" data-tab="content">CONTENT</span><span class="pt" data-tab="diag">DIAGNOSTICS</span>
       <span class="tl-foot">skate_ros2 wire - UDP :2000</span>
       <span id="foot-mode">mode: sim</span>
       <span class="tl-sp"></span>
@@ -258,13 +272,22 @@
             <span class="tl-sp"></span>
             <button id="plot-pause" title="Pause / resume the plot">❚❚ Pause</button>
             <span class="plot-win" id="plot-win">15s</span>
+            <button id="plot-export" class="csv-btn" title="Export the current plot signal to CSV">&#8595; CSV</button>
           </div>
           <canvas id="plot-canvas"></canvas>
+          <div class="traj-bar" title="Trajectory replay — scrub the last 45 s of recorded motion">
+            <button id="traj-play" title="Replay the recorded motion forward">&#9654;</button>
+            <button id="traj-live" class="on" title="Return to live">&#9679; LIVE</button>
+            <input id="traj-scrub" type="range" min="0" max="1000" value="1000" aria-label="Scrub the recorded trajectory">
+            <span id="traj-t" class="traj-t">now</span>
+            <button id="traj-export" class="csv-btn" title="Export the recorded joint trajectory to CSV">&#8595; CSV</button>
+          </div>
         </div>
       </div>
       <div class="tabpane" data-pane="console" style="display:none">
         <div id="console-log" class="console"></div>
       </div>
+      <div class="tabpane" data-pane="diag" style="display:none"><div id="diag-tree" class="diag-tree"></div></div>
       <div class="tabpane" data-pane="content" style="display:none">
         <div id="content-grid" class="content-grid"></div>
       </div>

@@ -21,9 +21,9 @@ redistributed).
 📖 **Docs & `rbt` API reference → [dsl-robotics.github.io/skatearm/commander.html](https://dsl-robotics.github.io/skatearm/commander.html)**
 
 <div align="center">
-  <img src="../../docs/img/cockpit_v0724_cockpit.webp" width="680px" alt="The Skate Commander cockpit (v0.7.24): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
+  <img src="../../docs/img/cockpit_v0724_cockpit.webp" width="680px" alt="The Skate Commander cockpit (v0.8.0): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
   <br>
-  <em><strong>v0.7.24 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots.</em>
+  <em><strong>v0.8.0 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots.</em>
 </div>
 
 <div align="center">
@@ -35,25 +35,25 @@ redistributed).
 </div>
 
 <div align="center">
-  <img src="../../docs/img/commander_v06_pick.gif" width="680px" alt="Vision-guided pick: the work camera detects the magenta target and the right arm is driven to it by IK">
+  <img src="../../docs/img/cockpit_v0724_demo.gif" width="680px" alt="Skate Commander v0.8.0: mirror mode drives both arms from one slider while the live telemetry plots track the motion">
   <br>
-  <em><strong>Vision-guided pick</strong> — <strong>DETECT</strong> finds the target (back-projected to a world pose ~2&nbsp;mm from the simulator's ground truth), <strong>PICK</strong> drives the right arm to it through the IK + collision guard.</em>
+  <em><strong>v0.8.0 cockpit in action</strong> — mirror mode drives both arms from one slider while the live telemetry plots track the motion.</em>
 </div>
 
 <div align="center">
 <table>
   <tr>
     <td width="50%"><img width="100%" src="../../docs/img/cockpit_dex.webp" alt="Manipulability dexterity cloud rendered around the robot"><br><sub><b>Manipulability cloud</b> — warm where dexterous, blue near singular reach</sub></td>
-    <td width="50%"><img width="100%" src="../../docs/img/cockpit_pcl.webp" alt="Work-camera point cloud of the table and target"><br><sub><b>Work-camera point cloud</b> — the depth the grasp planner consumes</sub></td>
+    <td width="50%"><img width="100%" src="../../docs/img/cockpit_plots.webp" alt="Live Foxglove-style telemetry strip charts under the 3D view"><br><sub><b>Live telemetry plots</b> — angle / velocity / temperature / TCP / RTT at 30 Hz</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img width="100%" src="../../docs/img/cockpit_grasp.webp" alt="Smart-pick top-down grasp on a detected cube"><br><sub><b>Smart-pick</b> — a top-down grasp fit to each detected object</sub></td>
+    <td width="50%"><img width="100%" src="../../docs/img/cockpit_v0724_cockpit.webp" alt="The v0.8.0 Isaac-Sim-style cockpit: menu bar, tool rail, 3D twin, STAGE/PROPERTY dock"><br><sub><b>Isaac-Sim-style workstation</b> — menu bar, tool rail, Stage / Property dock, timeline</sub></td>
     <td width="50%"><img width="100%" src="../../docs/img/cockpit_ghost.webp" alt="Translucent ghost-robot preview with an Approve / Cancel gate"><br><sub><b>Ghost preview</b> — risky moves wait behind an Approve / Cancel gate</sub></td>
   </tr>
 </table>
 </div>
 
-## Features (v0.7.24)
+## Features (v0.8.0)
 
 The cockpit is structured as a NVIDIA-Isaac-Sim-style workstation: a **menu bar**, a left vertical **tool rail**, a center **3D View**, a right **STAGE** (scene hierarchy) over **PROPERTY** (inspector), and a bottom **TIMELINE / CONSOLE / CONTENT** browser - on a flat, token-driven dark theme.
 
@@ -102,12 +102,12 @@ The cockpit is structured as a NVIDIA-Isaac-Sim-style workstation: a **menu bar*
   workspace and renders it as a colour-graded point cloud in the twin: warm
   where the arm is dexterous (isotropic), blue near its singular reach limits.
   Computed server-side from the geometric (axis × lever) Jacobian, cached
-* **Work-camera point cloud** — a **PCL** toggle back-projects the work
+* **Work-camera point cloud** *(sim-validated; parked under "Camera tools — under development" pending a real depth camera)* — a **PCL** toggle back-projects the work
   camera's rendered depth into the twin as a coloured point cloud (each point
   takes its RGB pixel's colour): a live 3D reconstruction of what the camera
   sees (table, target). The magenta cube reconstructs to ~2 mm of ground truth
   — the input the grasp planner below consumes
-* **Smart pick — grasp synthesis on the cloud** — a **GRASP** toggle turns the
+* **Smart pick — grasp synthesis on the cloud** *(sim-validated; parked under "Camera tools — under development")* — a **GRASP** toggle turns the
   point cloud into a grasp: a RANSAC plane fit removes the table, the rest is
   clustered, and a top-down parallel-jaw grasp is fit to the object's own
   geometry — centre, a *measured* grasp height (mid plane↔top, not a hard-coded
@@ -148,7 +148,7 @@ The cockpit is structured as a NVIDIA-Isaac-Sim-style workstation: a **menu bar*
   Click-to-Step or RUN it through the same guarded bridge. Runs fully offline
   (a deterministic intent parser + an AST validator that only ever emits known
   `rbt` calls); an optional LLM fallback engages only if an API key is set
-* **On-board camera + vision-guided pick** — the server renders a workspace
+* **On-board camera + vision-guided pick** *(sim-validated; parked under "Camera tools — under development")* — the server renders a workspace
   camera from the model (MuJoCo) and streams it into the cockpit (MJPEG,
   switchable views). **DETECT** finds the magenta target and back-projects its
   centroid to a world pose (camera intrinsics from `fovy`, extrinsics from
@@ -181,6 +181,45 @@ The cockpit is structured as a NVIDIA-Isaac-Sim-style workstation: a **menu bar*
 * **SIM / REAL toggle** — the same `skate_ros2` UDP protocol either way;
   switching always re-latches the E-STOP; the lower chain is locked in REAL
   **at the bridge**, not just greyed out in the UI
+* **Collision-mesh display** — a toggle (key **B**) renders the guard's actual
+  capsule / box collision model in 3D and reddens any contacting pair, so you
+  see exactly what the guard sees
+* **TCP-force overlay** — a toggle (key **F**) draws a per-arm end-effector
+  force arrow estimated from the joint torques (`(J·Jᵀ)⁻¹·J·τ`, position-only),
+  low-pass filtered, amber when straining (> 12 N)
+* **Live telemetry plots, TF tree & diagnostics** — Foxglove-style strip charts
+  (angle / velocity / temperature / TCP / RTT at 30 Hz), an RViz2-style TF frame
+  tree with RGB axis triads, and an RViz `robot_monitor`-style diagnostics tree
+  with per-joint OK / warn / error dots
+* **Trajectory replay + CSV export** — a 45 s rolling joint-motion record with a
+  scrubber and Play (drag to freeze the twin in the past; a playhead tracks it on
+  the plots); one-click **↓ CSV** of the current signal or the full 26-DoF trajectory
+* **Joint-limit meters** — each joint's slider edge and value tint amber near a
+  limit (red at the stop), with an amber bounding box on the link in 3D
+* **Scene markers** — spawn a target in reachable space and drag its X/Y/Z gizmo;
+  each shows live **reachability** (green / red), one-click **→L / →R** go-to,
+  **→P** to append `rbt.moveto(…)` to a program, and **⇄ both** for a simultaneous
+  **bimanual reach**
+* **Virtual keep-out obstacles** — spawn boxes and place them freely with a 3D
+  gizmo, sized to any W×D×H; the RRT planner and the collision guard route the
+  arms *around* them
+* **Planning preview** — before a **Home** or **waypoint** move, a translucent
+  **ghost robot** shows the destination pose and a blue trail shows the planned
+  collision-free **route**, gated behind **Approve / Cancel**
+* **Stage hierarchy + inspector & display settings** — an Isaac-Sim-style STAGE
+  tree with visibility eyes and a live PROPERTY inspector; a viewport settings
+  popover (grid / axes / FOV / background / render quality); a two-point
+  **measure** tool; a **stats HUD** (FPS / draw-calls / triangles); **Stage
+  search** + a 3D selection outline
+* **Drive / motion tuning** — a **TUNE** panel exposes the bridge's real motion
+  params (jog & glide rate / accel, contact-reflex trip torque) with live effect
+  and a reset
+* **Global speed override** — a **SPD** slider scales all motion server-side
+  (jog + every glide: home, sequences, RRT routes)
+* **Sim transport** — Play / Pause / Step / Reset of the autonomous motion with a
+  run clock
+* **Save / load scene** — save the placed markers + obstacles to a JSON scene
+  file and reload them later
 
 ## Safety model
 
@@ -287,6 +326,9 @@ ROS anywhere in the stack.
 
 ## Roadmap
 
-Real-camera passthrough (the on-board sim camera already streams today) and
-real-gripper tool presets wait for the hardware (Commander v0.8). Graduates to
-its own repo once it's daily-drivable.
+The depth-based vision tools (work-camera point cloud, smart-pick grasp
+synthesis, vision-guided pick, IBVS visual servoing) are **sim-validated today**
+and parked behind the "Camera tools — under development" stub — they re-enable
+with a real connected depth camera, alongside real-gripper tool presets and
+on-hardware validation. Commander graduates to its own repo once it's
+daily-drivable on the real Skate (v1.0).

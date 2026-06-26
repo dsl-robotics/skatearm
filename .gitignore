@@ -9,3 +9,6 @@ skt_v3_render.xml
 # local clone of the official R.Botic model (meshes are NOT redistributed)
 skate_teleop/
 tools/skate_commander/skate_teleop/
+
+# runtime-saved cockpit data (user sequences, not part of the repo)
+tools/skate_commander/sequences/

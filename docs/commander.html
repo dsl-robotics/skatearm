@@ -114,21 +114,36 @@ python3 -m skate_commander</code></pre>
       <li><b>Teach-in (● REC)</b> — move the robot; every settled pose becomes a line of <code>rbt</code> code.</li>
       <li><b>Sequencer</b> — record poses, play with pause/loop, save/load named sequences.</li>
       <li><b>Python programs</b> — the <code>rbt</code> API (below) with <b>Click-to-Step</b>, autocomplete and ready examples.</li>
+      <li><b>Control flow</b> — a <code>+ FLOW</code> snippet bar (repeat / while / if / wait) with <code>rbt.ok()</code> / <code>blocked()</code> / <code>contact()</code> / <code>near()</code> condition helpers.</li>
       <li><b>Tools &amp; traces</b> — named end-of-arm TCP offsets; colored tool-path traces in the viewport.</li>
     </ul>
 
-    <h3>Vision &amp; autonomy</h3>
+    <h3>Manipulability &amp; previews</h3>
     <ul class="feat">
-      <li><b>Vision pick + visual servoing</b> — the work camera detects a target, <code>PICK</code> drives the right arm to it, and <code>SERVO</code> closes the loop in image space (open-loop ~43 mm vs IBVS ~5 mm in sim).</li>
-      <li><b>Smart-pick on the point cloud</b> — a work-camera <b>point cloud (PCL)</b>, multi-object grasp synthesis (<code>SMART</code>) + a colour/shape detector (optional YOLO), picking by id / colour / label.</li>
       <li><b>Manipulability heat-map (DEX)</b> — a dexterity cloud over the arm's workspace: warm = isotropic, blue = near-singular; a <code>SING</code> chip warns at near-straight poses.</li>
-      <li><b>Ghost-robot move preview</b> — risky moves draw a translucent ghost at the target pose behind an Approve / Cancel gate.</li>
+      <li><b>Ghost-robot move preview</b> — risky moves draw a translucent ghost at the target pose, with the planned collision-free route, behind an Approve / Cancel gate.</li>
+    </ul>
+
+    <h3>Scene &amp; planning</h3>
+    <ul class="feat">
+      <li><b>Scene markers</b> — spawn a target in reachable space and drag its 3D gizmo; live reachability, one-click <code>→L</code> / <code>→R</code> go-to, <code>→P</code> to a program, and <code>⇄</code> bimanual reach.</li>
+      <li><b>Virtual keep-out obstacles</b> — spawn boxes of any size and place them with a 3D gizmo; the RRT planner and the collision guard route the arms <i>around</i> them.</li>
+      <li><b>Planning preview</b> — a translucent ghost robot at the destination plus the planned collision-free route, gated behind Approve / Cancel for Home and waypoint moves.</li>
+      <li><b>Save / load scene</b> — save the placed markers + obstacles to a JSON scene file and reload them later.</li>
+    </ul>
+
+    <h3>Vision &amp; depth — in development</h3>
+    <ul class="feat">
+      <li><i>Sim-validated, re-enabling with a real depth camera (the vision backend stays in the tree as reference):</i> a work-camera <b>point cloud (PCL)</b>, multi-object <b>smart-pick</b> grasp synthesis (<code>SMART</code>) with a colour/shape detector (optional YOLO), <b>vision-guided pick</b> (<code>DETECT</code> → <code>PICK</code>) and closed-loop <b>visual servoing</b> (<code>SERVO</code>: open-loop ~43 mm vs IBVS ~5 mm in sim).</li>
     </ul>
 
     <h3>Inspection &amp; telemetry — RViz · Foxglove · Isaac</h3>
     <ul class="feat">
       <li><b>Live telemetry plots</b> — Foxglove-style scrolling strip charts (joint angle / velocity / temperature / TCP / link RTT) with a colour legend, pause and auto-ranging.</li>
       <li><b>Live TF frame tree</b> — RViz-style transform tree with world-mm readouts and eye-toggled RGB axis triads (frame-labelled) that track the kinematics.</li>
+      <li><b>Diagnostics + joint-limit meters</b> — an RViz <code>robot_monitor</code>-style status tree (link / E-STOP / overtemp / guard / contact / RTT + per-joint temp/vel/load), and per-joint slider meters that tint amber/red near a limit.</li>
+      <li><b>Collision-mesh + TCP-force overlays</b> — render the guard's capsule/box collision model (contacts reddened) and a per-arm end-effector force arrow estimated from the joint torques.</li>
+      <li><b>Trajectory replay + CSV export</b> — a 45 s rolling joint record with a scrubber and a playhead on the plots; export the current signal or the full 26-DoF trajectory to CSV.</li>
       <li><b>Sim transport</b> — Play / Pause / Stop / Step / Reset with a run clock and real server-side pause and single-step.</li>
       <li><b>Measure, stats &amp; search</b> — a click-two-points measure tool, an FPS / draw-calls / triangles HUD, a Stage-tree search, and a selection outline around the picked arm.</li>
       <li><b>Views &amp; presets</b> — a nav gizmo + Persp/Top/Front/Side, saveable view presets, an ego + exo split view, and a live <b>RTT + bandwidth</b> readout.</li>

@@ -338,3 +338,81 @@ def test_pause_and_step():
     assert br.step() == 4                          # default n=1
     assert br.set_paused(False) is False and br._step_ticks == 0   # unpause clears steps
     assert br.snapshot()["paused"] is False
+
+
+
+def test_set_tuning_clamps_ignores_unknown_and_bad():
+    """Motion-tuning setter: clamps each knob to its safe range, ignores
+    unknown keys and non-numeric values, and tuning() reflects live state."""
+    br = RobotBridge(sim_port=_free_port())
+    try:
+        t0 = br.tuning()
+        assert t0["seq_rate"] == 0.6 and t0["contact_tau"] == 8.0      # defaults
+        br.set_tuning(seq_rate=0.9, contact_tau=5.0)                   # within range
+        assert br.seq_rate == 0.9 and br.contact_tau == 5.0
+        br.set_tuning(jog_rate=99.0)                                   # hi clamp -> 1.5
+        assert br.jog_rate == 1.5
+        br.set_tuning(jog_rate=-9.0)                                   # lo clamp -> 0.05
+        assert br.jog_rate == 0.05
+        br.set_tuning(bogus=123, seq_accel=4.0)                        # unknown ignored, sibling applied
+        assert br.seq_accel == 4.0
+        held = br.seq_rate
+        br.set_tuning(seq_rate="oops")                                # bad value -> untouched
+        assert br.seq_rate == held
+        assert br.tuning()["jog_rate"] == 0.05                         # tuning() reflects live state
+    finally:
+        br.close()
+
+
+def test_obstacle_crud():
+    """add -> update (gizmo move) -> delete -> clear on the virtual-obstacle list."""
+    br = RobotBridge(sim_port=_free_port())
+    assert br.obstacles == []
+    o = br.add_obstacle("box", [0.0, 0.4, -0.1], [0.05, 0.05, 0.1])
+    oid = o["id"]
+    assert len(br.obstacles) == 1 and br.obstacles[0]["p"] == [0.0, 0.4, -0.1]
+    assert br.update_obstacle(oid, [0.1, 0.5, 0.2]) is True          # gizmo drag commits a new position
+    assert br.obstacles[0]["p"] == [0.1, 0.5, 0.2]
+    assert br.update_obstacle(999, [0, 0, 0]) is False               # unknown id -> no-op
+    o2 = br.add_obstacle("box", [0.2, 0.2, 0.0], [0.05, 0.05, 0.05])
+    assert len(br.obstacles) == 2
+    br.delete_obstacle(oid)
+    assert [x["id"] for x in br.obstacles] == [o2["id"]]
+    br.clear_obstacles()
+    assert br.obstacles == []
+
+
+def test_obstacle_resize():
+    """resize sets half-extents and clamps to 0.01..0.75 m; unknown id / bad input -> no-op."""
+    br = RobotBridge(sim_port=_free_port())
+    o = br.add_obstacle("box", [0.0, 0.4, -0.1], [0.05, 0.05, 0.1])
+    oid = o["id"]
+    assert br.resize_obstacle(oid, [0.20, 0.15, 0.30]) is True
+    assert br.obstacles[0]["s"] == [0.20, 0.15, 0.30]
+    assert br.resize_obstacle(oid, [5.0, 0.0001, 0.10]) is True       # clamp huge -> 0.75, tiny -> 0.01
+    assert br.obstacles[0]["s"] == [0.75, 0.01, 0.10]
+    assert br.resize_obstacle(999, [0.1, 0.1, 0.1]) is False          # unknown id -> no-op
+    assert br.resize_obstacle(oid, [0.1, 0.1]) is False               # bad length -> no-op
+
+
+def test_program_condition_helpers():
+    """rbt.ok()/blocked()/contact()/near() reflect bridge state (no sim needed)."""
+    from skate_commander.program import ProgramRunner, RobotAPI
+    br = RobotBridge(sim_port=_free_port())
+    api = RobotAPI(ProgramRunner(br))
+    br.estop = False; br.overtemp = False; br.contact_tripped = False; br.guard_blocking = False
+    assert api.ok() is True
+    br.guard_blocking = True
+    assert api.blocked() is True and api.ok() is True      # blocked is not the same as not-ok
+    br.contact_tripped = True
+    assert api.contact() is True and api.ok() is False      # a contact trip makes ok() false
+    br.contact_tripped = False; br.estop = True
+    assert api.ok() is False                                # E-stop makes ok() false
+    assert api.near("right", 0, 0, 0) is False              # sim-less rig has no kinematics
+
+
+def test_reachable_degenerate():
+    """reachable() returns None without kinematics / on bad input (sim-less rig)."""
+    br = RobotBridge(sim_port=_free_port())
+    assert br.reachable("right", [0.1, 0.3, 0.0]) is None      # no kin / no targ -> None
+    assert br.reachable("right", [0.1, 0.3]) is None           # bad length -> None

@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit</title>
-<meta name="description" content="Open-source bimanual work-cell and Isaac-Sim-style browser cockpit for the R.Botic Skate robot: a 3D digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots and closed-loop visual servoing — sim-first in MuJoCo, deployed over the native UDP wire.">
-<meta name="keywords" content="bimanual manipulation, humanoid robot, MuJoCo, ROS 2, digital twin, teleoperation, vision-guided grasping, inverse kinematics, collision guard, R.Botic Skate, robot arm, robotics">
+<meta name="description" content="Open-source bimanual work-cell and Isaac-Sim-style browser cockpit for the R.Botic Skate robot: a 3D digital twin, drag-IK, RRT collision-routing, dual-arm carry, live telemetry plots, planning previews and scene tools — sim-first in MuJoCo, deployed over the native UDP wire.">
+<meta name="keywords" content="bimanual manipulation, humanoid robot, MuJoCo, ROS 2, digital twin, teleoperation, motion planning, inverse kinematics, collision guard, R.Botic Skate, robot arm, robotics">
 <meta name="author" content="DSL Robotics">
 <link rel="canonical" href="https://dsl-robotics.github.io/skatearm/">
 <link rel="icon" type="image/png" href="img/favicon.png">
@@ -13,19 +13,19 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SkateArm">
 <meta property="og:title" content="SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit">
-<meta property="og:description" content="Open bimanual work-cell + Isaac-Sim-style browser cockpit for the R.Botic Skate: digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots, closed-loop visual servoing. Sim-first in MuJoCo.">
+<meta property="og:description" content="Open bimanual work-cell + Isaac-Sim-style browser cockpit for the R.Botic Skate: digital twin, drag-IK, RRT collision-routing, dual-arm carry, live telemetry plots, planning previews, scene markers &amp; obstacles. Sim-first in MuJoCo.">
 <meta property="og:url" content="https://dsl-robotics.github.io/skatearm/">
 <meta property="og:image" content="https://dsl-robotics.github.io/skatearm/img/og_card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SkateArm — Bimanual Work-Cell &amp; Skate Commander Cockpit">
-<meta name="twitter:description" content="Digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots, closed-loop visual servoing — sim-first in MuJoCo, on the native UDP wire.">
+<meta name="twitter:description" content="Digital twin, drag-IK, RRT collision-routing, dual-arm carry, live telemetry plots, planning previews, scene tools — sim-first in MuJoCo, on the native UDP wire.">
 <meta name="twitter:image" content="https://dsl-robotics.github.io/skatearm/img/og_card.png">
 <meta name="theme-color" content="#0a0b0e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SkateArm — Skate Commander","applicationCategory":"DeveloperApplication","operatingSystem":"Web, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","codeRepository":"https://github.com/dsl-robotics/skatearm","url":"https://dsl-robotics.github.io/skatearm/","description":"Open-source bimanual work-cell and Isaac-Sim-style browser cockpit for the R.Botic Skate: MuJoCo digital twin, drag-IK, RRT collision-routing, dual-arm carry, vision-guided picking, live telemetry plots, closed-loop visual servoing, ROS 2 over the native UDP wire.","author":{"@type":"Organization","name":"DSL Robotics"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SkateArm — Skate Commander","applicationCategory":"DeveloperApplication","operatingSystem":"Web, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","codeRepository":"https://github.com/dsl-robotics/skatearm","url":"https://dsl-robotics.github.io/skatearm/","description":"Open-source bimanual work-cell and Isaac-Sim-style browser cockpit for the R.Botic Skate: MuJoCo digital twin, drag-IK, RRT collision-routing, dual-arm carry, live telemetry plots, planning previews, scene tools, ROS 2 over the native UDP wire.","author":{"@type":"Organization","name":"DSL Robotics"}}
 </script>
 <style>
   :root{
@@ -300,7 +300,7 @@
         <span class="chip">MuJoCo twin</span>
         <span class="chip">ROS 2 bridge</span>
         <span class="chip">MIT license</span>
-        <span class="chip">closed-loop vision</span>
+        <span class="chip">planning preview</span>
         <span class="chip">dual-arm carry</span>
       </div>
     </div>
@@ -325,8 +325,8 @@
     <figcaption style="margin-top:13px;"><b>Product video</b> — a 50-second tour: digital twin, drag-IK, mirror mode and teach-in <span class="hl">(recorded on an earlier UI — the cockpit has since been redesigned; see the still below)</span>.</figcaption>
     <div class="media2">
       <figure class="reveal">
-        <div class="frame"><span class="cap">Cockpit · v0.7.24</span>
-          <img src="img/cockpit_v0724_cockpit.webp" loading="lazy" decoding="async" alt="The Skate Commander cockpit (v0.7.24): an Isaac-Sim-style workstation with menu bar, left tool rail, 3D digital twin, STAGE and PROPERTY dock, and live telemetry plots">
+        <div class="frame"><span class="cap">Cockpit · v0.8.0</span>
+          <img src="img/cockpit_v0724_cockpit.webp" loading="lazy" decoding="async" alt="The Skate Commander cockpit (v0.8.0): an Isaac-Sim-style workstation with menu bar, left tool rail, 3D digital twin, STAGE and PROPERTY dock, and live telemetry plots">
         </div>
         <figcaption><b>The cockpit</b> — an <b>Isaac-Sim-style workstation</b>: menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots.</figcaption>
       </figure>
@@ -346,8 +346,6 @@
     <p class="ssub">A robotics-workstation's worth of capability in one browser cockpit — an <span class="hl">Isaac-Sim-style</span> shell over a safe, wire-honest control core; every motion is checked for self-collision before it reaches the robot.</p>
     <div class="shots reveal">
       <figure class="shot"><span class="scap">Dexterity</span><img src="img/cockpit_dex.webp" loading="lazy" decoding="async" alt="Manipulability dexterity cloud rendered around the robot"><figcaption><b>Manipulability cloud</b> — warm where the arm is dexterous, blue near its singular reach limits.</figcaption></figure>
-      <figure class="shot"><span class="scap">Point cloud</span><img src="img/cockpit_pcl.webp" loading="lazy" decoding="async" alt="Work-camera point cloud of the table and target cubes"><figcaption><b>Work-camera depth</b> — back-projected into a 3D cloud the grasp planner consumes.</figcaption></figure>
-      <figure class="shot"><span class="scap">Smart-pick</span><img src="img/cockpit_grasp.webp" loading="lazy" decoding="async" alt="Smart-pick top-down grasp overlay on a detected cube"><figcaption><b>Grasp synthesis</b> — a top-down parallel-jaw grasp fitted to each detected object.</figcaption></figure>
       <figure class="shot"><span class="scap">Ghost preview</span><img src="img/cockpit_ghost.webp" loading="lazy" decoding="async" alt="Translucent green ghost robot preview with an Approve / Cancel gate"><figcaption><b>Approve / Cancel gate</b> — risky moves preview as a translucent ghost first.</figcaption></figure>
       <figure class="shot shot-wide"><span class="scap">Live telemetry</span><img src="img/cockpit_plots.webp" loading="lazy" decoding="async" alt="Live telemetry strip charts for the eight arm joints"><figcaption><b>Foxglove-style strip charts</b> — joint angle / velocity / temperature / TCP / link RTT, streaming at 30&nbsp;Hz.</figcaption></figure>
     </div>
@@ -363,14 +361,14 @@
       <li><span class="ix">06</span><div><h4>Plan around collisions</h4><p>Home and waypoint glides route <i>around</i> a self-collision (RRT) the straight joint path can't pass.</p></div></li>
       <li><span class="ix">07</span><div><h4>Contact reflex</h4><p>A torque spike while barely moving latches a soft-stop — pushing into an obstacle, not a fast commanded move.</p></div></li>
       <li><span class="ix">08</span><div><h4>Jerk-limited + speed override</h4><p>Trapezoidal ease-in/out, plus a teach-pendant <b>SPD</b> slider scaling all motion server-side.</p></div></li>
-      <li class="fgroup-h"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg><span>Vision &amp; autonomy</span><i class="gline"></i></li>
-      <li><span class="ix">09</span><div><h4>Vision pick + servoing</h4><p>The work camera detects a target; <code>SERVO</code> closes the loop in image space (open-loop ~43&nbsp;mm vs IBVS ~5&nbsp;mm in sim).</p></div></li>
-      <li><span class="ix">10</span><div><h4>Point cloud + smart-pick</h4><p>A work-camera point cloud, multi-object grasp synthesis (<code>SMART</code>) and a colour/shape detector.</p></div></li>
+      <li class="fgroup-h"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg><span>Vision, scene &amp; planning</span><i class="gline"></i></li>
+      <li><span class="ix">09</span><div><h4>Markers, obstacles &amp; planning</h4><p>Spawn reachable markers (go-to · →program · <code>⇄</code> bimanual reach) and keep-out boxes the RRT planner routes <i>around</i>; a ghost robot + route preview gates every Home / waypoint move.</p></div></li>
+      <li><span class="ix">10</span><div><h4>Vision &amp; depth — in development</h4><p>Work-camera point cloud, multi-object smart-pick grasp synthesis and image-based visual servoing — sim-validated, re-enabling with a real depth camera.</p></div></li>
       <li><span class="ix">11</span><div><h4>Manipulability heat-map</h4><p>A <code>DEX</code> dexterity cloud over the workspace; a <code>SING</code> chip warns at near-singular poses.</p></div></li>
       <li class="fgroup-h"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 4v16h16"/><path d="M7 14l3-4 3 2 5-7"/></svg><span>Inspection &amp; telemetry</span><i class="gline"></i></li>
       <li><span class="ix">12</span><div><h4>Ghost-robot preview</h4><p>Risky moves draw a translucent ghost at the target pose behind an Approve / Cancel gate.</p></div></li>
-      <li><span class="ix">13</span><div><h4>Live plots + TF tree</h4><p>Foxglove-style telemetry strip charts, and an RViz-style live TF frame tree with toggleable 3D axis triads.</p></div></li>
-      <li><span class="ix">14</span><div><h4>Sim transport + tools</h4><p>Play / Pause / Step / Reset, a measure tool, an FPS / draw-call stats HUD, and Stage search + a selection outline.</p></div></li>
+      <li><span class="ix">13</span><div><h4>Plots, TF tree &amp; diagnostics</h4><p>Foxglove-style telemetry strip charts, an RViz-style live TF frame tree with 3D axis triads, and a <code>robot_monitor</code>-style diagnostics tree with per-joint status.</p></div></li>
+      <li><span class="ix">14</span><div><h4>Overlays, transport + tools</h4><p>Collision-mesh and TCP-force overlays, trajectory replay + CSV export, sim transport (play / step / reset), a measure tool, a stats HUD, and Stage search + selection outline.</p></div></li>
       <li class="fgroup-h"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg><span>Programs &amp; access</span><i class="gline"></i></li>
       <li><span class="ix">15</span><div><h4>Programs &amp; teaching</h4><p>The sandboxed <code>rbt</code> Python API with Click-to-Step, teach-in recording, and a waypoint sequencer.</p></div></li>
       <li><span class="ix">16</span><div><h4>Safety-first</h4><p>Collision guard (incl. arm-vs-arm) along the path, a software E-STOP + deadman, and keyboard / screen-reader access.</p></div></li>
@@ -385,7 +383,7 @@
     <div class="stack">
       <div class="scard reveal"><span class="k">Layer 01</span><h3>Sim-first</h3><p>Control-ready MuJoCo model + capsule collision layer; kinematics validated against MuJoCo link positions.</p></div>
       <div class="scard reveal"><span class="k">Layer 02</span><h3>skate_ros2 — the wire</h3><p>One UDP protocol (SkateLink) for both the MuJoCo sim endpoint and the real robot, with a software E-STOP / deadman watchdog.</p></div>
-      <div class="scard reveal"><span class="k">Layer 03</span><h3>Skate Commander</h3><p>An Isaac-Sim-style browser cockpit (FastAPI + WebSocket, Three.js twin): server-side IK + collision guard, RRT routing, vision pick, live telemetry plots, a TF tree and a full inspection toolset.</p></div>
+      <div class="scard reveal"><span class="k">Layer 03</span><h3>Skate Commander</h3><p>An Isaac-Sim-style browser cockpit (FastAPI + WebSocket, Three.js twin): server-side IK + collision guard, RRT routing, planning previews, live telemetry plots, a TF tree and a full inspection toolset.</p></div>
       <div class="scard reveal"><span class="k">Layer 04</span><h3>Autonomous work-cell</h3><p>Phase 1: a GRAFCET-sequenced two-handed assembly cycle with camera quality inspection and a SCADA dashboard.</p></div>
     </div>
   </div>

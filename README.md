@@ -72,7 +72,7 @@
   <img src="docs/img/skate_commander_lockup.png" width="560" alt="Skate Commander — web cockpit, digital twin, real robot">
 </div>
 
-> 🚧 **Early access · under active development** — v0.7.24 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
+> 🚧 **Early access · under active development** — v0.8.0 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
 
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
 
@@ -80,10 +80,10 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 <table>
   <tr>
     <td width="50%"><img width="100%" src="docs/img/cockpit_dex.webp" alt="Manipulability dexterity cloud rendered around the robot"><br><sub><b>Manipulability cloud</b> — warm where dexterous, blue near singular reach</sub></td>
-    <td width="50%"><img width="100%" src="docs/img/cockpit_pcl.webp" alt="Work-camera point cloud of the table and target"><br><sub><b>Work-camera point cloud</b> — the depth the grasp planner consumes</sub></td>
+    <td width="50%"><img width="100%" src="docs/img/cockpit_plots.webp" alt="Live Foxglove-style telemetry strip charts under the 3D view"><br><sub><b>Live telemetry plots</b> — angle / velocity / temperature / TCP / RTT at 30 Hz</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img width="100%" src="docs/img/cockpit_grasp.webp" alt="Smart-pick top-down grasp on a detected cube"><br><sub><b>Smart-pick</b> — a top-down grasp fit to each detected object</sub></td>
+    <td width="50%"><img width="100%" src="docs/img/cockpit_v0724_cockpit.webp" alt="The v0.8.0 Isaac-Sim-style cockpit: menu bar, tool rail, 3D twin, STAGE/PROPERTY dock"><br><sub><b>Isaac-Sim-style workstation</b> — menu bar, tool rail, Stage / Property dock, timeline</sub></td>
     <td width="50%"><img width="100%" src="docs/img/cockpit_ghost.webp" alt="Translucent ghost-robot preview with an Approve / Cancel gate"><br><sub><b>Ghost preview</b> — risky moves wait behind an Approve / Cancel gate</sub></td>
   </tr>
 </table>
@@ -107,6 +107,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Feature | What it does |
 |---|---|
 | Python programs | Built-in editor + `rbt` API (`movej`/`pose`/`movel`/`home`/waypoints); **Click-to-Step** runs one motion at a time; E-STOP or any manual input kills the program |
+| Control flow | A **+ FLOW** snippet bar inserts indent-aware `repeat` / `while` / `if` / `wait` skeletons, with `rbt.ok()` / `blocked()` / `contact()` / `near()` condition helpers — loops and conditionals run on the same guarded bridge |
 | Natural-language programs | Describe a task in plain English — a safe **offline** parser writes the `rbt` program into the editor (AST-validated; optional LLM fallback), which you then Click-to-Step through the same guarded bridge |
 | Teach-in recording | Press **● REC**, move the robot by hand — every settled pose becomes a line of `rbt` code, ready to replay |
 | Waypoint sequencer | Record poses, play with pause/loop, save/load named sequences |
@@ -118,9 +119,11 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Tool / TCP offsets | Named end-of-arm tools (mm offsets); FK, IK, traces and the gizmo all follow the active TCP |
 | TCP traces | Colored tool-center-point trajectories drawn in the viewport |
 
-### Vision &amp; autonomy
+### Vision &amp; autonomy — validated in simulation, returning with the depth camera
 
-| Feature | What it does |
+> These camera-derived tools were built and validated against the MuJoCo render, then **parked behind a "Camera tools — under development" stub** in v0.8.0 — the live camera must be a *real* connected depth sensor, not a rendered one, so they re-enable when the hardware arrives (the vision backend stays in the tree as reference). The sim numbers below are real: they are sim-validated, not live cockpit toggles today.
+
+| Capability (sim-validated) | What it does |
 |---|---|
 | On-board camera | A camera view rendered from the model (MuJoCo) and streamed into the cockpit (MJPEG), switchable between viewpoints |
 | Work-camera point cloud | A **PCL** toggle back-projects the work camera's depth into the twin — a coloured 3D point cloud of what it sees (table, target), the input the v0.7.11 grasp planner consumes |
@@ -137,12 +140,38 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Planned routing | When a straight move (**Home** or a **waypoint** goto/play) would clip a self-collision, an RRT planner routes the arms *around* it (collision-free) instead of stalling — the legs / balance chain are left untouched |
 | SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
 
+### Observability &amp; operator tools
+
+| Feature | What it does |
+|---|---|
+| Live telemetry plots | Foxglove-style scrolling strip charts (joint angle / velocity / temperature / TCP / link RTT) at 30 Hz — colour-coded legend, click-to-toggle lines, pause, current-value markers |
+| Live TF frame tree | RViz2-style transform tree (world ▸ base_link ▸ arm flanges) with world-mm readouts and eye-toggled RGB axis triads that track the kinematics |
+| Diagnostics panel | RViz `robot_monitor`-style status tree (system link, E-STOP, overtemp, guard, contact, RTT + per-joint temp / vel / load) with OK / warn / error dots and a worst-status badge |
+| Joint-limit meters | Each joint's slider edge and value tint amber near a limit (red at the hard stop), with an amber bounding box on the link in 3D |
+| Collision-mesh display | A collision-mesh toggle (key **B**) renders the guard's actual capsule / box model in 3D and reddens any contacting pair — see exactly what the guard sees |
+| TCP-force overlay | A TCP-force toggle (key **F**) draws a per-arm end-effector force arrow estimated from the joint torques (`(J·Jᵀ)⁻¹·J·τ`), low-pass filtered, amber when straining (> 12 N) |
+| Trajectory replay + scrub | A 45 s rolling record of joint motion with a scrubber and Play — drag to freeze the twin at any past instant; an amber playhead tracks it on the strip charts |
+| CSV export | One-click **↓ CSV** of the current plot signal or the full 26-DoF recorded trajectory (degrees, real timestamps) |
+| Global speed override | A **SPD** slider scales all motion server-side — jog and every glide (home, sequences, RRT routes) |
+| Sim transport &amp; inspection | Play / Pause / Step / Reset of the autonomous motion with a run clock; a two-point **measure** tool; a viewport **stats HUD** (FPS / draw-calls / triangles); **Stage search** + a 3D selection outline |
+
+### Scene, markers &amp; planning
+
+| Feature | What it does |
+|---|---|
+| Stage hierarchy &amp; inspector | An Isaac-Sim-style **STAGE** tree (World ▸ Skate ▸ arms ▸ joints + overlays / grid) with visibility eyes; click any node for a live **PROPERTY** inspector (name, type, world pose) |
+| Viewport display settings | A gear popover toggles grid / axes, sets camera FOV, swaps the background, and flips render quality |
+| Scene markers | Spawn a target in reachable space and drag its X/Y/Z gizmo; each marker shows live **reachability** (green / red), one-click **→L / →R** go-to (server-side IK), **→P** to append `rbt.moveto(…)` to a program, and **⇄ both** for a simultaneous **bimanual reach** |
+| Virtual obstacles | Spawn keep-out boxes and place them freely with a 3D gizmo, sized to any W×D×H — the RRT planner and the collision guard route the arms *around* them |
+| Planning preview | Before a **Home** or **waypoint** move, a translucent **ghost robot** shows the destination pose and a blue trail shows the planned collision-free **route**, gated behind **Approve / Cancel** |
+| Save / load scene | Save the placed markers + obstacles to a JSON scene file and reload them later |
+
 <div align="center">
-  <img src="docs/img/cockpit_v0724_cockpit.webp" width="720px" alt="The Skate Commander cockpit (v0.7.24): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
+  <img src="docs/img/cockpit_v0724_cockpit.webp" width="720px" alt="The Skate Commander cockpit (v0.8.0): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
   <br>
-  <em><strong>v0.7.24 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots. Mirror mode, dual-arm carry, jerk-limited motion, teach-in and closed-loop visual servoing all live here.</em>
+  <em><strong>v0.8.0 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots. Mirror mode, dual-arm carry, jerk-limited motion and teach-in all live here.</em>
   <br><br>
-  <img src="docs/img/cockpit_v0724_demo.gif" width="720px" alt="Skate Commander v0.7.24: mirror mode drives both arms from one slider while the live telemetry plots track the motion">
+  <img src="docs/img/cockpit_v0724_demo.gif" width="720px" alt="Skate Commander v0.8.0: mirror mode drives both arms from one slider while the live telemetry plots track the motion">
   <br>
   <em>More cockpit in action: mirror mode drives both arms from one slider while the live telemetry plots track the motion. <strong><a href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
 </div>
@@ -252,7 +281,7 @@ Tools get built because SkateArm needs them — then released standalone:
 | Tool | What it is | Status |
 |---|---|---|
 | [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified; MoveIt config next) |
-| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, cartesian jog, **mirror mode**, **dual-arm carry**, **singularity (SING) warning**, **jerk-limited motion**, **Python programs with Click-to-Step**, **teach-in recording**, waypoint **sequencer**, TCP tools & traces, **closed-loop visual servoing (SERVO)**, **contact reflex**, smooth **Home** + **waypoint moves** that **plan around self-collisions (RRT)**, **manipulability heat-map**, **work-camera point cloud**, **multi-object smart-pick (SMART) + colour/shape detector**, **ghost-robot move preview + approval gating**, **saveable view presets**, **ego + exo split view**, **real link RTT + bandwidth**, **collision guard**, **keyboard / screen-reader a11y**, **operator hotkeys + legend**, **Isaac-Sim-style application shell** (menu bar, Stage hierarchy, Property inspector, timeline, nav gizmo), **live telemetry plots** (Foxglove-style strip charts), **live TF frame tree + 3D axis triads** (RViz-style), **drag-gizmo snap + on-drag coordinate HUD**, **global speed override** (teach-pendant), **sim transport** (play / pause / step / reset), **measure tool**, **viewport stats HUD**, **Stage search + selection outline** · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.7.24** (real-camera passthrough waits for hardware) |
+| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin, jog/sliders, **drag-IK**, cartesian jog, **mirror mode**, **dual-arm carry**, **singularity (SING) warning**, **jerk-limited motion**, **manipulability heat-map (DEX)**, **Python programs with Click-to-Step + control flow**, **teach-in recording**, waypoint **sequencer**, TCP tools & traces, **contact reflex**, smooth **Home** + **waypoint moves** that **plan around self-collisions (RRT)**, **virtual keep-out obstacles**, **scene markers** with reachability + go-to + **bimanual reach**, **planning preview** (ghost robot + route trail), **collision-mesh display**, **TCP-force overlay**, **diagnostics panel**, **joint-limit meters**, **trajectory replay + scrub**, **CSV export**, **drive / motion tuning**, **save / load scene**, **ghost-robot move preview + approval gating**, **collision guard**, **keyboard / screen-reader a11y**, **operator hotkeys + legend**, **Isaac-Sim-style application shell** (menu bar, Stage hierarchy + inspector, Property panel, timeline, nav gizmo), **live telemetry plots** (Foxglove-style), **live TF frame tree + 3D axis triads** (RViz-style), **global speed override**, **sim transport**, **measure tool**, **viewport stats HUD + display settings**, **Stage search + selection outline** · _(sim-validated camera tools — point cloud, smart-pick, visual servoing — are parked under "Camera tools: under development" pending a real depth camera)_ · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.8.0** (real-camera passthrough waits for hardware) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |
 | MuJoCo benchmark suite | Repeatable bimanual tasks for policy comparison | planned |

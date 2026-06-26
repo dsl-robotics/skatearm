@@ -184,7 +184,7 @@ button:disabled:hover { border-color: var(--line2); color: var(--fg2); box-shado
 #viewport.cue-estop { box-shadow: inset 0 0 0 2px rgba(244,86,76,.62),
   inset 0 0 130px -18px rgba(244,86,76,.42); }
 #viewport canvas { display: block; position: relative; z-index: 1; }
-#overlay-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+#overlay-hint { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%);
   z-index: 4; display: none; max-width: 72%; padding: 5px 13px; border-radius: 99px;
   background: rgba(10,12,16,.6); border: 1px solid var(--line2); backdrop-filter: blur(6px);
   font: 600 10.5px var(--mono); letter-spacing: .03em; color: var(--fg2);
@@ -632,7 +632,7 @@ body.offline #menubar .chip { opacity: .35; filter: grayscale(1); }
 #toolbar { display: none; }                              /* legacy horizontal toolbar removed */
 
 /* left vertical Main Toolbar (Isaac) */
-#toolrail { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
+#toolrail { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 8px 0; background: var(--panel); border-right: 1px solid var(--line); }
 .rail-tool { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   border: 1px solid transparent; border-radius: 7px; color: #AFB5BF; background: none; position: relative; }
@@ -848,3 +848,166 @@ body.offline #menubar .chip { opacity: .35; filter: grayscale(1); }
   border: 1px solid var(--line); border-radius: 6px; }
 #stage-search::placeholder { color: var(--faint); }
 #stage-search:focus { outline: none; border-color: var(--accent-lt); }
+
+
+/* trajectory replay scrubber (Foxglove / rosbag-style seek) */
+.traj-bar { display: flex; align-items: center; gap: 8px; height: 25px; padding: 0 9px; border-top: 1px solid var(--line); background: var(--panel2); flex: none; }
+.traj-bar button { background: none; border: 1px solid var(--line2); border-radius: 5px; color: var(--fg2); font: 600 9.5px var(--mono); letter-spacing: .04em; height: 17px; padding: 0 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: color .15s, border-color .15s; }
+.traj-bar button:hover { color: var(--fg); border-color: var(--accent-dk); }
+#traj-play { width: 21px; justify-content: center; padding: 0; font-size: 10px; }
+#traj-play.on { color: var(--accent-lt); border-color: var(--accent); }
+#traj-live.on { color: var(--ok); border-color: var(--line2); }
+#traj-live:not(.on) { color: var(--amber); border-color: var(--amber); }
+#traj-scrub { flex: 1; height: 4px; -webkit-appearance: none; appearance: none; background: var(--line2); border-radius: 3px; outline: none; cursor: pointer; }
+#traj-scrub::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel2); cursor: pointer; }
+#traj-scrub::-moz-range-thumb { width: 11px; height: 11px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel2); cursor: pointer; }
+.traj-t { font: 600 9.5px var(--mono); color: var(--fg2); min-width: 40px; text-align: right; }
+
+
+/* diagnostics panel (RViz robot_monitor-style health tree) */
+.diag-tree { height: 100%; overflow-y: auto; padding: 5px 11px 10px; font: 500 11px var(--mono); }
+.diag-tree .dgrp { display: flex; align-items: center; gap: 7px; margin: 10px 0 3px; font: 600 9.5px var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--fg2); }
+.diag-tree .dgrp.dgsys { margin-top: 3px; }
+.diag-tree .dgsum { margin-left: auto; color: var(--faint); font-weight: 500; letter-spacing: 0; text-transform: none; }
+.diag-tree .drow { display: flex; align-items: center; gap: 7px; padding: 2px 0 2px 3px; color: var(--fg2); }
+.diag-tree .drow.dj { padding-left: 17px; }
+.diag-tree .dk { min-width: 112px; color: var(--fg); }
+.diag-tree .drow.dj .dk { min-width: 30px; }
+.diag-tree .dv { color: var(--fg2); }
+.diag-tree .dv em { color: var(--faint); font-style: normal; margin-left: 6px; }
+.ddot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--ok); }
+.ddot.ok { background: var(--ok); }
+.ddot.warn { background: var(--amber); }
+.ddot.bad { background: var(--bad); box-shadow: 0 0 5px var(--bad); }
+
+
+/* joint-limit proximity meter — colored edge on the slider as a joint nears its range end */
+.jbar { position: relative; }
+.jbar.lim-warn::after, .jbar.lim-bad::after { content: ""; position: absolute; bottom: -2px; height: 2px; width: 36%; border-radius: 2px; pointer-events: none; }
+.jbar.lim-lo::after { left: 0; }
+.jbar.lim-hi::after { right: 0; }
+.jbar.lim-warn::after { background: var(--amber); }
+.jbar.lim-bad::after { background: var(--bad); box-shadow: 0 0 6px var(--bad); }
+.ang.lim-warn { color: var(--amber); }
+.ang.lim-bad { color: var(--bad); }
+
+
+/* diagnostics tab status dot — shows a warn/err colour without opening the tab */
+.pt[data-health="warn"]::after, .pt[data-health="bad"]::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-left: 5px; vertical-align: middle; }
+.pt[data-health="warn"]::after { background: var(--amber); }
+.pt[data-health="bad"]::after { background: var(--bad); box-shadow: 0 0 5px var(--bad); }
+
+
+/* stage properties-inspector (Isaac / Blender Properties for the selected stage node) */
+.stage-insp { margin: 7px 5px 3px; padding: 8px 10px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); }
+.stage-insp .si-hd { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.stage-insp #si-name { font: 600 12px var(--sans); color: var(--fg); }
+.stage-insp #si-type { font: 600 9px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent-lt); }
+.stage-insp .si-row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; font: 500 11px var(--mono); }
+.stage-insp .si-k { color: var(--fg2); }
+.stage-insp .si-v { color: var(--fg); text-align: right; }
+.stage-tree .snode.insp { background: rgba(59,130,246,.14); border-radius: 4px; }
+
+
+/* viewport display settings popover (RViz Global Options / Isaac viewport) */
+.vset-pop { position: absolute; top: 88px; right: 8px; z-index: 6; width: 212px; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; padding: 9px 11px 11px; box-shadow: 0 12px 32px -16px rgba(0,0,0,.92); }
+.vset-pop .vset-hd { font: 600 9.5px var(--mono); letter-spacing: .12em; color: var(--fg2); margin-bottom: 6px; }
+.vset-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font: 500 11.5px var(--sans); color: var(--fg); }
+.vset-row > span:first-child { flex: 1; color: var(--fg2); }
+.vset-row input[type="range"] { flex: 1.3; height: 4px; accent-color: var(--accent); cursor: pointer; }
+.vset-row #vs-fov-v { font: 600 10px var(--mono); color: var(--fg2); min-width: 26px; text-align: right; }
+.vset-row input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.vset-bg .vs-sw { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--line2); cursor: pointer; }
+.vset-bg .vs-sw.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+#btn-vset { font-size: 13px; line-height: 1; }
+
+
+/* waypoint timeline strip (teach-pendant program timeline over the SEQ list) */
+.seq-tl { position: relative; display: flex; align-items: center; min-height: 30px; margin: 6px 2px 9px; padding: 0 6px; overflow-x: auto; }
+.seq-tl:empty { display: none; }
+.seq-tl-line { position: absolute; left: 16px; right: 16px; top: 50%; height: 2px; background: var(--line2); }
+.seq-tl-pt { position: relative; z-index: 1; flex: none; width: 22px; height: 22px; margin: 0 5px; border-radius: 50%; border: 1px solid var(--line2); background: var(--panel2); color: var(--fg2); font: 600 10px var(--mono); cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.seq-tl-pt:hover { border-color: var(--accent); color: var(--fg); }
+.seq-tl-pt.active { background: var(--accent); border-color: var(--accent-lt); color: #021019; box-shadow: 0 0 8px -1px var(--accent); }
+
+
+/* scene markers / annotations list (RViz Markers / Foxglove annotations) */
+.marker-list { position: absolute; top: 84px; left: 8px; z-index: 5; min-width: 152px; max-width: 296px; background: rgba(14,16,19,.92); border: 1px solid var(--line2); border-radius: 9px; padding: 7px 9px 8px; backdrop-filter: blur(4px); }
+.marker-list .ml-hd { display: flex; justify-content: space-between; align-items: center; font: 600 9.5px var(--mono); letter-spacing: .12em; color: var(--fg2); margin-bottom: 5px; }
+.marker-list .ml-clr { background: none; border: 1px solid var(--line2); border-radius: 5px; color: var(--fg2); font: 500 9px var(--mono); padding: 2px 6px; cursor: pointer; }
+.marker-list .ml-clr:hover { color: var(--bad); border-color: var(--bad); }
+.marker-list .ml-row { display: flex; align-items: center; gap: 7px; padding: 2px 0; font: 500 10.5px var(--mono); }
+.marker-list .ml-row > span { color: var(--amber); font-weight: 600; min-width: 20px; }
+.marker-list .ml-row em { flex: 1; color: var(--fg2); font-style: normal; }
+.marker-list .ml-row button { background: none; border: none; color: var(--faint); cursor: pointer; font-size: 11px; padding: 0 2px; }
+.marker-list .ml-row button:hover { color: var(--bad); }
+
+
+/* Motion-tuning popover (reuses .vset-pop / .vset-row) */
+#tune-pop { min-width: 230px; }
+#tune-pop .vset-hd { margin-bottom: 4px; }
+#tune-pop .tune-ctl { padding: 8px 0; }
+#tune-pop .tune-ctl + .tune-ctl { border-top: 1px solid var(--line); }
+#tune-pop .tune-lab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+#tune-pop .tune-lab > span { font: 600 10px var(--sans); letter-spacing: .05em; text-transform: uppercase; color: var(--fg2); white-space: nowrap; }
+#tune-pop .tv { white-space: nowrap; }
+#tune-pop .tv em { font: 600 12px var(--mono); font-style: normal; color: var(--fg); font-variant-numeric: tabular-nums; }
+#tune-pop .tv i { font: 500 9px var(--sans); font-style: normal; color: var(--fg2); margin-left: 4px; }
+#tune-pop input[type="range"] { width: 100%; display: block; margin: 0; }
+.tn-reset { margin-top: 13px; width: 100%; padding: 7px 0; font: 600 10px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--fg2); background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; cursor: pointer; transition: border-color .12s, color .12s, background .12s; }
+.tn-reset:hover { color: var(--fg); border-color: var(--accent); background: var(--panel3); }
+
+
+/* CSV export buttons (plots + trajectory toolbars) */
+.csv-btn { font: 600 9.5px var(--sans); letter-spacing: .06em; color: var(--fg2); background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+.csv-btn:hover { color: var(--accent); border-color: var(--accent); }
+.csv-btn:active { background: var(--panel3); }
+
+
+/* Obstacle list — reuses .marker-list, parked bottom-left (markers sit top-left) */
+#obstacle-list { top: auto; bottom: 12px; }
+
+
+/* cap the annotation lists so they never overflow the viewport; keep the header (clear) reachable */
+.marker-list { max-height: 42vh; overflow-y: auto; }
+.marker-list .ml-hd { position: sticky; top: 0; background: rgba(14,16,19,.98); padding: 2px 0; margin: -2px 0 2px; }
+
+
+/* obstacle panel: add / select / empty-hint */
+.marker-list .ml-acts { display: flex; gap: 5px; }
+.marker-list .ml-add { background: none; border: 1px solid var(--accent); border-radius: 5px; color: var(--accent); font: 600 9px var(--mono); padding: 1px 6px; cursor: pointer; letter-spacing: .04em; }
+.marker-list .ml-add:hover { background: var(--accent); color: #08090B; }
+.marker-list .ml-row.sel { background: rgba(245,166,35,.13); border-radius: 4px; }
+.marker-list .ml-row.sel > span { color: var(--amber); }
+.marker-list .ml-row { cursor: pointer; }
+.marker-list .ml-empty { font: 500 9.5px var(--sans); color: var(--fg2); padding: 5px 2px; line-height: 1.3; }
+
+/* Obstacle size editor (W x D x H, mm) shown on the selected box row */
+.marker-list .ob-size { flex: 1; display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; }
+.marker-list .ob-size i { color: var(--faint); font-style: normal; font-size: 9px; }
+.marker-list .ob-size b { color: var(--fg2); font-weight: 600; font-size: 9px; margin-left: 1px; }
+.marker-list .ob-dim { width: 38px; background: var(--panel2); border: 1px solid var(--line2); color: var(--fg); font: 500 10px var(--mono); font-variant-numeric: tabular-nums; text-align: right; border-radius: 4px; padding: 1px 3px; -moz-appearance: textfield; }
+.marker-list .ob-dim::-webkit-outer-spin-button, .marker-list .ob-dim::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.marker-list .ob-dim:focus { outline: none; border-color: var(--accent); }
+
+/* PROG control-flow snippet bar (insert loop/if/wait skeletons) */
+.prog-snips { display: flex; align-items: center; gap: 5px; margin: 4px 0 5px; flex-wrap: wrap; }
+.prog-snips .ps-lbl { font: 600 9px var(--mono); letter-spacing: .1em; color: var(--fg2); text-transform: uppercase; }
+.prog-snips button { background: none; border: 1px solid var(--line2); border-radius: 5px; color: var(--fg2); font: 500 10px var(--mono); padding: 2px 8px; cursor: pointer; }
+.prog-snips button:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Marker "go to" buttons — send an arm's TCP to the annotated point */
+.marker-list .ml-row button.mk-go { color: var(--accent); border: 1px solid var(--line2); border-radius: 4px; padding: 0 5px; margin-left: 2px; font: 600 9px var(--mono); cursor: pointer; }
+.marker-list .ml-row button.mk-go:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* Marker "to PROG" button — append rbt.moveto for the point into the program */
+.marker-list .ml-row button.mk-prog { color: var(--accent); border: 1px solid var(--line2); border-radius: 4px; padding: 0 5px; margin-left: 2px; font: 600 9px var(--mono); cursor: pointer; }
+.marker-list .ml-row button.mk-prog:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* Marker reachability: dim the arm button that can't reach the point */
+.marker-list .ml-row button.mk-go.unreach { opacity: .3; }
+
+/* Marker "both arms" bimanual reach button */
+.marker-list .ml-both { background: none; border: 1px solid var(--accent); border-radius: 5px; color: var(--accent); font: 600 9px var(--mono); padding: 1px 6px; cursor: pointer; letter-spacing: .04em; }
+.marker-list .ml-both:hover:not(:disabled) { background: var(--accent); color: #08090B; }
+.marker-list .ml-both:disabled { opacity: .35; cursor: default; border-color: var(--line2); color: var(--fg2); }

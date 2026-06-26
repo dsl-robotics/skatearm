@@ -20,6 +20,7 @@ API (joints in degrees, cartesian in millimeters, world axes):
     rbt.waypoint(i_or_name)      glide to a recorded sequencer pose
     rbt.wait(seconds)            dwell
     rbt.tcp(arm) / rbt.q() / rbt.status()   readouts
+    rbt.ok() / rbt.blocked() / rbt.contact() / rbt.near(arm,x,y,z)  conditions
 """
 
 from __future__ import annotations
@@ -180,6 +181,32 @@ class RobotAPI:
 
     def status(self):
         return self._r.bridge.snapshot()
+
+    # -- conditions (no gate: branch loops/ifs on robot state) ---------------
+    def ok(self):
+        """True while the robot can still move — not E-stopped, not overtemp,
+        contact reflex not tripped, and the program isn't being stopped.
+        Handy as a ``while rbt.ok():`` loop guard."""
+        br = self._r.bridge
+        return not (self._r._stop or br.estop or getattr(br, "overtemp", False)
+                    or br.contact_tripped)
+
+    def blocked(self):
+        """True if the collision guard is currently blocking motion."""
+        return bool(self._r.bridge.guard_blocking)
+
+    def contact(self):
+        """True if the contact reflex has tripped (the arm pushed into
+        something)."""
+        return bool(self._r.bridge.contact_tripped)
+
+    def near(self, arm, x, y, z, tol=20.0):
+        """True if the arm's TCP is within ``tol`` mm of the world point (mm)."""
+        p = self.tcp(arm)
+        if p is None:
+            return False
+        return ((p[0] - x) ** 2 + (p[1] - y) ** 2
+                + (p[2] - z) ** 2) ** 0.5 <= tol
 
     # -- motion (gated: honors Click-to-Step / STOP / E-STOP) ----------------
     def movej(self, joint, deg, tol=3.0, timeout=10.0):

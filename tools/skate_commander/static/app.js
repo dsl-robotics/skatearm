@@ -188,7 +188,7 @@ function setupGizmo() {
   // click a sphere to attach the gizmo; click elsewhere to detach
   const ray = new THREE.Raycaster();
   renderer.domElement.addEventListener("pointerdown", (e) => {
-    if (tc.dragging || overlaysOn()) return;   // no gizmo while overlays declutter the view
+    if (tc.dragging || overlaysOn() || window.__obstacleActive || window.__markerActive) return;   // no IK gizmo while overlays declutter / placing obstacles
     const r = renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(
       ((e.clientX - r.left) / r.width) * 2 - 1,
@@ -314,6 +314,7 @@ function buildSeqPanel() {
       <button id="sq-load">LOAD</button>
       <button id="sq-clear">CLEAR ALL</button>
     </div>
+    <div id="seq-timeline" class="seq-tl"></div>
     <div id="seq-list"></div>
     <div class="seq-hint">Jog or drag the robot into a pose, press
     <b>● ADD POSE</b>, repeat. <b>▶ PLAY</b> glides through the list
@@ -370,7 +371,7 @@ function updateSeqPanel() {
     row.className = "seqrow" + (seq.active && seq.idx === i ? " active" : "");
     row.innerHTML = `<span class="nm">${i + 1}. ${nm}</span>
       <button data-a="goto" title="Glide to this pose">▶</button>
-      <button data-a="del" title="Delete">✕</button>`;
+      <button data-a="del" title="Delete">&#10005;</button>`;
     row.querySelector('[data-a="goto"]').onclick =
       () => previewServer("waypoint", i, "Waypoint " + (i + 1) + " — glide to this pose",
         () => send({ type: "wp_goto", idx: i }));
@@ -429,6 +430,17 @@ rbt.home()
     rbt.gripper("right", 0)
     rbt.wait(0.4)
 `,
+  "control flow (loop · if · wait)": `# loop, branch on robot state, dwell
+rbt.home()
+for i in range(3):                       # repeat N times
+    rbt.movej("R4", 70)
+    if rbt.blocked() or rbt.contact():   # react to the guard / a touch
+        print("stopped early on pass", i)
+        break
+    rbt.wait(0.3)                        # dwell
+    rbt.movej("R4", 20)
+rbt.home()
+`,
 };
 
 // [label shown, text inserted after "rbt.", first arg to auto-select]
@@ -444,6 +456,10 @@ const RBT_API = [
   ["tcp(arm)", 'tcp("right")', '"right"'],
   ["q()", 'q()', null],
   ["status()", 'status()', null],
+  ["ok()  — safe to keep going?", 'ok()', null],
+  ["blocked()  — guard blocking?", 'blocked()', null],
+  ["contact()  — reflex tripped?", 'contact()', null],
+  ["near(arm, x, y, z)", 'near("right", 0, 0, 0)', '"right"'],
 ];
 
 let progCode = DEMO_PROGRAM;
@@ -566,6 +582,13 @@ function buildProgPanel() {
       <button id="pg-rec" title="Teach-in: move the robot (sliders / gizmo / cartesian), every settled pose becomes a line of code">● REC</button>
       <span id="pg-state" class="prog-state">idle</span>
     </div>
+    <div class="prog-snips" title="Insert a control-flow block at the cursor">
+      <span class="ps-lbl">+ flow</span>
+      <button id="ps-repeat" title="repeat N times (for loop)">repeat</button>
+      <button id="ps-while" title="loop while a condition holds">while</button>
+      <button id="ps-if" title="branch on robot state">if</button>
+      <button id="ps-wait" title="dwell for N seconds">wait</button>
+    </div>
     <textarea id="pg-code" spellcheck="false"></textarea>
     <div class="prog-controls">
       <button id="pg-save">SAVE…</button>
@@ -579,7 +602,8 @@ function buildProgPanel() {
   ta.oninput = () => (progCode = ta.value);
   if (PREVIEW) {
     for (const id of ["pg-run", "pg-step", "pg-stop", "pg-rec", "pg-save",
-                      "pg-load", "pg-examples", "pg-nl", "pg-gen"]) {
+                      "pg-load", "pg-examples", "pg-nl", "pg-gen",
+                      "ps-repeat", "ps-while", "ps-if", "ps-wait"]) {
       $(id).disabled = true;
       $(id).title = "preview is a recording — run the local server";
     }
@@ -589,6 +613,29 @@ function buildProgPanel() {
     $("pg-run").onclick = () => send({ type: "prog_run", code: progCode });
     $("pg-step").onclick = () => send({ type: "prog_step", code: progCode });
     $("pg-stop").onclick = () => send({ type: "prog_stop" });
+    {                                              // control-flow snippet bar -> insert a skeleton at the caret
+      const taSn = $("pg-code");
+      const SNIPS = {
+        "ps-repeat": "for i in range(3):\n    ",
+        "ps-while": "while rbt.ok():\n    ",
+        "ps-if": "if rbt.blocked():\n    rbt.home()\n",
+        "ps-wait": "rbt.wait(1.0)\n",
+      };
+      const insertSnip = (snip) => {
+        const s = taSn.selectionStart, e = taSn.selectionEnd;
+        const lineStart = taSn.value.lastIndexOf("\n", s - 1) + 1;
+        const pre = taSn.value.slice(lineStart, s);
+        const indent = (pre.match(/^\s*/) || [""])[0];
+        const onFresh = pre.trim() === "";
+        let text = snip.split("\n").map((ln, i) => (i === 0 || ln === "" ? ln : indent + ln)).join("\n");
+        if (!onFresh) text = "\n" + indent + text;          // start the block on its own line
+        taSn.value = taSn.value.slice(0, s) + text + taSn.value.slice(e);
+        progCode = taSn.value;
+        const caret = s + text.length;
+        taSn.focus(); taSn.setSelectionRange(caret, caret);
+      };
+      for (const id of Object.keys(SNIPS)) { const b = $(id); if (b) b.onclick = () => insertSnip(SNIPS[id]); }
+    }
     {
       const nlIn = $("pg-nl"), gen = $("pg-gen");
       const genNL = async () => {
@@ -1121,8 +1168,22 @@ function showPreview(text, opts) {          // opts: {q?, tcp?, onApprove}
   clearPreview();
   opts = opts || {};
   if (opts.q) makeGhost(opts.q);
+  const grp = new THREE.Group();
+  if (opts.route) {                          // planned collision-free route's TCP trail per arm
+    for (const arm in opts.route) {
+      const pts = (opts.route[arm] || []).map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+      if (pts.length < 2) continue;
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: 0x3B82F6, transparent: true, opacity: 0.95, depthTest: false }));
+      line.renderOrder = 7; grp.add(line);
+      for (const p of pts) {
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0075, 8, 6),
+          new THREE.MeshBasicMaterial({ color: 0x3B82F6, depthTest: false }));
+        dot.position.copy(p); dot.renderOrder = 7; grp.add(dot);
+      }
+    }
+  }
   if (opts.tcp) {
-    const grp = new THREE.Group();
     for (const arm in opts.tcp) {
       const t = opts.tcp[arm];
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.042, 0.052, 28),
@@ -1130,8 +1191,8 @@ function showPreview(text, opts) {          // opts: {q?, tcp?, onApprove}
           side: THREE.DoubleSide, depthTest: false }));
       ring.position.set(t[0], t[1], t[2]); ring.renderOrder = 7; grp.add(ring);
     }
-    scene.add(grp); previewViz = grp;
   }
+  scene.add(grp); previewViz = grp;
   previewPending = { onApprove: opts.onApprove };
   if ($("approve-text")) $("approve-text").textContent = text;
   if ($("approve-bar")) $("approve-bar").style.display = "flex";
@@ -1141,7 +1202,7 @@ async function previewServer(action, idx, text, onApprove) {
   try {
     const d = await fetch("/api/preview?action=" + action + (idx != null ? "&i=" + idx : ""))
       .then((r) => r.json());
-    if (d && d.q) showPreview(text, { q: d.q, tcp: d.tcp, onApprove });
+    if (d && d.q) showPreview(text, { q: d.q, tcp: d.tcp, route: d.route, onApprove });
     else onApprove();
   } catch (_) { onApprove(); }
 }
@@ -1333,7 +1394,7 @@ for (const tab of document.querySelectorAll("#tabs div")) {
 (function keyboardShortcuts() {
   const MAP = { " ": "btn-estop", h: "btn-home", c: "btn-cam", e: "cam-expand",
                 t: "btn-trace", d: "btn-dex", p: "btn-pcl", g: "btn-grasp",
-                l: "btn-layers", m: "btn-mirror" };
+                l: "btn-layers", m: "btn-mirror", b: "btn-coll", f: "btn-force" };
   const legend = $("keys-legend");
   const setLegend = (show) => { if (legend) legend.style.display = show ? "flex" : "none"; };
   const legendOpen = () => legend && legend.style.display === "flex";
@@ -1384,6 +1445,7 @@ function onState(s) {
   setAngles(s.q || s.targ);
   updatePanel();
   updateTop();
+  if (window.__snapHooks) for (const h of window.__snapHooks) { try { h(s); } catch (_) {} }
   if (modeChanged) buildPanel();
 }
 
@@ -1525,6 +1587,7 @@ if ($("btn-dex")) {
     if (PREVIEW || dexBusy) return;
     dexOn = !dexOn;
     $("btn-dex").classList.toggle("on", dexOn);
+    if (dexOn) { const cb = $("btn-coll"); if (cb && cb.classList.contains("on")) cb.click(); }
     if (dexOn && pclOn) {                 // one heavy cloud at a time
       pclOn = false; if (pclCloud) pclCloud.visible = false;
       $("btn-pcl").classList.remove("on");
@@ -1562,6 +1625,7 @@ if ($("btn-pcl")) {
     if (PREVIEW || pclBusy) return;
     pclOn = !pclOn;
     $("btn-pcl").classList.toggle("on", pclOn);
+    if (pclOn) { const cb = $("btn-coll"); if (cb && cb.classList.contains("on")) cb.click(); }
     if (pclOn && dexOn) {                 // one heavy cloud at a time
       dexOn = false; if (dexCloud) dexCloud.visible = false;
       $("btn-dex").classList.remove("on");
@@ -1751,7 +1815,7 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
 (function layersPanel() {
   const pop = $("layers-pop"), btn = $("btn-layers");
   if (!pop || !btn) return;
-  const OVL = { trace: "btn-trace", dex: "btn-dex", pcl: "btn-pcl", grasp: "btn-grasp" };
+  const OVL = { trace: "btn-trace", dex: "btn-dex", pcl: "btn-pcl", grasp: "btn-grasp", coll: "btn-coll", force: "btn-force" };
   const refresh = () => {
     for (const r of pop.querySelectorAll(".lyr")) {
       const b = $(OVL[r.dataset.ov]);
@@ -1905,11 +1969,47 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
 
   // --- tool rail: active tool + transform mode on the IK gizmo ---
   document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((b) => b.addEventListener("click", () => {
+    const _annot = ["measure", "marker", "obstacle"];          // mutually exclusive annotation tools
+    if (_annot.includes(b.dataset.tool)) {
+      document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((x) => {
+        if (x === b || !_annot.includes(x.dataset.tool) || !x.classList.contains("on")) return;
+        x.classList.remove("on");
+        if (x.dataset.tool === "measure") { measureOn = false; if (window.__measureClear) window.__measureClear(); }
+        else if (x.dataset.tool === "marker" && window.__markerMode) window.__markerMode(false);
+        else if (x.dataset.tool === "obstacle" && window.__obstacleMode) window.__obstacleMode(false);
+      });
+    }
     if (b.dataset.tool === "measure") {
       measureOn = !b.classList.contains("on"); b.classList.toggle("on", measureOn);
+      if (measureOn) {
+        const _mk = document.querySelector('#toolrail [data-tool="marker"]'); if (_mk && _mk.classList.contains("on")) { _mk.classList.remove("on"); if (window.__markerMode) window.__markerMode(false); }
+        const _ob = document.querySelector('#toolrail [data-tool="obstacle"]'); if (_ob && _ob.classList.contains("on")) { _ob.classList.remove("on"); if (window.__obstacleMode) window.__obstacleMode(false); }
+      }
       if (!measureOn && window.__measureClear) window.__measureClear();
       const _h = document.getElementById("overlay-hint");
       if (_h) { _h.style.display = measureOn ? "block" : "none"; if (measureOn) _h.textContent = "Measure: click two points on the robot"; }
+      return;
+    }
+    if (b.dataset.tool === "marker") {
+      const on = !b.classList.contains("on"); b.classList.toggle("on", on);
+      if (on) {
+        const _ob = document.querySelector('#toolrail [data-tool="obstacle"]'); if (_ob && _ob.classList.contains("on")) { _ob.classList.remove("on"); if (window.__obstacleMode) window.__obstacleMode(false); }
+        const _ms = document.querySelector('#toolrail [data-tool="measure"]'); if (_ms && _ms.classList.contains("on")) { _ms.classList.remove("on"); measureOn = false; if (window.__measureClear) window.__measureClear(); }
+      }
+      if (window.__markerMode) window.__markerMode(on);
+      const _h = document.getElementById("overlay-hint");
+      if (_h) { _h.style.display = on ? "block" : "none"; if (on) _h.textContent = "Annotate: + point spawns a target, drag its gizmo to a reachable spot, then L/R sends an arm · Esc clears"; }
+      return;
+    }
+    if (b.dataset.tool === "obstacle") {
+      const on = !b.classList.contains("on"); b.classList.toggle("on", on);
+      if (on) {
+        const _mk = document.querySelector('#toolrail [data-tool="marker"]'); if (_mk && _mk.classList.contains("on")) { _mk.classList.remove("on"); if (window.__markerMode) window.__markerMode(false); }
+        const _ms = document.querySelector('#toolrail [data-tool="measure"]'); if (_ms && _ms.classList.contains("on")) { _ms.classList.remove("on"); measureOn = false; if (window.__measureClear) window.__measureClear(); }
+      }
+      if (window.__obstacleMode) window.__obstacleMode(on);
+      const _h = document.getElementById("overlay-hint");
+      if (_h) { _h.style.display = on ? "block" : "none"; if (on) _h.textContent = "Obstacle: + box to add, then click a box and drag its gizmo to place it"; }
       return;
     }
     if (b.dataset.tool === "snap") {
@@ -1923,6 +2023,15 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
       if (_gh) { _gh.style.display = "block"; _gh.textContent = on ? "SNAP ON · 10 mm / 15°" : "SNAP OFF";
         setTimeout(() => { if (!draggingArm) _gh.style.display = "none"; }, 1100); }
       return;
+    }
+    { // switching to a transform tool clears the annotation tools so they don't linger
+      const _mk = document.querySelector('#toolrail [data-tool="marker"]');
+      if (_mk && _mk.classList.contains("on")) { _mk.classList.remove("on"); if (window.__markerMode) window.__markerMode(false); }
+      const _ms = document.querySelector('#toolrail [data-tool="measure"]');
+      if (_ms && _ms.classList.contains("on")) { _ms.classList.remove("on"); measureOn = false; if (window.__measureClear) window.__measureClear(); }
+      const _ob = document.querySelector('#toolrail [data-tool="obstacle"]');
+      if (_ob && _ob.classList.contains("on")) { _ob.classList.remove("on"); if (window.__obstacleMode) window.__obstacleMode(false); }
+      const _hh = document.getElementById("overlay-hint"); if (_hh) _hh.style.display = "none";
     }
     document.querySelectorAll("#toolrail .rail-tool[data-tool]").forEach((x) => x.classList.remove("act"));
     b.classList.add("act");
@@ -2107,14 +2216,14 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
 
   // ---- 1) working menu-bar dropdowns ----
   const MENUS = {
-    File: [["Reload cockpit", () => location.reload()], ["Keyboard shortcuts...", () => click("btn-keys")]],
+    File: [["Save scene", () => window.__sceneSave && window.__sceneSave()], ["Load scene", () => window.__sceneLoad && window.__sceneLoad()], ["Reload cockpit", () => location.reload()], ["Keyboard shortcuts...", () => click("btn-keys")]],
     Edit: [["Home (safe pose)", () => click("btn-home")], ["Clear traces", () => click("btn-clear-trace")],
            ["Reset contact reflex", () => click("chip-contact")]],
-    Create: [["Detect target", () => click("cam-detect")], ["Smart pick", () => click("cam-smart")]],
+    Create: [["Camera tools — under development", () => {}]],
     Window: ["__panels__"],
     Tools: [["Mirror arms", () => click("btn-mirror")], ["Dual-arm carry", () => click("btn-carry")],
-            ["Dexterity map", () => click("btn-dex")], ["Point cloud", () => click("btn-pcl")], ["Grasps", () => click("btn-grasp")]],
-    Utilities: [["Console", () => showTab("console")], ["Raw values", () => showTab("raw")], ["Camera feed", () => click("btn-cam")]],
+            ["Dexterity map", () => click("btn-dex")]],
+    Utilities: [["Console", () => showTab("console")], ["Raw values", () => showTab("raw")]],
     Layout: [["Default", () => setLayout("default")], ["Wide viewport", () => setLayout("wide")], ["Tall Stage", () => setLayout("tallstage")]],
     Help: [["Keyboard shortcuts", () => click("btn-keys")],
            ["About", () => alert("Skate Commander - web cockpit for the R.Botic Skate humanoid work-cell.")]],
@@ -2345,6 +2454,13 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
       const chip = legendEl.children[i];
       if (chip) { const em = chip.querySelector("em"); if (em) em.textContent = lastV == null ? "—" : lastV.toFixed(metric === "vel" ? 2 : 1); }
     });
+    if (window.__trajScrub != null) {                  // trajectory-replay playhead at the scrubbed time
+      const px = xFor(window.__trajScrub);
+      if (px >= x0 && px <= x1) {
+        ctx.strokeStyle = "#F5A623"; ctx.lineWidth = 1.5; ctx.globalAlpha = .9;
+        ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, y1); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+    }
   }
 
   setInterval(() => { if (!paused) sample(); draw(); }, Math.round(1000 / HZ));
@@ -2356,6 +2472,21 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
     pauseBtn.innerHTML = paused ? "▶ Resume" : "❚❚ Pause";
   });
   if (winEl) winEl.textContent = WINDOW_S + "s";
+  { const xb = document.getElementById("plot-export");
+    if (xb) xb.onclick = () => {                        // current plot signal → CSV
+      const defs = lineDefs();
+      if (!buf.length || !defs.length) return;
+      const t0 = buf[0].t, NL = String.fromCharCode(10);
+      const U = { angle: "deg", vel: "radps", temp: "C", tcp: "mm", rtt: "" }[metric] || "";
+      const rows = ["t_s," + defs.map((d) => d.label + (U ? "_" + U : "")).join(",")];
+      for (const s of buf) {
+        const row = [((s.t - t0) / 1000).toFixed(3)];
+        for (const d of defs) { const v = valOf(s, d); row.push(v == null ? "" : (+v).toFixed(3)); }
+        rows.push(row.join(","));
+      }
+      window.csvDownload("skate_" + metric + ".csv", rows.join(NL) + NL);
+    };
+  }
 })();
 
 
@@ -2490,16 +2621,23 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
       new THREE.MeshBasicMaterial({ color: 0xF5A623, depthTest: false }));
     d.renderOrder = 8; d.position.copy(p); scene.add(d); dots.push(d);
   }
+  let _mdn = null;                                                // click-vs-drag: a drag orbits, a clean click measures
   renderer.domElement.addEventListener("pointerdown", (e) => {
-    if (!measureOn || e.button !== 0) return;
+    if (!measureOn || e.button !== 0) { _mdn = null; return; }
+    _mdn = { x: e.clientX, y: e.clientY };
+  });
+  renderer.domElement.addEventListener("pointerup", (e) => {
+    if (!measureOn || e.button !== 0 || !_mdn) return;
+    const moved = Math.hypot(e.clientX - _mdn.x, e.clientY - _mdn.y);
+    _mdn = null;
+    if (moved > 5) return;                                        // a drag -> orbited the view, don't place a point
     const r = renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1,
                                   -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const hit = ray.intersectObjects(robotMeshes(), false)[0];
-    if (!hit) return;                    // miss -> let orbit / gizmo handle the drag
-    e.stopPropagation(); e.preventDefault();
-    if (pts.length >= 2) clear();        // start a fresh measurement
+    if (!hit) return;                                             // click missed the robot -> nothing to measure
+    if (pts.length >= 2) clear();                                 // start a fresh measurement
     pts.push(hit.point.clone()); dot(hit.point);
     if (pts.length === 2) {
       line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
@@ -2510,7 +2648,7 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
       label.position.copy(pts[0]).add(pts[1]).multiplyScalar(0.5);
       scene.add(label);
     }
-  }, true);   // capture phase: runs before the gizmo's pointerdown
+  });
 })();
 
 
@@ -2563,4 +2701,754 @@ if ($("cam-obj")) $("cam-obj").onchange = () => { if (graspOn) drawGraspObjs(); 
   document.querySelectorAll(".snode[data-group]").forEach((n) =>
     n.addEventListener("click", () => outline(n.dataset.group)));
   setInterval(() => { if (selBox) selBox.update(); }, 120);
+})();
+
+
+
+// ── Collision-mesh overlay — the capsule/box model the guard reasons over ──
+(function setupCollision() {
+  const btn = $("btn-coll");
+  if (!btn) return;
+  let group = null, meshes = [], on = false;
+  const baseMat = new THREE.MeshBasicMaterial({ color: 0x3B82F6, transparent: true, opacity: 0.20, depthWrite: false });
+  const hitMat  = new THREE.MeshBasicMaterial({ color: 0xE5484D, transparent: true, opacity: 0.44, depthWrite: false });
+  function geomOf(g) {
+    const s = (g.s && g.s.length === 3) ? g.s : [0.02, 0.02, 0.02];
+    let geo;
+    if (g.t === 6) geo = new THREE.BoxGeometry(2 * s[0], 2 * s[1], 2 * s[2]);            // box (half-extents)
+    else if (g.t === 3) { geo = new THREE.CapsuleGeometry(s[0], 2 * s[1], 6, 14); geo.rotateX(Math.PI / 2); }  // capsule (MuJoCo Z -> three Y)
+    else if (g.t === 2) geo = new THREE.SphereGeometry(s[0], 16, 12);                    // sphere
+    else if (g.t === 5) { geo = new THREE.CylinderGeometry(s[0], s[0], 2 * s[1], 18); geo.rotateX(Math.PI / 2); }  // cylinder
+    else geo = new THREE.BoxGeometry(2 * s[0], 2 * s[1], 2 * s[2]);
+    return new THREE.Mesh(geo, baseMat);
+  }
+  function paint(list) {
+    if (!on || !list || !list.length) { if (group) group.visible = false; return; }
+    if (!group) { group = new THREE.Group(); group.renderOrder = 4; scene.add(group); }
+    if (meshes.length !== list.length) {                       // (re)build mesh cache
+      for (const m of meshes) { group.remove(m); m.geometry.dispose(); }
+      meshes = list.map((g) => { const m = geomOf(g); group.add(m); return m; });
+    }
+    for (let i = 0; i < list.length; i++) {                    // pose + tint each geom
+      const g = list[i], m = meshes[i];
+      m.position.set(g.p[0], g.p[1], g.p[2]);
+      m.quaternion.set(g.q[1], g.q[2], g.q[3], g.q[0]);        // server sends [w,x,y,z]; three is (x,y,z,w)
+      m.material = g.h ? hitMat : baseMat;                     // redden geoms in a violating contact
+    }
+    group.visible = true;
+  }
+  (window.__snapHooks = window.__snapHooks || []).push((s) => paint(s && s.collision));
+  btn.onclick = () => {
+    on = !on;
+    btn.classList.toggle("on", on);
+    if (on) { ["btn-dex", "btn-pcl"].forEach((oid) => { const ob = $(oid); if (ob && ob.classList.contains("on")) ob.click(); }); }  // one heavy 3D layer at a time
+    send({ type: "collision", on });                          // server only streams geoms when on
+    if (!on && group) group.visible = false;
+  };
+})();
+
+
+
+// ── Trajectory replay — scrub / replay the last 45 s of motion (rosbag-style)
+(function setupTrajectory() {
+  const scrub = $("traj-scrub"), playBtn = $("traj-play"),
+        liveEl = $("traj-live"), tEl = $("traj-t");
+  if (!scrub || typeof setAngles !== "function") return;
+  const SPAN = 45000;                          // rolling record window (ms)
+  const rec = [];                              // [{ t, q }]
+  let live = true, playing = false, scrubT = 0, lastRec = 0;
+
+  function record(s) {
+    if (!s || !s.q) return;
+    const now = performance.now();
+    if (now - lastRec < 45) return;            // ~20 Hz
+    lastRec = now;
+    rec.push({ t: now, q: s.q.slice() });
+    while (rec.length && rec[0].t < now - SPAN) rec.shift();
+  }
+  function sampleAt(t) {
+    if (!rec.length) return null;
+    let best = rec[0], bd = 1e15;
+    for (const r of rec) { const d = Math.abs(r.t - t); if (d < bd) { bd = d; best = r; } }
+    return best;
+  }
+  function applyScrub() {
+    if (live) return;
+    const now = performance.now();
+    if (scrubT < now - SPAN) { goLive(); return; }     // aged out of the window
+    const r = sampleAt(scrubT);
+    if (r && r.q) setAngles(r.q);                       // freeze the twin at the recorded pose
+    window.__trajScrub = scrubT;                        // share with the plots for a playhead line
+    tEl.textContent = "−" + ((now - scrubT) / 1000).toFixed(1) + "s";
+  }
+  function goLive() {
+    live = true; playing = false; scrub.value = 1000; window.__trajScrub = null;
+    liveEl.classList.add("on"); liveEl.innerHTML = "&#9679; LIVE";
+    playBtn.classList.remove("on"); tEl.textContent = "now";
+  }
+  function enterScrub() {
+    live = false; liveEl.classList.remove("on"); liveEl.innerHTML = "&#9208; REPLAY";
+  }
+  function setFrac(f) { scrubT = performance.now() - (1 - f) * SPAN; }  // f: 0 oldest .. 1 live
+
+  (window.__snapHooks = window.__snapHooks || []).push((s) => {
+    record(s);
+    if (!live) applyScrub();                            // hold the frozen pose against live updates
+  });
+
+  scrub.oninput = () => {
+    const f = scrub.value / 1000;
+    if (f >= 0.999) { goLive(); return; }
+    enterScrub(); playing = false; playBtn.classList.remove("on");
+    setFrac(f); applyScrub();
+  };
+  liveEl.onclick = () => goLive();
+  { const xb = $("traj-export");
+    if (xb) xb.onclick = () => {                        // recorded joint trajectory → CSV
+      if (!rec.length) return;
+      const n = rec[0].q.length, t0 = rec[0].t, NL = String.fromCharCode(10);
+      const rows = ["t_s," + Array.from({ length: n }, (_, i) => "q" + i + "_deg").join(",")];
+      for (const r of rec) {
+        const row = [((r.t - t0) / 1000).toFixed(3)];
+        for (let i = 0; i < n; i++) row.push((r.q[i] * 180 / Math.PI).toFixed(3));
+        rows.push(row.join(","));
+      }
+      window.csvDownload("skate_trajectory.csv", rows.join(NL) + NL);
+    };
+  }
+  playBtn.onclick = () => {
+    if (!rec.length) return;
+    if (live) { enterScrub(); setFrac(0); }             // start replay from the oldest sample
+    playing = !playing; playBtn.classList.toggle("on", playing);
+  };
+
+  setInterval(() => {                                   // replay advance (setInterval survives bg tab)
+    if (live || !playing) return;
+    scrubT += 55;
+    const now = performance.now();
+    if (scrubT >= now - 120) { goLive(); return; }
+    scrub.value = Math.max(0, Math.min(1000, (1 - (now - scrubT) / SPAN) * 1000));
+    applyScrub();
+  }, 50);
+
+  goLive();
+})();
+
+
+
+// ── Diagnostics panel — aggregated joint + system health (RViz robot_monitor)
+(function setupDiagnostics() {
+  const tree = $("diag-tree");
+  if (!tree) return;
+  const dot = (lv) => '<i class="ddot ' + lv + '"></i>';
+  const tLevel = (t) => (t == null ? "ok" : t >= 58 ? "bad" : t >= 50 ? "warn" : "ok");
+  const tab = document.querySelector('.pt[data-tab="diag"]');
+  const worstOf = (s) => {
+    let w = "ok"; const up = (l) => { if (l === "bad") w = "bad"; else if (l === "warn" && w !== "bad") w = "warn"; };
+    if (!s.connected) up("bad"); if (s.overtemp) up("bad"); if (s.estop) up("warn");
+    if (s.guard && s.guard.blocking) up("warn"); if (s.contact && s.contact.tripped) up("warn");
+    if (s.temps) for (const t of s.temps) up(tLevel(t));
+    return w;
+  };
+  const row = (lv, k, v) => '<div class="drow">' + dot(lv) + '<span class="dk">' + k + '</span><span class="dv">' + v + '</span></div>';
+  let last = "", lastT = 0;
+
+  function render(s) {
+    if (!s) return;
+    if (tab) tab.dataset.health = worstOf(s);              // status dot on the tab even while hidden
+    if (tree.offsetParent === null) return;                // pane hidden — dot only, skip the tree build
+    const now = performance.now();
+    if (now - lastT < 400) return;                          // ~2.5 Hz is plenty
+    lastT = now;
+    const o = [];
+    o.push('<div class="dgrp dgsys">System</div>');
+    o.push(row(s.connected ? "ok" : "bad", "Link", s.connected ? "connected · " + (s.mode || "sim") : "no link"));
+    o.push(row(s.estop ? "warn" : "ok", "E-STOP", s.estop ? "STOPPED" : "armed"));
+    o.push(row(s.overtemp ? "bad" : "ok", "Overtemp 58°C", s.overtemp ? "LATCHED" : "ok"));
+    const g = s.guard || {};
+    o.push(row(g.blocking ? "warn" : "ok", "Collision guard", g.on ? (g.blocking ? "blocking a move" : "on") : "off"));
+    const c = s.contact || {};
+    o.push(row(c.tripped ? "warn" : "ok", "Contact reflex", c.tripped ? ("tripped · J" + (c.joint != null ? c.joint + 1 : "?")) : (c.on ? "armed" : "off")));
+    o.push(row("ok", "Link RTT", (typeof rttMs !== "undefined" && rttMs) ? rttMs.toFixed(0) + " ms" : "—"));
+
+    const T = s.temps, V = s.dq, L = s.tau;
+    for (const gn in GROUPS) {
+      const G = GROUPS[gn], idx = G.idx || [];
+      if (!idx.length) continue;
+      let maxT = 0, worst = "ok";
+      idx.forEach((ji) => {
+        const t = T ? T[ji] : null;
+        if (t != null && t > maxT) maxT = t;
+        const lv = tLevel(t);
+        if (lv === "bad") worst = "bad"; else if (lv === "warn" && worst !== "bad") worst = "warn";
+      });
+      o.push('<div class="dgrp">' + dot(worst) + G.label + '<em class="dgsum">max ' + (maxT ? maxT.toFixed(0) + "°C" : "—") + '</em></div>');
+      idx.forEach((ji, n) => {
+        const t = T ? T[ji] : null, v = V ? V[ji] : null, ld = L ? L[ji] : null;
+        o.push('<div class="drow dj">' + dot(tLevel(t)) + '<span class="dk">J' + (n + 1) + '</span><span class="dv">' +
+          (t != null ? t.toFixed(0) + "°C" : "—") + '<em>' + (v != null ? v.toFixed(2) + " r/s" : "—") +
+          (ld != null ? " · " + ld.toFixed(1) + " Nm" : "") + '</em></span></div>');
+      });
+    }
+    const html = o.join("");
+    if (html !== last) { tree.innerHTML = html; last = html; }
+  }
+  (window.__snapHooks = window.__snapHooks || []).push(render);
+})();
+
+
+
+// ── Joint-limit meters — proximity edge on each slider + amber link box in 3D
+(function setupJointLimits() {
+  const level = (p) => (p < 0.04 ? "bad" : p < 0.13 ? "warn" : "ok");
+  const limBoxes = {};                                   // idx -> THREE.BoxHelper (at a limit)
+  function tick(s) {
+    if (!s || typeof rows === "undefined") return;
+    const q = s.q || s.targ;
+    if (!q) return;
+    const idxs = (GROUPS[curGroup] && GROUPS[curGroup].idx) || [];
+    // drop 3D boxes for joints no longer in the active group
+    for (const k in limBoxes) {
+      if (idxs.indexOf(+k) === -1) {
+        scene.remove(limBoxes[k]);
+        if (limBoxes[k].geometry) limBoxes[k].geometry.dispose();
+        delete limBoxes[k];
+      }
+    }
+    for (const idx of idxs) {
+      const r = rows[idx];
+      if (!r || !r.bar || r.hi == null || r.hi <= r.lo) continue;
+      const a = q[idx];
+      if (a == null) continue;
+      const p = Math.min(a - r.lo, r.hi - a) / (r.hi - r.lo);
+      const lv = level(p), side = (a - r.lo) < (r.hi - a) ? "lo" : "hi";
+      r.bar.classList.remove("lim-ok", "lim-warn", "lim-bad", "lim-lo", "lim-hi");
+      r.bar.classList.add("lim-" + lv, "lim-" + side);
+      if (r.ang) {
+        r.ang.classList.remove("lim-warn", "lim-bad");
+        if (lv !== "ok") r.ang.classList.add("lim-" + lv);
+      }
+      // 3D: outline the link whose joint is hard against its range end
+      const grp = jointGroups[idx] && jointGroups[idx].grp;
+      if (lv === "bad" && grp) {
+        if (!limBoxes[idx]) {
+          const bx = new THREE.BoxHelper(grp, 0xF5A623);
+          if (bx.material) { bx.material.depthTest = false; bx.material.transparent = true; }
+          bx.renderOrder = 8; scene.add(bx); limBoxes[idx] = bx;
+        } else { limBoxes[idx].update(); }
+      } else if (limBoxes[idx]) {
+        scene.remove(limBoxes[idx]);
+        if (limBoxes[idx].geometry) limBoxes[idx].geometry.dispose();
+        delete limBoxes[idx];
+      }
+    }
+  }
+  (window.__snapHooks = window.__snapHooks || []).push(tick);
+})();
+
+
+
+// ── Stage properties-inspector — click any Stage node -> its properties ────
+(function setupStageInspector() {
+  const insp = $("stage-inspector"), nameEl = $("si-name"), typeEl = $("si-type"), rowsEl = $("si-rows");
+  const tree = document.querySelector(".stage-tree");
+  if (!insp || !tree) return;
+  const V = new THREE.Vector3();
+  let cur = null, lastT = 0;
+  function objFor(node) {
+    const g = node.dataset.group;
+    if (g && GROUPS[g]) { const jg = jointGroups[GROUPS[g].idx[0]]; return jg && jg.grp; }
+    const nm = (node.querySelector(".nm") || {}).textContent || "";
+    if (/Skate/.test(nm)) return robotRoots[0] || null;
+    if (/Grid/.test(nm)) return (typeof grid !== "undefined") ? grid : null;
+    return null;                                       // World = scene origin
+  }
+  function rowsFor(node) {
+    const nm = (node.querySelector(".nm") || {}).textContent || "";
+    const eye = node.querySelector(".eye");
+    const out = [["Visible", eye ? (eye.classList.contains("on") ? "shown" : "hidden") : "shown"]];
+    const obj = objFor(node);
+    if (obj) { obj.getWorldPosition(V); out.push(["World pos", (V.x * 1000).toFixed(0) + ", " + (V.y * 1000).toFixed(0) + ", " + (V.z * 1000).toFixed(0) + " mm"]); }
+    else if (/World/.test(nm)) out.push(["World pos", "0, 0, 0 mm"]);
+    const g = node.dataset.group;
+    if (g && GROUPS[g]) out.push(["Joints", GROUPS[g].idx.length + " DoF"]);
+    return out;
+  }
+  function paint(node) {
+    nameEl.textContent = (node.querySelector(".nm") || {}).textContent || "—";
+    typeEl.textContent = (node.querySelector(".ty") || {}).textContent || "";
+    rowsEl.innerHTML = rowsFor(node).map(([k, v]) => '<div class="si-row"><span class="si-k">' + k + '</span><span class="si-v">' + v + '</span></div>').join("");
+  }
+  function show(node) {
+    document.querySelectorAll(".stage-tree .snode").forEach((n) => n.classList.toggle("insp", n === node));
+    cur = node; paint(node); insp.style.display = "block"; insp.scrollIntoView({ block: "nearest" });
+  }
+  tree.addEventListener("click", (e) => {
+    if (e.target.closest(".eye") || e.target.closest(".tw")) return;   // visibility / expand keep their own actions
+    const node = e.target.closest(".snode");
+    if (node) show(node);
+  });
+  (window.__snapHooks = window.__snapHooks || []).push(() => {           // live world-pos refresh for moving links
+    if (!cur || insp.style.display === "none") return;
+    const now = performance.now(); if (now - lastT < 400) return; lastT = now;
+    paint(cur);
+  });
+})();
+
+
+
+// ── Viewport display settings — grid / axes / FOV / background / quality ───
+(function setupViewportSettings() {
+  const pop = $("vset-pop"), btn = $("btn-vset");
+  if (!pop || !btn) return;
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const show = (pop.style.display === "none" || !pop.style.display);
+    if (show) {                                            // reflect the real scene state on open
+      if (typeof grid !== "undefined" && $("vs-grid")) $("vs-grid").checked = grid.visible;
+      if (typeof axes !== "undefined" && $("vs-axes")) $("vs-axes").checked = axes.visible;
+      const rtx = document.querySelector(".hd-render");
+      if (rtx && $("vs-hd")) $("vs-hd").checked = rtx.classList.contains("on");
+      if ($("vs-fov")) { $("vs-fov").value = Math.round(camera.fov); if ($("vs-fov-v")) $("vs-fov-v").textContent = Math.round(camera.fov) + "°"; }
+    }
+    pop.style.display = show ? "block" : "none";
+  };
+  document.addEventListener("click", (e) => { if (!pop.contains(e.target) && e.target !== btn) pop.style.display = "none"; });
+
+  const gridCb = $("vs-grid");
+  if (gridCb) gridCb.onchange = () => { if (typeof grid !== "undefined") grid.visible = gridCb.checked; };
+  const axesCb = $("vs-axes");
+  if (axesCb) axesCb.onchange = () => { if (typeof axes !== "undefined") axes.visible = axesCb.checked; };
+
+  const fov = $("vs-fov"), fovV = $("vs-fov-v");
+  if (fov) fov.oninput = () => { camera.fov = +fov.value; camera.updateProjectionMatrix(); if (fovV) fovV.textContent = fov.value + "°"; };
+
+  for (const sw of pop.querySelectorAll(".vs-sw")) {
+    sw.onclick = () => {
+      pop.querySelectorAll(".vs-sw").forEach((s) => s.classList.toggle("on", s === sw));
+      scene.background = new THREE.Color(sw.dataset.bg);
+    };
+  }
+  const hd = $("vs-hd");
+  if (hd) hd.onchange = () => { const rtx = document.querySelector(".hd-render"); if (rtx) { rtx.click(); hd.checked = rtx.classList.contains("on"); } };
+})();
+
+
+
+// ── Waypoint timeline — visual marker strip over the SEQ list ──────────────
+(function setupSeqTimeline() {
+  let sig = "";
+  function render(s) {
+    const tl = document.getElementById("seq-timeline");
+    if (!tl) return;                                        // #seq-timeline exists only on the SEQ tab
+    const seq = s && s.seq;
+    if (!seq) return;
+    const k = JSON.stringify([seq.names, seq.idx, seq.active]);
+    if (k === sig && tl.querySelector(".seq-tl-pt")) return; // unchanged + already drawn
+    sig = k;
+    if (!seq.names.length) { tl.innerHTML = ""; return; }
+    tl.innerHTML = '<div class="seq-tl-line"></div>' + seq.names.map((nm, i) =>
+      '<button class="seq-tl-pt' + (seq.active && seq.idx === i ? " active" : "") +
+      '" data-i="' + i + '" title="' + (i + 1) + ". " + nm + '">' + (i + 1) + "</button>").join("");
+    tl.querySelectorAll(".seq-tl-pt").forEach((b) => {
+      b.onclick = () => {
+        const i = +b.dataset.i;
+        if (typeof previewServer === "function")
+          previewServer("waypoint", i, "Waypoint " + (i + 1) + " — glide to this pose", () => send({ type: "wp_goto", idx: i }));
+        else send({ type: "wp_goto", idx: i });
+      };
+    });
+  }
+  (window.__snapHooks = window.__snapHooks || []).push(render);
+})();
+
+
+
+// ── Scene markers / annotations — click to drop a labeled point in 3D ──────
+(function setupMarkers() {
+  const vp = document.getElementById("viewport"), listEl = document.getElementById("marker-list");
+  if (!vp || typeof renderer === "undefined" || !renderer || !renderer.domElement) return;
+  const ray = new THREE.Raycaster();
+  let on = false, markers = [], selId = null, lastMove = 0;
+  const SPAWN = [0.15, 0.15, 0.30];                // a reachable point (right-arm zone); drag the gizmo to place it
+
+  const mtc = new TransformControls(camera, renderer.domElement);  // dedicated marker move-gizmo
+  mtc.setMode("translate"); mtc.setSize(0.6); mtc.setSpace("world");
+  scene.add(mtc);
+  mtc.addEventListener("dragging-changed", (e) => { controls.enabled = !e.value; if (!e.value) { renderList(); if (selId != null && markers[selId]) checkReach(markers[selId]); } });
+  mtc.addEventListener("objectChange", () => { const now = performance.now(); if (now - lastMove > 60) { lastMove = now; renderList(); } });
+
+  function makeMarker(pos, n) {
+    const grp = new THREE.Group();
+    grp.add(new THREE.Mesh(new THREE.SphereGeometry(0.014, 14, 12), new THREE.MeshBasicMaterial({ color: 0xF5A623, depthTest: false })));
+    if (typeof makeLabel === "function") { const lab = makeLabel("#" + n, 0xF5A623, true); lab.position.set(0, 0, 0.05); grp.add(lab); grp.userData.lab = lab; }
+    grp.position.set(pos[0], pos[1], pos[2]); grp.renderOrder = 10; scene.add(grp);
+    return grp;
+  }
+  function relabel() {
+    markers.forEach((m, i) => { if (m.userData.lab) m.remove(m.userData.lab);
+      if (typeof makeLabel === "function") { const lab = makeLabel("#" + (i + 1), 0xF5A623, true); lab.position.set(0, 0, 0.05); m.add(lab); m.userData.lab = lab; } });
+  }
+  function spawn() { const side = (markers.length % 2 === 0) ? 1 : -1; const grp = makeMarker([SPAWN[0] * side, SPAWN[1], SPAWN[2]], markers.length + 1); markers.push(grp); selId = markers.length - 1; mtc.attach(grp); renderList(); checkReach(grp); }
+  function select(i) { selId = (i != null && markers[i]) ? i : null; if (selId != null) mtc.attach(markers[selId]); else mtc.detach(); renderList(); }
+  function del(i) { if (!markers[i]) return; if (i === selId) { selId = null; mtc.detach(); } scene.remove(markers[i]); markers.splice(i, 1); if (selId != null && i < selId) selId--; relabel(); renderList(); }
+  function clearAll() { for (const m of markers) scene.remove(m); markers = []; selId = null; mtc.detach(); renderList(); }
+  function addToProgram(m, i) {                     // append a guarded rbt.moveto for this point into the PROG editor
+    const line = 'rbt.moveto("right", ' + Math.round(m.position.x * 1000) + ', ' + Math.round(m.position.y * 1000) + ', ' + Math.round(m.position.z * 1000) + ')  # marker #' + (i + 1);
+    progCode = (progCode && !progCode.endsWith("\n") ? progCode + "\n" : progCode) + line + "\n";
+    const pt = document.querySelector('[data-group="prog"]'); if (pt) pt.click();   // open PROG so the appended line is visible
+    const ta = document.getElementById("pg-code"); if (ta) ta.value = progCode;
+  }
+  function colorOf(grp) { const rl = grp.userData.reachL, rr = grp.userData.reachR; return (rl == null && rr == null) ? 0xF5A623 : ((rl || rr) ? 0x3FB950 : 0xE5484D); }
+  function applyColor(grp) { const m = grp.children[0]; if (m && m.material) m.material.color.setHex(colorOf(grp)); }
+  async function checkReach(grp) {                  // IK feasibility for both arms -> colour the point + dim the arm that can't reach
+    const p = grp.position, q = "&x=" + p.x + "&y=" + p.y + "&z=" + p.z;
+    try {
+      const [l, r] = await Promise.all([
+        fetch("/api/reachable?arm=left" + q).then((x) => x.json()),
+        fetch("/api/reachable?arm=right" + q).then((x) => x.json()),
+      ]);
+      grp.userData.reachL = !!(l && l.reachable);
+      grp.userData.reachR = !!(r && r.reachable);
+    } catch (e) { grp.userData.reachL = null; grp.userData.reachR = null; }
+    applyColor(grp); renderList();
+  }
+  function bimanual() {                             // send the first two points to BOTH arms at once
+    if (markers.length < 2) return;
+    const a = markers[0], b = markers[1];
+    const reach = (m, arm) => (arm === "left" ? m.userData.reachL : m.userData.reachR);
+    const opt1 = reach(a, "left") && reach(b, "right");     // a->left, b->right both reach
+    const opt2 = reach(a, "right") && reach(b, "left");     // a->right, b->left both reach
+    let aArm, bArm;
+    if (opt1 && !opt2) { aArm = "left"; bArm = "right"; }
+    else if (opt2 && !opt1) { aArm = "right"; bArm = "left"; }
+    else if (a.position.x <= b.position.x) { aArm = "left"; bArm = "right"; }   // else by side (more -x = left)
+    else { aArm = "right"; bArm = "left"; }
+    send({ type: "ik_target", arm: aArm, pos: [a.position.x, a.position.y, a.position.z], auto: true });
+    send({ type: "ik_target", arm: bArm, pos: [b.position.x, b.position.y, b.position.z], auto: true });
+  }
+  function renderList() {
+    if (!listEl) return;
+    if (!on) { listEl.style.display = "none"; listEl.innerHTML = ""; return; }
+    listEl.style.display = "block";
+    listEl.innerHTML = '<div class="ml-hd">MARKERS<span class="ml-acts"><button class="ml-add" title="Add a target point in front of the robot">+ point</button><button class="ml-both" title="Send the first two points to both arms at once (auto-assigns arm by reachability)"' + (markers.length < 2 ? ' disabled' : '') + '>⇄ both</button><button class="ml-clr">clear</button></span></div>' +
+      (markers.length ? markers.map((m, i) => {
+        const rl = m.userData.reachL, rr = m.userData.reachR;
+        return '<div class="ml-row' + (i === selId ? ' sel' : '') + '" data-sel="' + i + '"><span>#' + (i + 1) + '</span><em>' +
+          (m.position.x * 1000).toFixed(0) + ", " + (m.position.y * 1000).toFixed(0) + ", " + (m.position.z * 1000).toFixed(0) + ' mm</em>' +
+          '<button class="mk-go' + (rl === false ? ' unreach' : '') + '" data-go="left" data-i="' + i + '" title="' + (rl === false ? 'Left arm cannot reach this point' : 'Glide the LEFT arm TCP here (needs RESUME)') + '">&#8594;L</button>' +
+          '<button class="mk-go' + (rr === false ? ' unreach' : '') + '" data-go="right" data-i="' + i + '" title="' + (rr === false ? 'Right arm cannot reach this point' : 'Glide the RIGHT arm TCP here (needs RESUME)') + '">&#8594;R</button>' +
+          '<button class="mk-prog" data-i="' + i + '" title="Append rbt.moveto(right) for this point to the PROG program">&#8594;P</button>' +
+          '<button class="mk-del" data-i="' + i + '" title="Delete">&#10005;</button></div>';
+      }).join("")
+        : '<div class="ml-empty">click &ldquo;+ point&rdquo;, drag its gizmo to a reachable spot, then &#8594;L / &#8594;R</div>');
+    const add = listEl.querySelector(".ml-add"); if (add) add.onclick = spawn;
+    const both = listEl.querySelector(".ml-both"); if (both) both.onclick = bimanual;
+    listEl.querySelector(".ml-clr").onclick = clearAll;
+    listEl.querySelectorAll(".mk-del").forEach((b) => { b.onclick = (ev) => { ev.stopPropagation(); del(+b.dataset.i); }; });
+    listEl.querySelectorAll(".mk-go").forEach((b) => { b.onclick = (ev) => { ev.stopPropagation(); const m = markers[+b.dataset.i]; if (!m) return; send({ type: "ik_target", arm: b.dataset.go, pos: [m.position.x, m.position.y, m.position.z], auto: true }); }; });
+    listEl.querySelectorAll(".mk-prog").forEach((b) => { b.onclick = (ev) => { ev.stopPropagation(); const m = markers[+b.dataset.i]; if (!m) return; addToProgram(m, +b.dataset.i); }; });
+    listEl.querySelectorAll("[data-sel]").forEach((rw) => { rw.onclick = (ev) => { if (ev.target && ev.target.dataset && ev.target.dataset.i != null) return; select(+rw.dataset.sel); }; });
+  }
+  renderer.domElement.addEventListener("pointerdown", (e) => {   // click a marker to select it (gizmo); click empty deselects (a drag still orbits)
+    if (!on || e.button !== 0 || mtc.dragging) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const spheres = markers.map((m) => m.children[0]);
+    const hit = ray.intersectObjects(spheres, false)[0];
+    if (hit) { const idx = markers.findIndex((m) => m.children[0] === hit.object); if (idx >= 0) select(idx); }
+    else select(null);
+  });
+  document.addEventListener("keydown", (e) => { if (on && e.key === "Escape") { if (selId != null) select(null); else clearAll(); } });
+  window.__markerActive = false;
+  window.__markerMode = (v) => {
+    on = v; window.__markerActive = v;
+    if (typeof tc !== "undefined" && tc && tc.object) tc.detach();
+    if (!v) { selId = null; mtc.detach(); if (listEl) listEl.style.display = "none"; }
+    else renderList();
+  };
+  window.__getMarkers = () => markers.map((m) => [m.position.x, m.position.y, m.position.z]);
+  window.__loadMarkers = (list) => {                // restore markers from a saved scene
+    clearAll();
+    for (const p of (list || [])) { if (Array.isArray(p) && p.length === 3) { const grp = makeMarker(p, markers.length + 1); markers.push(grp); checkReach(grp); } }
+    selId = null; mtc.detach(); renderList();
+  };
+})();
+
+
+
+// ── TCP force — per-arm end-effector force estimate (N) as a 3D arrow ───────
+(function setupForce() {
+  const btn = $("btn-force");
+  if (!btn) return;
+  let on = false;
+  const COL = 0x6AA0F8, HI_COL = 0xF5A623;           // accent-lt · amber when straining
+  const SCALE = 0.006, MIN_N = 0.5, MAXL = 0.45, MINL = 0.08, HI_N = 12;
+  const arr = {}, labs = {}, lastTxt = {}, fsm = {};
+  const ALPHA = 0.08;                                // EMA on the force vector — the raw torque estimate is jittery in motion (~0.4 s time constant)
+  function hide() {
+    for (const a in arr) if (arr[a]) arr[a].visible = false;
+    for (const a in labs) if (labs[a]) labs[a].visible = false;
+  }
+  function paint(force) {
+    if (!on || !force) { hide(); return; }
+    for (const a in force) {
+      const d = force[a];
+      if (!d) {                                      // no data for this arm
+        if (arr[a]) arr[a].visible = false;
+        if (labs[a]) labs[a].visible = false;
+        continue;
+      }
+      const raw = new THREE.Vector3(d.f[0], d.f[1], d.f[2]);
+      if (!fsm[a]) fsm[a] = raw.clone();             // low-pass the noisy torque estimate (EMA)
+      else fsm[a].lerp(raw, ALPHA);
+      const mag = fsm[a].length();
+      if (mag < MIN_N) {                             // below the noise floor → hide
+        if (arr[a]) arr[a].visible = false;
+        if (labs[a]) labs[a].visible = false;
+        continue;
+      }
+      const p = new THREE.Vector3(d.p[0], d.p[1], d.p[2]);          // TCP (sim = twin frame)
+      const dir = fsm[a].clone().normalize();
+      const len = Math.min(MAXL, Math.max(MINL, mag * SCALE));      // N → metres, clamped
+      const col = mag > HI_N ? HI_COL : COL;                       // amber when the TCP is straining
+      if (!arr[a]) {
+        arr[a] = new THREE.ArrowHelper(dir, p, len, col, len * 0.34, len * 0.22);
+        arr[a].renderOrder = 7;
+        scene.add(arr[a]);
+      } else {
+        arr[a].visible = true;
+        arr[a].position.copy(p);
+        arr[a].setDirection(dir);
+        arr[a].setLength(len, len * 0.34, len * 0.22);
+      }
+      arr[a].setColor(col);
+      if (typeof makeLabel === "function") {                        // magnitude label at the tip
+        const key = Math.round(mag) + " N|" + col;
+        if (key !== lastTxt[a]) {                                   // recreate only when value/colour changes
+          if (labs[a]) scene.remove(labs[a]);
+          labs[a] = makeLabel(Math.round(mag) + " N", col, true);
+          labs[a].renderOrder = 8;
+          scene.add(labs[a]);
+          lastTxt[a] = key;
+        }
+        labs[a].visible = true;
+        labs[a].position.copy(p).addScaledVector(dir, len + 0.05);
+      }
+    }
+  }
+  (window.__snapHooks = window.__snapHooks || []).push((s) => paint(s && s.force));
+  btn.onclick = () => {
+    on = !on;
+    btn.classList.toggle("on", on);
+    send({ type: "force", on });                    // server only computes the force when on
+    if (!on) { hide(); for (const a in fsm) fsm[a] = null; }
+  };
+})();
+
+
+
+// ── Motion tuning — jog/glide cruise speed + accel, contact sensitivity ─────
+(function setupTuning() {
+  const btn = $("btn-tune"), pop = $("tune-pop");
+  if (!btn || !pop) return;
+  const MAP = {                                   // slider id -> { bridge key, slider→value scale, decimals }
+    "tn-jr": { key: "jog_rate",    scale: 0.01, dp: 2 },
+    "tn-ja": { key: "jog_accel",   scale: 0.1,  dp: 1 },
+    "tn-sr": { key: "seq_rate",    scale: 0.01, dp: 2 },
+    "tn-sa": { key: "seq_accel",   scale: 0.1,  dp: 1 },
+    "tn-ct": { key: "contact_tau", scale: 0.1,  dp: 1 },
+  };
+  const DEF = { jog_rate: 0.35, jog_accel: 3.0, seq_rate: 0.6, seq_accel: 2.0, contact_tau: 8.0 };
+  function setRow(id, val) {
+    const m = MAP[id], el = $(id), em = $(id + "-v");
+    if (!el) return;
+    el.value = Math.round(val / m.scale);
+    if (em) em.textContent = val.toFixed(m.dp);
+  }
+  function sync(t) { if (t) for (const id in MAP) if (t[MAP[id].key] != null) setRow(id, t[MAP[id].key]); }
+  for (const id in MAP) {
+    const el = $(id), em = $(id + "-v"), m = MAP[id];
+    if (!el) continue;
+    el.oninput = () => {
+      const v = +el.value * m.scale;
+      if (em) em.textContent = v.toFixed(m.dp);
+      send({ type: "tune", params: { [m.key]: v } });        // bridge clamps + applies live
+    };
+  }
+  const rst = $("tn-reset");
+  if (rst) rst.onclick = () => { for (const id in MAP) setRow(id, DEF[MAP[id].key]); send({ type: "tune", params: DEF }); };
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const show = pop.style.display === "none" || !pop.style.display;
+    pop.style.display = show ? "block" : "none";
+    if (show && window.__lastTuning) sync(window.__lastTuning);   // reflect the live values on open
+  };
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#tune-pop") && !btn.contains(e.target)) pop.style.display = "none";
+  });
+  (window.__snapHooks = window.__snapHooks || []).push((s) => { if (s && s.tuning) window.__lastTuning = s.tuning; });
+})();
+
+
+
+// ── CSV download helper (shared by the trajectory + plot exports) ───────────
+window.csvDownload = window.csvDownload || function (name, text) {
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.style.display = "none";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+};
+
+
+
+
+// Virtual obstacles -- spawn a box, then drag its 3D gizmo to place it; the planner routes around them
+(function setupObstacles() {
+  const listEl = document.getElementById("obstacle-list");
+  if (typeof renderer === "undefined" || !renderer || !renderer.domElement) return;
+  const ray = new THREE.Raycaster();
+  let on = false, lastObs = [], selId = null, lastMove = 0, selectNew = false, lastListSig = null;
+  const HALF = 0.06, HALFH = 0.10;
+  const grp = new THREE.Group(); grp.renderOrder = 5; scene.add(grp);
+  const meshes = {};
+  const mat     = new THREE.MeshBasicMaterial({ color: 0xE5484D, transparent: true, opacity: 0.22, depthWrite: false });
+  const matSel  = new THREE.MeshBasicMaterial({ color: 0xF5A623, transparent: true, opacity: 0.30, depthWrite: false });
+  const emat    = new THREE.LineBasicMaterial({ color: 0xE5484D, transparent: true, opacity: 0.8 });
+  const ematSel = new THREE.LineBasicMaterial({ color: 0xF5A623, transparent: true, opacity: 1.0 });
+
+  const otc = new TransformControls(camera, renderer.domElement);   // dedicated obstacle move-gizmo (separate from the IK one)
+  otc.setMode("translate"); otc.setSize(0.6); otc.setSpace("world");
+  scene.add(otc);
+  function sendMove() { if (selId != null && otc.object) { const p = otc.object.position; send({ type: "obstacle_move", id: selId, p: [p.x, p.y, p.z] }); } }
+  otc.addEventListener("dragging-changed", (e) => {
+    controls.enabled = !e.value;
+    const gh = document.getElementById("giz-hud"); if (gh) gh.style.display = e.value ? "block" : "none";
+    if (!e.value) sendMove();                                       // commit final position on drop
+  });
+  otc.addEventListener("objectChange", () => {
+    if (!otc.object) return;
+    const p = otc.object.position, gh = document.getElementById("giz-hud");
+    if (gh) { gh.style.display = "block"; gh.textContent = "OBSTACLE   " + Math.round(p.x * 1000) + " / " + Math.round(p.y * 1000) + " / " + Math.round(p.z * 1000) + " mm"; }
+    const now = performance.now();
+    if (now - lastMove > 60) { lastMove = now; sendMove(); }        // ~16 Hz while dragging
+  });
+
+  function selectBox(id) {
+    selId = (id != null && meshes[id]) ? id : null;
+    for (const k in meshes) { const s = (+k === selId); meshes[k].material = s ? matSel : mat; if (meshes[k].userData.edge) meshes[k].userData.edge.material = s ? ematSel : emat; }
+    if (selId != null) otc.attach(meshes[selId]); else otc.detach();
+    if (listEl && on) renderList(lastObs);
+  }
+
+  function render(list) {
+    list = list || [];
+    const ids = new Set(list.map((o) => o.id));
+    for (const id in meshes) if (!ids.has(+id)) { if (+id === selId) { selId = null; otc.detach(); } grp.remove(meshes[id]); delete meshes[id]; }
+    for (const o of list) {
+      let m = meshes[o.id];
+      const sizeKey = o.s.join(",");
+      if (!m) {
+        const geo = new THREE.BoxGeometry(2 * o.s[0], 2 * o.s[1], 2 * o.s[2]);
+        m = new THREE.Mesh(geo, mat);
+        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), emat);
+        m.add(edge); m.userData.oid = o.id; m.userData.edge = edge; m.userData.sizeKey = sizeKey;
+        grp.add(m); meshes[o.id] = m;
+      } else if (m.userData.sizeKey !== sizeKey) {                       // live resize -> rebuild box geometry to the new dimensions
+        m.geometry.dispose();
+        m.geometry = new THREE.BoxGeometry(2 * o.s[0], 2 * o.s[1], 2 * o.s[2]);
+        if (m.userData.edge) { m.remove(m.userData.edge); m.userData.edge.geometry.dispose(); }
+        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), (o.id === selId ? ematSel : emat));
+        m.add(edge); m.userData.edge = edge; m.userData.sizeKey = sizeKey;
+      }
+      if (!(otc.object === m && otc.dragging)) m.position.set(o.p[0], o.p[1], o.p[2]);   // don't fight the gizmo mid-drag
+    }
+    if (selectNew && list.length) { selectNew = false; selectBox(list[list.length - 1].id); }
+    lastObs = list;
+    if (listEl) renderList(list);
+  }
+
+  function renderList(list) {
+    if (!on) { listEl.style.display = "none"; listEl.innerHTML = ""; lastListSig = null; return; }
+    listEl.style.display = "block";
+    const _sig = list.map((o) => o.id + ":" + Math.round(o.p[0] * 1000) + "," + Math.round(o.p[1] * 1000) + "," + Math.round(o.p[2] * 1000)).join("|") + "#" + selId;
+    if (_sig === lastListSig) return;     // skip the ~20 Hz innerHTML rebuild when unchanged so the + box button stays alive and real clicks land
+    lastListSig = _sig;
+    listEl.innerHTML = '<div class="ml-hd">OBSTACLES<span class="ml-acts"><button class="ml-add" title="Add a box in front of the robot">+ box</button><button class="ml-clr">clear</button></span></div>' +
+      (list.length ? list.map((o) => {
+        const w = Math.round(o.s[0] * 2000), d = Math.round(o.s[1] * 2000), h = Math.round(o.s[2] * 2000);
+        const sel = (o.id === selId);
+        const size = sel
+          ? '<span class="ob-size"><input class="ob-dim" type="number" data-oid="' + o.id + '" value="' + w + '" min="20" max="1500" step="10" title="width (mm)"><i>x</i><input class="ob-dim" type="number" data-oid="' + o.id + '" value="' + d + '" min="20" max="1500" step="10" title="depth (mm)"><i>x</i><input class="ob-dim" type="number" data-oid="' + o.id + '" value="' + h + '" min="20" max="1500" step="10" title="height (mm)"><b>mm</b></span>'
+          : '<em>' + w + ' x ' + d + ' x ' + h + ' mm</em>';
+        return '<div class="ml-row' + (sel ? ' sel' : '') + '" data-sel="' + o.id + '"><span>BOX</span>' + size + '<button data-oid="' + o.id + '" title="Delete">&#10005;</button></div>';
+      }).join("")
+        : '<div class="ml-empty">click "+ box", then drag its handles to place it; select it to set W x D x H</div>');
+    listEl.querySelector(".ml-add").onclick = addBox;
+    listEl.querySelector(".ml-clr").onclick = () => { selId = null; otc.detach(); send({ type: "obstacle_clear" }); };
+    listEl.querySelectorAll("button[data-oid]").forEach((b) => { b.onclick = (ev) => { ev.stopPropagation(); const id = +b.dataset.oid; if (id === selId) { selId = null; otc.detach(); } send({ type: "obstacle_del", id: id }); }; });
+    listEl.querySelectorAll(".ob-dim").forEach((inp) => {
+      inp.onclick = (ev) => ev.stopPropagation();                        // editing size -- don't toggle row selection
+      inp.onchange = () => {
+        const row = inp.closest(".ml-row"); if (!row) return;
+        const id = +inp.dataset.oid;
+        const dims = [...row.querySelectorAll(".ob-dim")].map((x) => Math.max(20, Math.min(1500, +x.value || 20)));
+        send({ type: "obstacle_resize", id: id, s: [dims[0] / 2000, dims[1] / 2000, dims[2] / 2000] });
+      };
+    });
+    listEl.querySelectorAll("[data-sel]").forEach((rw) => { rw.onclick = (ev) => { if (ev.target && ev.target.dataset && ev.target.dataset.oid != null) return; selectBox(+rw.dataset.sel); }; });
+  }
+
+  function addBox() { selectNew = true; send({ type: "obstacle_add", shape: "box", p: [0, 0.45, -0.15], s: [HALF, HALF, HALFH] }); }   // spawn in front of the robot at ~chest height
+
+  renderer.domElement.addEventListener("pointerdown", (e) => {       // click a box to select it (gizmo); click empty to deselect. NO click-to-place.
+    if (!on || e.button !== 0 || otc.dragging) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(Object.values(meshes), false)[0];
+    if (hit) { let o = hit.object; while (o && o.userData.oid == null) o = o.parent; selectBox(o ? o.userData.oid : null); }
+    else selectBox(null);                                            // empty space -> deselect (a drag still orbits the view)
+  });
+  document.addEventListener("keydown", (e) => { if (on && e.key === "Escape" && selId != null) selectBox(null); });
+
+  (window.__snapHooks = window.__snapHooks || []).push((s) => render(s && s.obstacles));
+  window.__obstacleActive = false;
+  window.__obstacleMode = (v) => {
+    on = v; window.__obstacleActive = v;
+    if (typeof tc !== "undefined" && tc && tc.object) tc.detach();   // hand the gizmo over from the IK target
+    if (!v) { selId = null; otc.detach(); if (listEl) listEl.style.display = "none"; }
+    else if (listEl) renderList(lastObs);
+  };
+})();
+
+
+
+// ── Scene save / load — markers (client) + obstacles (server) to a .json file ──
+(function setupScene() {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json,application/json"; inp.style.display = "none";
+  document.body.appendChild(inp);
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      let d; try { d = JSON.parse(rd.result); } catch (e) { return; }
+      send({ type: "obstacle_clear" });
+      for (const o of (d.obstacles || [])) send({ type: "obstacle_add", shape: o.shape || "box", p: o.p, s: o.s });
+      if (window.__loadMarkers) window.__loadMarkers(d.markers || []);
+    };
+    rd.readAsText(f); inp.value = "";
+  };
+  window.__sceneSave = () => {
+    const markers = window.__getMarkers ? window.__getMarkers() : [];
+    const obstacles = (typeof state !== "undefined" && state && state.obstacles)
+      ? state.obstacles.map((o) => ({ shape: o.type || "box", p: o.p, s: o.s })) : [];
+    const text = JSON.stringify({ version: 1, saved: new Date().toISOString(), markers, obstacles }, null, 2);
+    if (window.csvDownload) window.csvDownload("skate_scene.json", text);
+  };
+  window.__sceneLoad = () => inp.click();
 })();

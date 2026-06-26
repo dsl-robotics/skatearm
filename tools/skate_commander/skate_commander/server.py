@@ -95,7 +95,25 @@ def _load_tools():
     return tools
 
 
-def make_collision_guard(collision_xml):
+def _obstacle_hit(c, rr, o):
+    """True if a robot geom (approximated as a sphere: centre c, bounding
+    radius rr) overlaps the axis-aligned virtual obstacle o
+    ({type:'box'|'cyl', p:[x,y,z], s:[...]})."""
+    import math
+    p, s = o.get("p"), o.get("s")
+    if not p or not s:
+        return False
+    if o.get("type") == "cyl":                     # vertical cylinder: s=[radius, half-height]
+        dxy = max(math.hypot(c[0] - p[0], c[1] - p[1]) - float(s[0]), 0.0)
+        dz = max(abs(c[2] - p[2]) - float(s[1]), 0.0)
+        return dxy * dxy + dz * dz < rr * rr
+    dx = max(abs(c[0] - p[0]) - float(s[0]), 0.0)   # box: s=[hx, hy, hz] half-extents
+    dy = max(abs(c[1] - p[1]) - float(s[1]), 0.0)
+    dz = max(abs(c[2] - p[2]) - float(s[2]), 0.0)
+    return dx * dx + dy * dy + dz * dz < rr * rr
+
+
+def make_collision_guard(collision_xml, get_obstacles=None):
     """Self-collision predicate over the SkateArm box-collision model.
 
     The physics collision model excludes pairs that touch at the neutral pose
@@ -163,7 +181,74 @@ def make_collision_guard(collision_xml):
             thr = base[key] - 0.004 if key in base else -0.002
             if float(c.dist) < thr:
                 return True
+        if get_obstacles is not None:                      # virtual user obstacles
+            obs = get_obstacles()
+            if obs:
+                for gi in geom_ids:
+                    cx = gd.geom_xpos[gi]
+                    for o in obs:
+                        if _obstacle_hit(cx, geom_r[gi], o):
+                            return True
         return False
+
+    geom_ids = [i for i in range(gm.ngeom) if int(gm.geom_bodyid[i]) != 0]
+    import math as _math
+    def _bound_r(t, sz):                                   # conservative bounding-sphere radius
+        if t == 6: return _math.sqrt(float(sz[0]) ** 2 + float(sz[1]) ** 2 + float(sz[2]) ** 2)
+        if t == 3: return float(sz[0]) + float(sz[1])      # capsule: radius + half-length
+        if t == 5: return _math.hypot(float(sz[0]), float(sz[1]))
+        if t == 2: return float(sz[0])
+        return float(max(sz))
+    geom_r = {i: _bound_r(int(gm.geom_type[i]), gm.geom_size[i]) for i in geom_ids}
+
+    def collision_view(q):
+        """World-space poses of the guard model's geoms at pose ``q`` (26-vec).
+        Each geom is flagged ``h`` when it is in a *violating* contact. Drives
+        the cockpit's collision-mesh overlay (the capsule/box model the guard
+        actually reasons over) so you can see why a move is blocked."""
+        import numpy as _np
+        gd.qpos[:26] = q
+        mujoco.mj_forward(gm, gd)
+        hit = set()
+        for i in range(gd.ncon):
+            c = gd.contact[i]
+            key = (min(c.geom1, c.geom2), max(c.geom1, c.geom2))
+            thr = base[key] - 0.004 if key in base else -0.002
+            if float(c.dist) < thr:
+                hit.add(int(c.geom1)); hit.add(int(c.geom2))
+        out = []
+        for i in geom_ids:
+            m = gd.geom_xmat[i].reshape(3, 3)
+            tr = m[0, 0] + m[1, 1] + m[2, 2]
+            if tr > 0:
+                s = 0.5 / _np.sqrt(tr + 1.0)
+                qw = 0.25 / s; qx = (m[2, 1] - m[1, 2]) * s
+                qy = (m[0, 2] - m[2, 0]) * s; qz = (m[1, 0] - m[0, 1]) * s
+            else:
+                k = int(_np.argmax(_np.diag(m)))
+                if k == 0:
+                    s = 2.0 * _np.sqrt(max(1e-9, 1 + m[0, 0] - m[1, 1] - m[2, 2]))
+                    qw = (m[2, 1] - m[1, 2]) / s; qx = 0.25 * s
+                    qy = (m[0, 1] + m[1, 0]) / s; qz = (m[0, 2] + m[2, 0]) / s
+                elif k == 1:
+                    s = 2.0 * _np.sqrt(max(1e-9, 1 + m[1, 1] - m[0, 0] - m[2, 2]))
+                    qw = (m[0, 2] - m[2, 0]) / s; qx = (m[0, 1] + m[1, 0]) / s
+                    qy = 0.25 * s; qz = (m[1, 2] + m[2, 1]) / s
+                else:
+                    s = 2.0 * _np.sqrt(max(1e-9, 1 + m[2, 2] - m[0, 0] - m[1, 1]))
+                    qw = (m[1, 0] - m[0, 1]) / s; qx = (m[0, 2] + m[2, 0]) / s
+                    qy = (m[1, 2] + m[2, 1]) / s; qz = 0.25 * s
+            out.append({
+                "t": int(gm.geom_type[i]),
+                "s": [round(float(x), 4) for x in gm.geom_size[i]],
+                "p": [round(float(x), 4) for x in gd.geom_xpos[i]],
+                "q": [round(float(qw), 4), round(float(qx), 4),
+                      round(float(qy), 4), round(float(qz), 4)],
+                "h": (i in hit),
+            })
+        return out
+
+    guard.collision_view = collision_view
     return guard
 
 
@@ -198,7 +283,7 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
     print(f"[commander] mirror map: axis={'xyz'[bridge.mirror_axis]} "
           f"signs={[int(s) for s in bridge.mirror_signs]}")
     if collision_model:
-        bridge.guard = make_collision_guard(collision_model)
+        bridge.guard = make_collision_guard(collision_model, get_obstacles=lambda: bridge.obstacles)
         print("[commander] collision guard ON — self-colliding targets are "
               "rejected before they reach the robot")
     runner = ProgramRunner(bridge)
@@ -251,6 +336,24 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
             app.state.reachmap[key] = reach_map(
                 kin[arm], np.array(names.DEFAULT_POSE, dtype=float), n=n)
         return JSONResponse({"arm": arm, "points": app.state.reachmap.get(key, [])})
+
+    @app.get("/api/reachable")
+    def api_reachable(arm: str = "right", x: float = 0.0, y: float = 0.0, z: float = 0.0):
+        """Reachability preview: is world point (x, y, z) [m] inside ``arm``'s
+        reachable workspace? Nearest-sample distance against the cached dexterity
+        reach-map (robust to IK local minima). Sync def -> FastAPI threadpool."""
+        if arm not in kin:
+            return JSONResponse({"reachable": False, "dist_mm": None})
+        key = f"{arm}:3000"
+        if key not in app.state.reachmap:
+            app.state.reachmap[key] = reach_map(
+                kin[arm], np.array(names.DEFAULT_POSE, dtype=float), n=3000)
+        pts = app.state.reachmap.get(key, [])
+        if not pts:
+            return JSONResponse({"reachable": False, "dist_mm": None})
+        arr = np.asarray(pts, dtype=float)[:, :3]
+        d = float(np.min(np.linalg.norm(arr - np.array([x, y, z], dtype=float), axis=1)))
+        return JSONResponse({"reachable": bool(d < 0.045), "dist_mm": round(d * 1000.0, 1)})
 
     @app.get("/api/pointcloud")
     def api_pointcloud(stride: int = 5):
@@ -326,8 +429,21 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
                 tcp[arm] = [round(float(v), 5) for v in k.fk(goal)]
             except Exception:
                 pass
+        route = {}                       # planned collision-free route's TCP trail per arm
+        try:
+            path = bridge.plan_path(goal)
+            if path and len(path) >= 2:
+                for arm, k in bridge.kin.items():
+                    try:
+                        route[arm] = [[round(float(v), 5) for v in k.fk(np.asarray(q, dtype=float))]
+                                      for q in path]
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         return JSONResponse({"action": action,
-                             "q": [round(float(v), 6) for v in goal], "tcp": tcp})
+                             "q": [round(float(v), 6) for v in goal],
+                             "tcp": tcp, "route": route})
 
     @app.get("/api/sequences")
     async def api_sequences():
@@ -669,12 +785,28 @@ def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
         bridge.set_paused(cmd.get("on"))
     elif t == "step":
         bridge.step(cmd.get("n", 1))
+    elif t == "collision":
+        bridge.set_show_collision(cmd.get("on"))
+    elif t == "force":
+        bridge.set_show_force(cmd.get("on"))
+    elif t == "tune":
+        bridge.set_tuning(**(cmd.get("params") or {}))
+    elif t == "obstacle_add":
+        bridge.add_obstacle(cmd.get("shape", "box"), cmd.get("p"), cmd.get("s"))
+    elif t == "obstacle_clear":
+        bridge.clear_obstacles()
+    elif t == "obstacle_del":
+        bridge.delete_obstacle(cmd.get("id"))
+    elif t == "obstacle_move":
+        bridge.update_obstacle(cmd.get("id"), cmd.get("p"))
+    elif t == "obstacle_resize":
+        bridge.resize_obstacle(cmd.get("id"), cmd.get("s"))
     elif t == "jog_step":
         bridge.jog_step(int(cmd["idx"]), float(cmd["delta"]))
     elif t == "set_joint":
         bridge.set_joint(int(cmd["idx"]), float(cmd["value"]))
     elif t == "ik_target":
-        bridge.set_ik_target(cmd.get("arm"), cmd.get("pos", ()))
+        bridge.set_ik_target(cmd.get("arm"), cmd.get("pos", ()), auto=bool(cmd.get("auto")))
     elif t == "ik_clear":
         bridge.clear_ik_target(cmd.get("arm"))
     elif t == "wp_add":
