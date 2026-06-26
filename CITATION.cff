@@ -4,7 +4,7 @@ title: "SkateArm — bimanual work-cell & Skate Commander cockpit"
 abstract: >-
   Open-source bimanual work-cell and browser cockpit for the R.Botic Skate
   robot: a 3D digital twin, drag-IK, mirror mode, teach-in, natural-language
-  programs and vision-guided picking — sim-first in MuJoCo and deployed over
+  programs, motion-planning previews and live telemetry — sim-first in MuJoCo and deployed over
   the robot's native UDP wire.
 type: software
 authors:
@@ -22,5 +22,5 @@ keywords:
   - ROS 2
   - digital twin
   - teleoperation
-  - vision-guided grasping
+  - motion planning
   - inverse kinematics
