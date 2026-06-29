@@ -29,8 +29,8 @@
 </div>
 
 <div align="center">
-  <a href="https://github.com/dsl-robotics/skatearm/blob/main/docs/video/commander_v06_product.mp4">
-    <img src="docs/img/commander_v06_video_thumb.png" width="720" alt="Skate Commander — 50-second product video (click to play)">
+  <a href="https://github.com/dsl-robotics/skatearm/blob/main/docs/video/commander_v08_product.mp4">
+    <img src="docs/img/commander_v08_video_thumb.png" width="720" alt="Skate Commander v0.8 — product walkthrough (click to play)">
   </a>
 </div>
 
