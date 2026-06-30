@@ -117,3 +117,9 @@ A review from five viewpoints (casual visitor → expert roboticist) surfaced th
 - [x] **Hardened wire decoder** — `decode_packet` uses a restricted unpickler by default (whitelists the telemetry classes + numpy, blocks `os.system` / `eval` / reduce-gadget RCE); `SKATE_WIRE=raw` opts out, `pickle` stays the firmware default. Transport **auth** still pending.
 - [x] **Capsule obstacle geometry** — the keep-out-obstacle check now tests each capsule link against its actual swept segment (provably-covering sampling, never under-blocks) instead of a fat enclosing sphere, so the planner stops detouring around phantom volume around long links. (Self-collision was already MuJoCo-capsule-accurate.)
 - [x] **Interactive browser demo** — the live preview is drivable: jog, joint sliders, limit-jumps and Home edit a local pose fed through the twin's forward kinematics (no server); a recorded scene plays until you grab a control, with a "Replay demo" reset. Server-only features (drag-IK, planning, smart-pick) stay gated.
+
+### From the expert-roboticist re-review (deeper, not yet done)
+
+- [ ] **6-DoF Cartesian IK** — drag-IK / `moveto` currently solve position only (3-DoF); add orientation so the tool can be commanded in full pose.
+- [ ] **Convex / capsule body collision** — the guard's per-body geoms are boxes + conservative bounding spheres; fit convex hulls or capsules to the links so the planner reasons over tighter volumes (and reconcile any "capsule" wording with exactly what ships).
+- [ ] **Bimanual benchmark suite** — a small set of repeatable two-arm tasks (reach, hand-off, peg-insert) with metrics, so planners / learned policies can be compared apples-to-apples.
