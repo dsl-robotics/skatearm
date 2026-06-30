@@ -20,7 +20,7 @@
 
 <div align="center">
 
-**▶ Watch the 50-second product video** — a full tour of the cockpit: digital twin, drag-IK, mirror mode and teach-in *(recorded on an earlier UI — the cockpit has since been redesigned)*.
+**▶ Watch the 3:46 product film** — a full walkthrough of the current v0.8 cockpit: digital twin, drag-IK, RRT collision-routing, mirror mode, dual-arm carry, live telemetry and teach-in.
 
 🌐 **Live demo & write-up → [dsl-robotics.github.io/skatearm](https://dsl-robotics.github.io/skatearm/)**
 
@@ -89,6 +89,11 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 </table>
 </div>
 
+**The cockpit packs a robotics-workstation's worth of tooling** — drag-IK and mirror-mode bimanual motion, RRT collision-routing, Python + teach-in programs, an Isaac-Sim-style Stage / Property shell, live telemetry plots, a TF tree, diagnostics, and scene markers with keep-out obstacles. The full catalogue:
+
+<details>
+<summary><strong>▸ Full cockpit feature catalogue</strong> — 30+ features across motion · programs · vision · safety · observability · scene tools <em>(click to expand)</em></summary>
+
 ### Motion, IK &amp; manipulability
 
 | Feature | What it does |
@@ -126,7 +131,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Capability (sim-validated) | What it does |
 |---|---|
 | On-board camera | A camera view rendered from the model (MuJoCo) and streamed into the cockpit (MJPEG), switchable between viewpoints |
-| Work-camera point cloud | A **PCL** toggle back-projects the work camera's depth into the twin — a coloured 3D point cloud of what it sees (table, target), the input the v0.7.11 grasp planner consumes |
+| Work-camera point cloud | A **PCL** toggle back-projects the work camera's depth into the twin — a coloured 3D point cloud of what it sees (table, target), the input the grasp planner consumes |
 | Vision-guided pick | **DETECT** finds the workspace target and back-projects its centroid to a world pose (~2 mm vs ground truth); **PICK** drives the right arm to it through the same IK + collision guard and closes the gripper |
 | Smart pick (multi-object) | A **GRASP** toggle synthesises a top-down parallel-jaw grasp on the point cloud for **every** object (RANSAC removes the table, clusters the rest, fits a grasp — centre, *measured* height, footprint, yaw, width check — to each object's own geometry, rejecting the robot's own limbs). A pluggable detector labels each by **colour + shape** (opt-in YOLO backend for real objects); an object selector + **SMART** pick the chosen one by name through the IK + guard |
 | Closed-loop visual servoing | **SERVO** locks the gripper onto the target *in image space* as it descends — robust to camera-calibration error (open-loop misses ~43 mm, IBVS ~5 mm in sim) |
@@ -165,6 +170,8 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 | Virtual obstacles | Spawn keep-out boxes and place them freely with a 3D gizmo, sized to any W×D×H — the RRT planner and the collision guard route the arms *around* them |
 | Planning preview | Before a **Home** or **waypoint** move, a translucent **ghost robot** shows the destination pose and a blue trail shows the planned collision-free **route**, gated behind **Approve / Cancel** |
 | Save / load scene | Save the placed markers + obstacles to a JSON scene file and reload them later |
+
+</details>
 
 <div align="center">
   <img src="docs/img/cockpit_v0724_cockpit.webp" width="720px" alt="The Skate Commander cockpit (v0.8.0): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">

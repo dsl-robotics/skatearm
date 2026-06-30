@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in the sim, cockpit, or wire isn't behaving
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a report. Everything runs in simulation — no hardware is
+        needed to reproduce most issues.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: Steps to reproduce, plus expected vs. actual behaviour.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      options:
+        - Skate Commander (web cockpit)
+        - skate_ros2 (wire / sim endpoint)
+        - sim (MuJoCo model / demos)
+        - dashboard
+        - docs / landing page
+        - other / not sure
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS + Python version
+      placeholder: e.g. Windows 11, Python 3.11
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      description: Paste any console output or stack trace.
+      render: shell

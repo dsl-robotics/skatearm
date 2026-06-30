@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Live demo & write-up
+    url: https://dsl-robotics.github.io/skatearm/
+    about: Try the cockpit in your browser before filing — no install required.
+  - name: Try the cockpit (no install)
+    url: https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html
+    about: The live preview running on recorded telemetry.

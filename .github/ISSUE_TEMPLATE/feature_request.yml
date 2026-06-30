@@ -1,0 +1,31 @@
+name: Feature or tool request
+description: Suggest a capability, tool, or improvement
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas and requests from other Skate owners are welcome.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem or use-case?
+      description: What are you trying to do that's hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed solution
+      description: What would you like to see happen?
+  - type: checkboxes
+    id: area
+    attributes:
+      label: Area(s)
+      options:
+        - label: Cockpit (Skate Commander)
+        - label: Wire / ROS 2 (skate_ros2)
+        - label: Sim / model
+        - label: Work-cell / dashboard
+        - label: Docs
