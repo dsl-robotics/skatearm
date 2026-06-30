@@ -12,6 +12,22 @@ You don't need the robot — everything here runs in MuJoCo simulation today.
 - **Improve the docs** — typos, clarifications, or a missing step in a quick-start.
 - **Send a pull request** — see below.
 
+## Good first issues
+
+New here? These are scoped, self-contained starter tasks — all doable in simulation, no
+robot needed:
+
+- **URDF / config validator** — a small `tools/` script that sanity-checks a Skate model
+  directory (joint count, limits, mesh references) and prints a friendly report.
+- **A new sim demo** — add a `sim/demo_*.py` for a bimanual primitive (e.g. a two-handed
+  hand-off), following the existing demos, with a still + GIF.
+- **Getting-started handbook** — expand the quick-start into a step-by-step `docs/` page,
+  from clone to first browser-driven pose.
+- **More tests** — add a hardware-free unit test for an untested helper (e.g. in
+  `kinematics.py` or `detect.py`).
+
+Open an issue to claim one (or propose your own) before you start, so work isn't duplicated.
+
 ## Project layout
 
 | Path | What's there |
