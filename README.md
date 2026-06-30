@@ -33,7 +33,7 @@
 </div>
 
 <div align="center">
-  <a href="https://github.com/dsl-robotics/skatearm/blob/main/docs/video/commander_v08_product.mp4">
+  <a href="https://dsl-robotics.github.io/skatearm/video/commander_v08_product.mp4">
     <img src="docs/img/commander_v08_video_thumb.png" width="720" alt="Skate Commander v0.8 — product walkthrough (click to play)">
   </a>
 </div>
