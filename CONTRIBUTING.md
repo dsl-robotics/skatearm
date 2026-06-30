@@ -42,6 +42,15 @@ Most of the suite is **hardware-free** — no MuJoCo or ROS required:
 pytest -q tools/skate_commander/test tools/skate_ros2/test
 ```
 
+The model-gated tests (collision guard, RRT planner, IK, URDF) **skip** unless the `skt_v3`
+model is present. To run them too, build the models once and point `SKT_DIR` at them:
+
+```bash
+py sim/make_control_model.py path/to/skt_v3      # + actuators
+py sim/make_collision_model.py path/to/skt_v3    # + collision capsules
+SKT_DIR=path/to/skt_v3 pytest -q tools/skate_commander/test
+```
+
 CI ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)) runs the wire-protocol,
 joint-map, driver-safety and natural-language-parser tests on every push and pull request.
 Please make sure `pytest -q` is green locally before opening a PR, and add tests for new

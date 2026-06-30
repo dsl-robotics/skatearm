@@ -13,6 +13,16 @@ from skate_commander import planner          # noqa: E402
 LO, HI = np.array([-1.0, -1.0]), np.array([1.0, 1.0])
 
 
+
+def _skip(msg):
+    """Real pytest.skip under pytest; clean print when run as a standalone script."""
+    import sys
+    if "pytest" in sys.modules:
+        import pytest
+        pytest.skip(msg)
+    print(f"SKIP: {msg}")
+
+
 def _wall(gap_top):
     """Vertical wall band in 2-D config space: blocked when -0.2<q0<0.2; with
     gap_top, the upper strip q1>=0.5 is open (a doorway)."""
@@ -89,11 +99,11 @@ def test_home_routes_around_real_guard():
     try:
         import mujoco  # noqa: F401
     except ImportError:
-        print("SKIP: mujoco not installed"); return
+        _skip("mujoco not installed"); return
     skt = Path(os.environ.get("SKT_DIR", "/tmp/skate_teleop/skt_v3"))
     cxml = skt / "skt_v3_collision.xml"
     if not cxml.exists():
-        print("SKIP: no collision model"); return
+        _skip("no collision model"); return
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skate_ros2"))
 
     from skate_commander.bridge import RobotBridge

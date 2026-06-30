@@ -25,6 +25,16 @@ DT = 1 / 60.0
 CUBE_XY = np.array([0.13, 0.35])          # true target in the generated scene
 
 
+
+def _skip(msg):
+    """Real pytest.skip under pytest; clean print when run as a standalone script."""
+    import sys
+    if "pytest" in sys.modules:
+        import pytest
+        pytest.skip(msg)
+    print(f"SKIP: {msg}")
+
+
 def _free_port():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close()
@@ -36,9 +46,9 @@ def test_ibvs_robust_to_miscalibration():
         import mujoco  # noqa: F401
         import PIL      # noqa: F401
     except ImportError:
-        print("SKIP: mujoco / Pillow not installed"); return
+        _skip("mujoco / Pillow not installed"); return
     if not Path(MJCF).exists():
-        print("SKIP: no control model"); return
+        _skip("no control model"); return
 
     from skate_commander import camera, vision
     from skate_commander.bridge import RobotBridge
@@ -133,9 +143,9 @@ def test_depth_cloud_backprojection():
     try:
         import mujoco
     except ImportError:
-        print("SKIP: mujoco not installed"); return
+        _skip("mujoco not installed"); return
     if not Path(MJCF).exists():
-        print("SKIP: no control model"); return
+        _skip("no control model"); return
     from skate_commander import camera, vision
     scene = camera.build_scene_xml(SKT)
     m = mujoco.MjModel.from_xml_path(scene)

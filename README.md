@@ -5,7 +5,7 @@
 *An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire.*
 
 <div align="center">
-  <a href="https://dsl-robotics.github.io/skatearm/"><img src="docs/img/og_card.png" width="820" alt="SkateArm — drive a two-armed robot from your browser"></a>
+  <a href="https://dsl-robotics.github.io/skatearm/"><img src="docs/img/cockpit_v0724_demo.gif" width="820" alt="Skate Commander cockpit — mirror mode drives both arms from one slider while live telemetry plots track the motion"></a>
 </div>
 
 <div align="center">
@@ -17,6 +17,8 @@
 [![tests](https://github.com/dsl-robotics/skatearm/actions/workflows/tests.yml/badge.svg)](https://github.com/dsl-robotics/skatearm/actions/workflows/tests.yml)
 
 </div>
+
+<div align="center"><sub>CI runs the hardware-free subset (wire protocol · joint map · driver safety · NL parser). The model-gated tests — collision guard, RRT planner, IK & URDF — run locally against the <code>skt_v3</code> model and <strong>skip</strong> without it; see <a href="CONTRIBUTING.md#running-the-tests">CONTRIBUTING</a>.</sub></div>
 
 <div align="center">
 
@@ -140,7 +142,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 
 | Feature | What it does |
 |---|---|
-| Collision guard | Every target checked for self-collision *before* it is sent — including along interpolated paths; capsule-fitted collision model |
+| Collision guard | Every target checked for self-collision *before* it is sent — including along interpolated paths; capsule / box collision model |
 | Contact reflex | A torque spike on a *stalled* arm joint (loaded but not moving — i.e. pushing into something) latches a soft-stop; clear it from the **CONTACT** chip |
 | Planned routing | When a straight move (**Home** or a **waypoint** goto/play) would clip a self-collision, an RRT planner routes the arms *around* it (collision-free) instead of stalling — the legs / balance chain are left untouched |
 | SIM / REAL toggle | Same protocol either way; switching always re-latches the E-STOP |
@@ -176,11 +178,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 <div align="center">
   <img src="docs/img/cockpit_v0724_cockpit.webp" width="720px" alt="The Skate Commander cockpit (v0.8.0): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
   <br>
-  <em><strong>v0.8.0 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots. Mirror mode, dual-arm carry, jerk-limited motion and teach-in all live here.</em>
-  <br><br>
-  <img src="docs/img/cockpit_v0724_demo.gif" width="720px" alt="Skate Commander v0.8.0: mirror mode drives both arms from one slider while the live telemetry plots track the motion">
-  <br>
-  <em>More cockpit in action: mirror mode drives both arms from one slider while the live telemetry plots track the motion. <strong><a href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
+  <em><strong>v0.8.0 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots. Mirror mode, dual-arm carry, jerk-limited motion and teach-in all live here. <strong><a href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (recorded telemetry, no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
 </div>
 
 ## 🔌 skate_ros2 — the wire
@@ -310,6 +308,7 @@ Ideas and requests from other Skate owners are welcome — open an issue.
 ## Author
 
 **Daniels Skots Lavs** — mechatronics student (RTU), industrial electronics technician.
+📍 Riga / EU · **open to junior robotics software roles**
 [GitHub profile](https://github.com/Lavs-Daniels-Skots-231RMC173) · [Engineering portfolio](https://github.com/Lavs-Daniels-Skots-231RMC173/engineering-portfolio) · porche121004@gmail.com
 
 ## License

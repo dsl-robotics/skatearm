@@ -19,6 +19,16 @@ SKT = Path(os.environ.get("SKT_DIR", "/tmp/skate_teleop/skt_v3"))
 MJCF = os.environ.get("SKATE_MJCF", str(SKT / "skt_v3_control.xml"))
 
 
+
+def _skip(msg):
+    """Real pytest.skip under pytest; clean print when run as a standalone script."""
+    import sys
+    if "pytest" in sys.modules:
+        import pytest
+        pytest.skip(msg)
+    print(f"SKIP: {msg}")
+
+
 def _clamped_random(model, rng, scale=0.5):
     q = rng.uniform(-scale, scale, 26)
     for j in model["joints"]:
@@ -31,9 +41,9 @@ def test_fk_matches_mujoco_and_ik_converges():
     try:
         import mujoco
     except ImportError:
-        print("SKIP: mujoco not installed"); return
+        _skip("mujoco not installed"); return
     if not Path(MJCF).exists():
-        print("SKIP: no control model"); return
+        _skip("no control model"); return
     model = parse_urdf(SKT / "skt_v3.urdf")
     mm = mujoco.MjModel.from_xml_path(MJCF)
     dd = mujoco.MjData(mm)
@@ -74,9 +84,9 @@ def test_tool_offset_tracks_mujoco():
     try:
         import mujoco
     except ImportError:
-        print("SKIP: mujoco not installed"); return
+        _skip("mujoco not installed"); return
     if not Path(MJCF).exists():
-        print("SKIP: no control model"); return
+        _skip("no control model"); return
     model = parse_urdf(SKT / "skt_v3.urdf")
     mm = mujoco.MjModel.from_xml_path(MJCF)
     dd = mujoco.MjData(mm)
@@ -114,7 +124,7 @@ def test_posture_hold_no_winding():
     pose. Without the null-space posture anchor the 4 redundant DoF drift
     and the arm slowly winds itself up (the v0.5.0 'выкручивает' bug)."""
     if not Path(MJCF).exists():
-        print("SKIP: no control model"); return
+        _skip("no control model"); return
     model = parse_urdf(SKT / "skt_v3.urdf")
     import numpy as np
 
@@ -146,7 +156,7 @@ def test_fast_jacobian_and_reach_map():
     """Geometric fast Jacobian == numeric central-diff one, and reach_map
     returns a sane dexterity cloud. Pure numpy — no mujoco needed."""
     if not (SKT / "skt_v3.urdf").exists():
-        print("SKIP: no URDF"); return
+        _skip("no URDF"); return
     model = parse_urdf(SKT / "skt_v3.urdf")
     kin = ArmKinematics(model, "right")
     base = np.zeros(26)

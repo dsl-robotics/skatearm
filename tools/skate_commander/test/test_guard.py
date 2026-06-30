@@ -21,13 +21,23 @@ SKT = Path(os.environ.get("SKT_DIR", "/tmp/skate_teleop/skt_v3"))
 CXML = SKT / "skt_v3_collision.xml"
 
 
+
+def _skip(msg):
+    """Real pytest.skip under pytest; clean print when run as a standalone script."""
+    import sys
+    if "pytest" in sys.modules:
+        import pytest
+        pytest.skip(msg)
+    print(f"SKIP: {msg}")
+
+
 def test_guard_blocks_self_collision():
     try:
         import mujoco
     except ImportError:
-        print("SKIP: mujoco not installed"); return
+        _skip("mujoco not installed"); return
     if not CXML.exists():
-        print(f"SKIP: {CXML} missing (run sim/make_collision_model.py)"); return
+        _skip(f"{CXML} missing (run sim/make_collision_model.py)"); return
 
     from skate_commander.bridge import RobotBridge
     from skate_commander.server import make_collision_guard
@@ -87,9 +97,9 @@ def test_guard_sees_legs_and_blocks_tunneling():
     try:
         import mujoco  # noqa: F401
     except ImportError:
-        print("SKIP: mujoco not installed"); return
+        _skip("mujoco not installed"); return
     if not CXML.exists():
-        print("SKIP: no collision model"); return
+        _skip("no collision model"); return
     from skate_commander.bridge import RobotBridge
     from skate_commander.server import make_collision_guard
 

@@ -1,0 +1,11 @@
+# SkateArm — simulation dependencies (Python 3.10+)
+# Install:  py -m pip install -r sim/requirements.txt    (use `py` on Windows)
+#
+# These cover the model builders, demos and telemetry plots in sim/.
+# ROS 2 is NOT required here — that lives in tools/skate_ros2/.
+# The web cockpit has its own tools/skate_commander/requirements.txt.
+
+mujoco>=3.0,<4.0        # physics + rendering (skt_v3 control / collision models)
+numpy>=1.24,<3.0        # kinematics, telemetry math
+imageio>=2.30           # demo GIF / PNG output
+imageio-ffmpeg>=0.4     # mp4 demo encoding (ffmpeg plugin for imageio)
