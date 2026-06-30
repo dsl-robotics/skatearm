@@ -294,7 +294,10 @@ function setAngles(q) {
 })();
 
 // ---------------------------------------------------------------- panel
-function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+function send(obj) {
+  if (PREVIEW) { pvHandle(obj); return; }      // interactive preview: drive locally, no socket
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
 
 let seqLoopWanted = false;
 let lastSeqSig = "";
@@ -806,7 +809,7 @@ function buildPanel() {
       <button class="jlim" data-l="hi" title="Jump to the upper limit (guard permitting)">⇥</button>
       <div class="jval"><span class="ang">—</span><small class="sub">—</small></div>`;
     wrap.appendChild(row);
-    const locked = PREVIEW || legsLockedReal;
+    const locked = legsLockedReal;            // preview joints are drivable client-side
     for (const b of row.querySelectorAll(".jlim")) {
       if (locked) { b.disabled = true; continue; }
       b.onclick = () => send({ type: "set_joint", idx,
@@ -1125,9 +1128,9 @@ function updateTop() {
   if (tc && tc.object && !state.live) tc.detach();   // no gizmo while dampened
   const banner = $("banner");
   if (PREVIEW) { banner.className = "preview";
-    banner.textContent = "PREVIEW — a recording plays back, controls are " +
-      "disabled, meshes are simplified · run the local server for the real " +
-      "cockpit";
+    banner.textContent = pvDriven
+      ? "PREVIEW — you're driving the twin (jog · sliders · Home). Advanced features need the local server"
+      : "PREVIEW — recording plays · grab a joint slider, hold ± or press Home to drive it yourself";
   } else if (!state.live) { banner.className = "dampened";
     banner.textContent = state.estop
       ? "DAMPENED — press RESUME to enable motion"
@@ -1498,13 +1501,88 @@ setInterval(() => {
   bwBytes = 0; bwT = now;
 }, 1000);
 
+// ── Interactive preview: drive the twin's joints client-side (no server) ─────
+// In preview there's no server, so jog / sliders / Home are routed here instead
+// of over the socket: they edit a local 26-vec pose fed straight back through
+// onState() (pure forward kinematics — the twin already renders from q).
+let pvQ = null;                  // current driven pose (26-vec)
+let pvDriven = false;            // has the user taken control of the recording?
+let pvBase = null;               // a recorded frame, reused for non-joint telemetry
+const pvJog = {};                // idx -> jog interval id
+
+function pvInit() {
+  const f = window.PREVIEW_DATA.frames;
+  pvBase = f[Math.floor(f.length / 2)] || f[0];          // a live (resumed) frame
+  pvQ = ((f[0] && f[0].q) || new Array(26).fill(0)).slice();
+}
+function pvClamp(idx, v) {
+  const l = (typeof limits !== "undefined" && limits[idx]) || [-3.14, 3.14];
+  return Math.min(l[1], Math.max(l[0], v));
+}
+function pvRender() {
+  const z = new Array(pvQ.length).fill(0);
+  onState({ ...pvBase, q: pvQ.slice(), targ: pvQ.slice(), dq: z,
+            live: true, estop: false, connected: true });
+}
+function pvTake() {
+  if (pvDriven) return;
+  pvDriven = true;
+  const b = $("pv-replay"); if (b) b.style.display = "block";
+}
+function pvSet(idx, v) { if (pvQ) { pvQ[idx] = pvClamp(idx, v); pvTake(); } }
+function pvJogStart(idx, dir) {
+  if (!pvQ) return;
+  pvTake();
+  if (pvJog[idx]) clearInterval(pvJog[idx]);
+  pvJog[idx] = setInterval(() => { pvQ[idx] = pvClamp(idx, pvQ[idx] + dir * 0.6 * 0.033); }, 33);
+}
+function pvJogStop(idx) { if (pvJog[idx]) { clearInterval(pvJog[idx]); pvJog[idx] = null; } }
+function pvHome() {
+  if (!pvQ) return;
+  pvTake();
+  const tgt = ((window.PREVIEW_DATA.frames[0] || {}).q || pvQ).slice();
+  const from = pvQ.slice(); let k = 0; const N = 24;
+  const iv = setInterval(() => {
+    k++; const t = k / N;
+    for (let i = 0; i < pvQ.length; i++) pvQ[i] = from[i] + (tgt[i] - from[i]) * t;
+    if (k >= N) clearInterval(iv);
+  }, 33);
+}
+function pvReplay() {
+  for (const k in pvJog) pvJogStop(k);
+  pvDriven = false;
+  const b = $("pv-replay"); if (b) b.style.display = "none";
+}
+function pvHandle(o) {
+  if (!o || !pvQ) return;
+  if (o.type === "set_joint") pvSet(o.idx, o.value);
+  else if (o.type === "jog_start") pvJogStart(o.idx, o.dir);
+  else if (o.type === "jog_stop") pvJogStop(o.idx);
+  else if (o.type === "home") pvHome();
+  // ik / carry / mirror / wp_* / smart_pick / speed … are server-only -> ignored
+}
+function pvMountReplay() {
+  if ($("pv-replay")) return;
+  const b = document.createElement("button");
+  b.id = "pv-replay"; b.textContent = "▶ Replay demo";
+  b.title = "Hand control back to the recorded demo";
+  b.style.cssText = "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);" +
+    "z-index:50;display:none;padding:7px 14px;border-radius:8px;cursor:pointer;" +
+    "border:1px solid var(--line,#2A2F37);background:var(--panel,#16191E);" +
+    "color:var(--fg,#D6DAE0);font:600 12px/1 var(--mono,monospace);";
+  b.onclick = pvReplay;
+  document.body.appendChild(b);
+}
+
 function startPlayback() {
   const frames = window.PREVIEW_DATA.frames;
+  pvInit();
   const FRAME_MS = 100;                       // recorded at 10 Hz
   const t0 = performance.now();
   const lerp = (a, b, t) =>
     a && b ? a.map((v, i) => v + (b[i] - v) * t) : a || b;
   setInterval(() => {
+    if (pvDriven) { pvRender(); return; }      // user has taken control of the joints
     const x = ((performance.now() - t0) / FRAME_MS) % frames.length;
     const i = Math.floor(x), t = x - i, j = (i + 1) % frames.length;
     const a = frames[i], b = frames[j];
@@ -1521,10 +1599,12 @@ function startPlayback() {
   buildRobot();
   buildPanel();
   if (PREVIEW) {
-    for (const id of ["btn-estop", "btn-home", "btn-mirror", "btn-carry"]) {
+    for (const id of ["btn-estop", "btn-mirror", "btn-carry"]) {
       $(id).disabled = true;
       $(id).title = "preview is a recording — run the local server to control";
     }
+    const bh = $("btn-home"); if (bh) { bh.onclick = pvHome; bh.title = "Glide to the home pose"; }
+    pvMountReplay();
     startPlayback();
   } else {
     connectWS();
