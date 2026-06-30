@@ -44,7 +44,11 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 $("viewport").appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0, -0.15);         // frame the whole robot
-if (CLEAN) { camera.position.set(-0.5, 2.1, 0.72); controls.target.set(0, 0, 0.06); }
+if (CLEAN) {
+    const _cq = new URLSearchParams(location.search).get("cam");
+    if (_cq) { const n = _cq.split(",").map(Number); camera.position.set(n[0], n[1], n[2]); controls.target.set(n[3] || 0, n[4] || 0, n[5] || 0); }
+    else { camera.position.set(-0.36, 1.5, 0.64); controls.target.set(0, 0, 0.2); }
+  }
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.1));
 const dir = new THREE.DirectionalLight(0xffffff, 1.4);
