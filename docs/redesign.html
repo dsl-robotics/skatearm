@@ -89,7 +89,7 @@
   .hero{padding:60px 0 30px;}
   .hero-grid{display:grid;grid-template-columns:1.04fr .96fr;gap:48px;align-items:center;}
   .hero h1{font:800 clamp(40px,6.4vw,72px)/1.02 var(--sans);letter-spacing:-.03em;margin:18px 0 0;}
-  .hero h1 i{color:var(--accent-lt);font-style:normal;}
+  .hero h1 i{color:var(--accent-lt);font-style:normal;text-shadow:0 0 34px rgba(59,130,246,.45);}
   .hero .def{color:var(--fg);font-size:19px;line-height:1.55;margin:20px 0 0;max-width:540px;}
   .hero .def b{font-weight:600;}
   .hero .sub{color:var(--fg2);font-size:15px;margin:14px 0 0;max-width:520px;}
@@ -118,6 +118,13 @@
   .interop{font:500 12.5px var(--mono);color:var(--faint);display:flex;flex-wrap:wrap;gap:9px;align-items:center;}
   .interop b{color:var(--fg2);}
   .interop span{color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 9px;}
+
+  /* stat band (openarm-style big glowing numbers) */
+  .stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:52px 0;background:rgba(8,9,11,.6);}
+  .statgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:22px;text-align:center;}
+  .statgrid b{display:block;font:800 clamp(30px,4.2vw,48px)/1 var(--sans);letter-spacing:-.02em;color:#fff;text-shadow:0 0 26px rgba(59,130,246,.5);}
+  .statgrid span{display:block;margin-top:11px;font:500 12.5px var(--mono);color:var(--faint);letter-spacing:.03em;}
+  @media(max-width:760px){.statgrid{grid-template-columns:repeat(2,1fr);gap:30px 18px;}}
 
   /* capability panels */
   .panel{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center;padding:54px 0;border-bottom:1px solid var(--line);}
@@ -247,6 +254,16 @@
     </div>
   </div>
 </header>
+
+<section class="stats reveal">
+  <div class="wrap statgrid">
+    <div><b>16</b><span>DoF &middot; 8 per arm</span></div>
+    <div><b>30 Hz</b><span>live telemetry</span></div>
+    <div><b>0.3 s</b><span>deadman E-STOP</span></div>
+    <div><b>1615 mm</b><span>arm span</span></div>
+    <div><b>MIT</b><span>fully open-source</span></div>
+  </div>
+</section>
 
 <section class="trust reveal">
   <div class="wrap">
