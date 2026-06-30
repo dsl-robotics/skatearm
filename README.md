@@ -266,7 +266,13 @@ Full architecture & mapping of all 12 prior portfolio projects onto subsystems: 
 
 ```bash
 git clone https://github.com/Rbotic/skate_teleop.git   # official model (skt_v3)
-pip install mujoco numpy imageio
+pip install -r sim/requirements.txt
+
+# one-shot: build the control + collision models in a single step
+python sim/make.py --skt-dir path/to/skate_teleop/skt_v3
+#   (or  python sim/make.py --clone   — fetches the model and builds it for you)
+
+# …or run the steps individually:
 python sim/render_skate.py --model path/to/skate_teleop/skt_v3         # static renders
 python sim/make_control_model.py path/to/skate_teleop/skt_v3           # + actuators & sensors
 python sim/make_collision_model.py path/to/skate_teleop/skt_v3         # + collision capsules

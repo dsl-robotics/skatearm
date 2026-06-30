@@ -106,3 +106,14 @@ Techniques worth folding into the cockpit, from a survey of @alloyrobotics' MuJo
 - [ ] **Learning track (v1.x):** teach-in → LeRobot dataset → behaviour cloning (+DAgger) / diffusion policy / VLA (SmolVLA, MolmoAct), with domain randomization for sim2real.
 
 *Sequencing rule: every phase ships at least one standalone community tool.*
+
+## Hardening backlog (from the multi-persona repo review)
+
+A review from five viewpoints (casual visitor → expert roboticist) surfaced these:
+
+- [x] **Honest CI / test reporting** — model-gated tests (guard, planner, IK, URDF) now `pytest.skip` cleanly instead of passing vacuously; a note under the badge states what CI does and doesn't cover.
+- [x] **One-shot sim setup** — `sim/make.py` builds the control + collision models from a single `--skt-dir` (or `--clone` to fetch the model first).
+- [x] **Security threat model** — `SECURITY.md` documents the pickle-over-UDP / trusted-LAN posture.
+- [ ] **Safe-serializer wire option** — an opt-in non-`pickle` transport (e.g. `SKATE_WIRE`) for sim↔sim links; `pickle` stays the default for real-firmware compatibility.
+- [ ] **Capsule / convex guard geometry** — replace the cockpit guard's conservative bounding-sphere / box approximation with capsule / convex volumes, so the planner stops detouring around phantom volume.
+- [ ] **Interactive browser demo** — drive the live preview against a small in-browser kinematic stub (today it replays baked telemetry).
