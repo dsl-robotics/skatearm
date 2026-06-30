@@ -20,7 +20,7 @@
 
 </div>
 
-<div align="center"><sub>CI runs the hardware-free subset (wire protocol · joint map · driver safety · NL parser). The model-gated tests — collision guard, RRT planner, IK & URDF — run locally against the <code>skt_v3</code> model and <strong>skip</strong> without it; see <a href="CONTRIBUTING.md#running-the-tests">CONTRIBUTING</a>.</sub></div>
+<div align="center"><sub>CI runs the hardware-free unit tests <strong>and</strong> a second job that builds the <code>skt_v3</code> model and runs the model-gated collision-guard, RRT-planner, IK &amp; URDF tests — so the badge covers the safety-critical paths, not just the wire layer. See <a href="CONTRIBUTING.md#running-the-tests">CONTRIBUTING</a>.</sub></div>
 
 <div align="center">
 
