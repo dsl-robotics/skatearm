@@ -114,6 +114,6 @@ A review from five viewpoints (casual visitor → expert roboticist) surfaced th
 - [x] **Honest CI / test reporting** — model-gated tests (guard, planner, IK, URDF) now `pytest.skip` cleanly instead of passing vacuously; a note under the badge states what CI does and doesn't cover.
 - [x] **One-shot sim setup** — `sim/make.py` builds the control + collision models from a single `--skt-dir` (or `--clone` to fetch the model first).
 - [x] **Security threat model** — `SECURITY.md` documents the pickle-over-UDP / trusted-LAN posture.
-- [ ] **Safe-serializer wire option** — an opt-in non-`pickle` transport (e.g. `SKATE_WIRE`) for sim↔sim links; `pickle` stays the default for real-firmware compatibility.
+- [x] **Hardened wire decoder** — `decode_packet` uses a restricted unpickler by default (whitelists the telemetry classes + numpy, blocks `os.system` / `eval` / reduce-gadget RCE); `SKATE_WIRE=raw` opts out, `pickle` stays the firmware default. Transport **auth** still pending.
 - [ ] **Capsule / convex guard geometry** — replace the cockpit guard's conservative bounding-sphere / box approximation with capsule / convex volumes, so the planner stops detouring around phantom volume.
 - [ ] **Interactive browser demo** — drive the live preview against a small in-browser kinematic stub (today it replays baked telemetry).

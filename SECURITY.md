@@ -34,7 +34,9 @@ arbitrary-code-execution primitive. Treat the control link accordingly:
   to the public internet.
 - There is currently **no authentication** on the wire; anyone who can reach the port can
   command motion (subject to the firmware deadman / E-STOP).
-- The cockpit's `rbt` program executor is AST-sandboxed, but the UDP transport is not — keep
-  it off hostile networks.
+- The cockpit's `rbt` program executor is AST-sandboxed; the UDP **decoder is hardened** too
+  — `decode_packet` uses a restricted unpickler by default (only the known telemetry classes
+  + numpy resolve), so a crafted packet can't execute code. Set `SKATE_WIRE=raw` to opt out.
 
-Hardening this transport (an opt-in safe serializer + auth) is tracked on the roadmap.
+Transport **authentication** (so only an authorised client can command motion) is still
+tracked on the roadmap; until then, keep the link on a trusted LAN.

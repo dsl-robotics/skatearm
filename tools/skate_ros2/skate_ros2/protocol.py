@@ -14,13 +14,18 @@ and confirmed by the official Skate docs):
   0.3 s it assumes deadman ``(0, 0, 0)`` and dampens — that watchdog lives in
   the firmware, not here.
 
-SECURITY NOTE: the wire format is Python pickle, which can execute arbitrary
-code when loading. That is the firmware's choice, not ours; only use this on a
-trusted local network (same assumption the official teleop stack makes).
+SECURITY NOTE: the wire format is Python pickle, which can normally execute
+arbitrary code when loading. The firmware's choice of pickle is fixed, but the
+decoder here defends against it -- :func:`decode_packet` uses a *restricted*
+unpickler by default (only the known telemetry classes + numpy are resolvable),
+so a hostile packet can't run code. Set ``SKATE_WIRE=raw`` to opt out. Even so,
+prefer a trusted local network (the same assumption the official stack makes).
 """
 
 from __future__ import annotations
 
+import io
+import os
 import pickle
 import socket
 import sys
@@ -70,9 +75,56 @@ def pack_command(targ_pos, vel_cmd=(0.0, 0.0, 0.0), height_cmd=1.0,
     return data
 
 
+# Globals a legitimate packet is allowed to reconstruct. The firmware pickles
+# its telemetry classes (under the top-level module name 'shared_classes_def')
+# and numpy arrays; nothing else should ever appear on the wire. Whitelisting
+# these turns pickle from an arbitrary-code-execution primitive into a
+# fixed-shape decoder.
+_SAFE_SCD_CLASSES = {
+    "motor_command", "motor_state", "state_est",
+    "INS_fusion_state", "FeedbackResp",
+}
+_SAFE_SCD_MODULES = {"shared_classes_def", "skate_ros2.shared_classes_def"}
+
+
+class _RestrictedUnpickler(pickle.Unpickler):
+    """Unpickler that only resolves the known telemetry classes + numpy.
+
+    Every other ``find_class`` is refused, so a malicious packet cannot pull in
+    ``os.system`` / ``builtins.eval`` / an arbitrary ``__reduce__`` gadget.
+    """
+
+    def find_class(self, module, name):
+        if module in _SAFE_SCD_MODULES and name in _SAFE_SCD_CLASSES:
+            return super().find_class(module, name)
+        if module == "numpy" or module.startswith("numpy."):
+            return super().find_class(module, name)
+        if module == "copyreg" and name in {"_reconstructor", "__newobj__"}:
+            return super().find_class(module, name)
+        raise pickle.UnpicklingError(
+            f"blocked unpickling of {module}.{name} (untrusted wire packet)")
+
+
+def decode_packet(data):
+    """Decode one telemetry/command packet -> (id, obj).
+
+    Uses a restricted unpickler by default (``SKATE_WIRE`` unset or ``safe``):
+    it accepts every legitimate firmware/sim packet but refuses arbitrary
+    globals, so a hostile packet can't execute code. Set ``SKATE_WIRE=raw`` to
+    fall back to plain ``pickle.loads`` (only on a fully trusted link, e.g. to
+    decode an unforeseen class).
+    """
+    if os.environ.get("SKATE_WIRE", "safe").lower() == "raw":
+        return pickle.loads(data)
+    return _RestrictedUnpickler(io.BytesIO(data)).load()
+
+
 def unpack_packet(data):
-    """Decode one telemetry/command packet -> (id, obj). Trusted LAN only."""
-    return pickle.loads(data)
+    """Decode one telemetry/command packet -> (id, obj). Trusted LAN only.
+
+    Back-compat alias for :func:`decode_packet` (restricted unpickler by default).
+    """
+    return decode_packet(data)
 
 
 class TelemetryState:

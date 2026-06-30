@@ -17,10 +17,11 @@ jobs:
           python-version: "3.11"
       - name: Install test deps
         run: pip install numpy pytest
-      - name: Wire protocol, joint map, driver safety and NL parser
+      - name: Wire protocol, wire security, joint map, driver safety and NL parser
         run: >
           pytest -q
           tools/skate_ros2/test/test_protocol_loopback.py
+          tools/skate_ros2/test/test_wire_safe.py
           tools/skate_ros2/test/test_names.py
           tools/skate_ros2/test/test_driver_logic.py
           tools/skate_commander/test/test_nl.py
