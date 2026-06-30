@@ -315,7 +315,7 @@ Ideas and requests from other Skate owners are welcome — open an issue.
 
 **Daniels Skots Lavs** — mechatronics student (RTU), industrial electronics technician.
 📍 Riga / EU · **open to junior robotics software roles**
-[GitHub profile](https://github.com/Lavs-Daniels-Skots-231RMC173) · [Engineering portfolio](https://github.com/Lavs-Daniels-Skots-231RMC173/engineering-portfolio) · porche121004@gmail.com
+[CV (PDF)](docs/Daniels_Skots_Lavs_CV_EN.pdf) · [GitHub profile](https://github.com/Lavs-Daniels-Skots-231RMC173) · [Engineering portfolio](https://github.com/Lavs-Daniels-Skots-231RMC173/engineering-portfolio) · porche121004@gmail.com
 
 ## License
 
