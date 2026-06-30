@@ -676,8 +676,24 @@ def build_app(model_dir, real_host="r.local", sim_port=2000,
             return JSONResponse({"error": "unknown mesh"}, status_code=404)
         return FileResponse(path, media_type="application/octet-stream")
 
+    def _ws_origin_ok(sock):
+        """Cross-site WebSocket guard (DNS-rebinding defense): a browser sends an
+        Origin from the page that opened the socket. Allow only same-host origins
+        (the cockpit page itself) or no Origin at all (native clients like the
+        bridge); a hostile external page (evil.com) is refused before accept."""
+        from urllib.parse import urlparse
+        origin = sock.headers.get("origin")
+        if not origin:
+            return True
+        host = (urlparse(origin).hostname or "").lower()
+        server_host = (sock.headers.get("host") or "").split(":")[0].lower()
+        return host in ("localhost", "127.0.0.1", "::1") or host == server_host
+
     @app.websocket("/ws")
     async def ws(sock: WebSocket):
+        if not _ws_origin_ok(sock):
+            await sock.close(code=1008)        # cross-site origin — refuse
+            return
         await sock.accept()
         app.state.clients += 1
         try:

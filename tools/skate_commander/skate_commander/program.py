@@ -4,7 +4,9 @@ User programs run on a worker thread in a tiny sandboxed namespace: ``rbt``
 (the robot API below), ``math`` and a whitelist of builtins. Every motion
 call goes through the SAME RobotBridge paths as the UI — joint limits, the
 collision guard, E-STOP, overtemp and the manual-input-interrupts rule all
-apply. (A convenience sandbox for a local tool, not a security boundary.)
+apply. User code is AST-checked first (no imports, no dunder access) and runs
+with restricted builtins, which blocks the usual ``exec``-sandbox escapes —
+though this is still a local-tool guard, not a hostile-multi-tenant boundary.
 
 Click-to-Step: started in step mode the runner pauses BEFORE every motion
 command and reports the next command + source line; each STEP executes
@@ -25,6 +27,7 @@ API (joints in degrees, cartesian in millimeters, world axes):
 
 from __future__ import annotations
 
+import ast
 import builtins
 import math
 import sys
@@ -46,6 +49,35 @@ _SAFE = {n: getattr(builtins, n)
 
 class ProgramStopped(Exception):
     pass
+
+
+class _SandboxError(ValueError):
+    pass
+
+
+class _Sandbox(ast.NodeVisitor):
+    """AST allow-list run before a program is compiled. It rejects the nodes that
+    enable the classic ``exec``-sandbox escapes — imports, and any dunder name or
+    attribute access (``__class__`` / ``__globals__`` / ``__subclasses__`` /
+    ``__builtins__`` / ``__import__`` …). Combined with the restricted builtins,
+    this blocks ``().__class__.__base__.__subclasses__()`` style break-outs.
+    (Still a local-tool guard, not a hostile-multi-tenant boundary.)
+    """
+
+    def visit_Import(self, node):
+        raise _SandboxError("import is not allowed in robot programs")
+
+    visit_ImportFrom = visit_Import
+
+    def visit_Attribute(self, node):
+        if isinstance(node.attr, str) and node.attr.startswith("__"):
+            raise _SandboxError(f"access to attribute '{node.attr}' is not allowed")
+        self.generic_visit(node)
+
+    def visit_Name(self, node):
+        if isinstance(node.id, str) and node.id.startswith("__"):
+            raise _SandboxError(f"access to name '{node.id}' is not allowed")
+        self.generic_visit(node)
 
 
 def _resolve_joint(joint):
@@ -347,9 +379,14 @@ class ProgramRunner:
             if code is not None:
                 self.code = str(code)
             try:
-                obj = compile(self.code, PROGRAM_FILE, "exec")
+                tree = ast.parse(self.code, PROGRAM_FILE, "exec")
+                _Sandbox().visit(tree)
+                obj = compile(tree, PROGRAM_FILE, "exec")
             except SyntaxError as e:
                 self.log = [f"x syntax error, line {e.lineno}: {e.msg}"]
+                return False
+            except _SandboxError as e:
+                self.log = [f"x rejected: {e}"]
                 return False
             self.running = True
             self.paused = False

@@ -34,9 +34,15 @@ arbitrary-code-execution primitive. Treat the control link accordingly:
   to the public internet.
 - There is currently **no authentication** on the wire; anyone who can reach the port can
   command motion (subject to the firmware deadman / E-STOP).
-- The cockpit's `rbt` program executor is AST-sandboxed; the UDP **decoder is hardened** too
-  — `decode_packet` uses a restricted unpickler by default (only the known telemetry classes
-  + numpy resolve), so a crafted packet can't execute code. Set `SKATE_WIRE=raw` to opt out.
+- The UDP **decoder is hardened**: `decode_packet` uses a restricted unpickler with an
+  **exact** allow-list — the telemetry classes plus numpy array reconstruction only, *no*
+  `numpy.*` wildcard — so a crafted packet can't reach `os.system` / `eval` / `numpy.f2py`.
+  Set `SKATE_WIRE=raw` to opt out.
+- The cockpit's `rbt` program runner **AST-validates** user code before running it (rejects
+  imports and dunder name / attribute access) on top of restricted builtins, blocking the
+  usual `exec`-sandbox escapes. It is still a local-tool guard, not a hostile-tenant boundary.
+- The cockpit binds `127.0.0.1` by default, and its WebSocket **refuses cross-site origins**
+  (a DNS-rebinding defense).
 
 Transport **authentication** (so only an authorised client can command motion) is still
 tracked on the roadmap; until then, keep the link on a trusted LAN.

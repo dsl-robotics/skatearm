@@ -72,3 +72,28 @@ def test_raw_mode_opts_out():
         assert pkt_id == protocol.COMMAND_ID
     finally:
         os.environ.pop("SKATE_WIRE", None)
+
+
+def test_numpy_wildcard_closed():
+    """The old numpy.* startswith hole is closed: an arbitrary numpy global that
+    is NOT an array-reconstruction entry point (numpy.f2py / numpy.distutils
+    command-exec helpers, or even numpy.add) must be refused, while the real
+    reconstruction names still resolve."""
+    import io
+    import pytest
+    u = protocol._RestrictedUnpickler(io.BytesIO(b""))
+    for mod, name in [("numpy", "add"),
+                      ("numpy.f2py.diagnose", "run_command"),
+                      ("numpy.distutils", "exec_command"),
+                      ("numpy.ctypeslib", "load_library"),
+                      ("os", "system"), ("builtins", "eval")]:
+        with pytest.raises(pickle.UnpicklingError):
+            u.find_class(mod, name)
+    assert u.find_class("numpy", "ndarray") is np.ndarray
+
+
+def test_numpy_array_still_roundtrips():
+    """Legit numpy arrays (why numpy is allow-listed at all) still decode."""
+    arr = np.arange(6, dtype=np.float64).reshape(2, 3)
+    _id, got = protocol.decode_packet(pickle.dumps((2, arr)))
+    assert isinstance(got, np.ndarray) and got.shape == (2, 3) and got[1, 2] == 5.0

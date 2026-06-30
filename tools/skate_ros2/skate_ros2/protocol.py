@@ -75,31 +75,40 @@ def pack_command(targ_pos, vel_cmd=(0.0, 0.0, 0.0), height_cmd=1.0,
     return data
 
 
-# Globals a legitimate packet is allowed to reconstruct. The firmware pickles
-# its telemetry classes (under the top-level module name 'shared_classes_def')
-# and numpy arrays; nothing else should ever appear on the wire. Whitelisting
-# these turns pickle from an arbitrary-code-execution primitive into a
-# fixed-shape decoder.
-_SAFE_SCD_CLASSES = {
-    "motor_command", "motor_state", "state_est",
-    "INS_fusion_state", "FeedbackResp",
-}
-_SAFE_SCD_MODULES = {"shared_classes_def", "skate_ros2.shared_classes_def"}
+# Exact (module, name) pairs a legitimate packet may reconstruct. The firmware
+# pickles its telemetry classes (under the bare module name 'shared_classes_def';
+# our code may use the package-qualified name) plus numpy arrays; nothing else
+# should ever appear on the wire.
+#
+# This is an EXACT allow-list, NOT a numpy.* prefix match: numpy.f2py and
+# numpy.distutils expose command-execution helpers (e.g. f2py.diagnose.run_command,
+# distutils.exec_command) that a ``startswith("numpy.")`` rule would have let
+# through — a remotely reachable RCE. Only the array-reconstruction entry points
+# (both the numpy 1.x ``core`` and 2.x ``_core`` namespaces) are permitted.
+_SCD_CLASSES = ("motor_command", "motor_state", "state_est",
+                "INS_fusion_state", "FeedbackResp")
+_SAFE_GLOBALS = frozenset(
+    [(mod, cls)
+     for mod in ("shared_classes_def", "skate_ros2.shared_classes_def")
+     for cls in _SCD_CLASSES]
+    + [("numpy", "ndarray"), ("numpy", "dtype"),
+       ("numpy.core.multiarray", "_reconstruct"),
+       ("numpy.core.multiarray", "scalar"),
+       ("numpy._core.multiarray", "_reconstruct"),
+       ("numpy._core.multiarray", "scalar"),
+       ("copyreg", "_reconstructor"), ("copyreg", "__newobj__")]
+)
 
 
 class _RestrictedUnpickler(pickle.Unpickler):
-    """Unpickler that only resolves the known telemetry classes + numpy.
-
-    Every other ``find_class`` is refused, so a malicious packet cannot pull in
-    ``os.system`` / ``builtins.eval`` / an arbitrary ``__reduce__`` gadget.
+    """Unpickler that resolves ONLY the known telemetry classes + numpy array
+    reconstruction (exact allow-list). Every other ``find_class`` is refused, so
+    a crafted packet cannot reach ``os.system`` / ``eval`` / ``numpy.f2py`` / an
+    arbitrary ``__reduce__`` gadget.
     """
 
     def find_class(self, module, name):
-        if module in _SAFE_SCD_MODULES and name in _SAFE_SCD_CLASSES:
-            return super().find_class(module, name)
-        if module == "numpy" or module.startswith("numpy."):
-            return super().find_class(module, name)
-        if module == "copyreg" and name in {"_reconstructor", "__newobj__"}:
+        if (module, name) in _SAFE_GLOBALS:
             return super().find_class(module, name)
         raise pickle.UnpicklingError(
             f"blocked unpickling of {module}.{name} (untrusted wire packet)")
