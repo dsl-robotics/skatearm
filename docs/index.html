@@ -30,7 +30,7 @@
 <style>
   :root{
     --bg:#0E1013; --bg2:#08090B; --panel:#16191E; --panel2:#1E222A; --panel3:#1E222A;
-    --line:#2A2F37; --line2:#2A2F37; --fg:#D6DAE0; --fg2:#9AA1AB; --dim:#8B929C; --faint:#5A616B;
+    --line:#2A2F37; --line2:#2A2F37; --fg:#D6DAE0; --fg2:#9AA1AB; --dim:#9BA2AC; --faint:#828A95;
     --accent:#3B82F6; --accent-lt:#6AA0F8; --accent-dk:#2D6FE0; --accent-ink:#0a1220; --amber:#F5A623;
     --grid:rgba(150,160,175,.05); --grid2:rgba(150,160,175,.09);
     --sans:"Inter","Segoe UI",system-ui,sans-serif;
@@ -286,9 +286,9 @@
     <div>
       <div class="ticks"><span class="label">Open robotics · MuJoCo · ROS 2</span></div>
       <h1>Skate<i>Arm</i></h1>
-      <p class="lede">Drive a <b>two-armed robot from your browser</b> — first as a 3D simulation, then, with one switch, the real
-        <a href="https://www.rboticlabs.com/shop/p/skate-upper-body-v2" target="_blank" rel="noopener">R.Botic Skate</a>.</p>
-      <p class="sub">An open two-handed work-cell &amp; browser cockpit — no robot required to try it. Everything here runs in simulation today; the real Skate is one switch away when the hardware lands.</p>
+      <p class="lede">Drive a <b>two-armed robot from your browser</b> — a 3D simulation today, built to switch to the real
+        <a href="https://www.rboticlabs.com/shop/p/skate-upper-body-v2" target="_blank" rel="noopener">R.Botic Skate</a> when the hardware arrives.</p>
+      <p class="sub">An open two-handed work-cell &amp; browser cockpit — no robot required to try it. Everything here runs in simulation today (sim-validated, no hardware hours yet); the real Skate is en route, and the SIM/REAL switch is already wired in software.</p>
       <div class="ctas">
         <a class="btn primary" href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6"/></svg>Open the demo — no install</a>
         <a class="btn" href="https://github.com/dsl-robotics/skatearm" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub</a>
@@ -314,7 +314,7 @@
 <section id="cockpit">
   <div class="wrap">
     <div class="shead"><span class="snum">01</span><h2>Skate Commander — the web cockpit</h2></div>
-    <p class="ssub">Drive the 3D digital twin from a browser; flip one switch and the same commands drive the real robot. <span class="hl">Early access</span> — sim-first today; real-Skate support arrives with the hardware.</p>
+    <p class="ssub">Drive the 3D digital twin from a browser; the same commands are built to drive the real robot through one SIM/REAL switch, once the hardware arrives. <span class="hl">Early access</span> — sim-first today.</p>
     <figure class="frame reveal" style="padding:12px;">
       <span class="cap">Product film · 3:46</span>
       <video controls preload="metadata" poster="img/commander_v08_video_poster.webp">
@@ -343,7 +343,7 @@
 <section id="features">
   <div class="wrap">
     <div class="shead"><span class="snum">02</span><h2>What it does</h2></div>
-    <p class="ssub">A robotics-workstation's worth of capability in one browser cockpit — an <span class="hl">Isaac-Sim-style</span> shell over a safe, wire-honest control core; every motion is checked for self-collision before it reaches the robot.</p>
+    <p class="ssub">A full teleoperation workstation in one browser cockpit — a workstation-style shell over a safe, wire-honest control core; every motion is checked for self-collision before it reaches the robot.</p>
     <div class="shots reveal">
       <figure class="shot"><span class="scap">Dexterity</span><img src="img/cockpit_dex.webp" loading="lazy" decoding="async" alt="Manipulability dexterity cloud rendered around the robot"><figcaption><b>Manipulability cloud</b> — warm where the arm is dexterous, blue near its singular reach limits.</figcaption></figure>
       <figure class="shot"><span class="scap">Ghost preview</span><img src="img/cockpit_ghost.webp" loading="lazy" decoding="async" alt="Translucent green ghost robot preview with an Approve / Cancel gate"><figcaption><b>Approve / Cancel gate</b> — risky moves preview as a translucent ghost first.</figcaption></figure>

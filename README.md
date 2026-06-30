@@ -1,8 +1,10 @@
 # SkateArm
 
-**A two-armed robot you can drive from your browser — first as a 3D simulation, then, with one switch, the real [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2).**
+**A two-armed robot you can drive from your browser — a 3D simulation today, built to switch to the real [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2) when the hardware arrives.**
 
 *An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire.*
+
+> **Status — simulation today.** Everything here is sim-validated in MuJoCo; the real Skate is en route to Riga, so no real-hardware performance is claimed yet — hardware bring-up is Phase 2.
 
 <div align="center">
   <a href="https://dsl-robotics.github.io/skatearm/"><img src="docs/img/commander_mirror.gif" width="820" alt="Skate Commander cockpit — drag-IK and mirror-mode bimanual motion in the v0.8 workstation while live telemetry tracks it"></a>
@@ -79,22 +81,18 @@
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
 
 <div align="center">
-<table>
-  <tr>
-    <td width="50%"><img width="100%" src="docs/img/cockpit_dex.webp" alt="Manipulability dexterity cloud rendered around the robot"><br><sub><b>Manipulability cloud</b> — warm where dexterous, blue near singular reach</sub></td>
-    <td width="50%"><img width="100%" src="docs/img/cockpit_plots.webp" alt="Live Foxglove-style telemetry strip charts under the 3D view"><br><sub><b>Live telemetry plots</b> — angle / velocity / temperature / TCP / RTT at 30 Hz</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img width="100%" src="docs/img/cockpit_v0724_cockpit.webp" alt="The v0.8.0 Isaac-Sim-style cockpit: menu bar, tool rail, 3D twin, STAGE/PROPERTY dock"><br><sub><b>Isaac-Sim-style workstation</b> — menu bar, tool rail, Stage / Property dock, timeline</sub></td>
-    <td width="50%"><img width="100%" src="docs/img/cockpit_ghost.webp" alt="Translucent ghost-robot preview with an Approve / Cancel gate"><br><sub><b>Ghost preview</b> — risky moves wait behind an Approve / Cancel gate</sub></td>
-  </tr>
-</table>
+  <img width="390" src="docs/img/cockpit_dex.webp" alt="Manipulability dexterity cloud rendered around the robot — warm where dexterous, blue near singular reach">
+  <img width="390" src="docs/img/cockpit_plots.webp" alt="Live Foxglove-style telemetry strip charts (angle / velocity / temperature / TCP / RTT at 30 Hz) under the 3D view">
+  <img width="390" src="docs/img/cockpit_v0724_cockpit.webp" alt="The v0.8 cockpit: menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and timeline">
+  <img width="390" src="docs/img/cockpit_ghost.webp" alt="Translucent ghost-robot preview gated behind Approve / Cancel">
+  <br>
+  <em><b>Manipulability cloud</b> · <b>live telemetry plots</b> (30 Hz) · the <b>workstation shell</b> (menu bar, tool rail, Stage / Property dock) · <b>ghost-preview</b> Approve / Cancel gate</em>
 </div>
 
-**The cockpit packs a robotics-workstation's worth of tooling** — drag-IK and mirror-mode bimanual motion, RRT collision-routing, Python + teach-in programs, an Isaac-Sim-style Stage / Property shell, live telemetry plots, a TF tree, diagnostics, and scene markers with keep-out obstacles. The full catalogue:
+**The cockpit is a full teleoperation workstation** — drag-IK and mirror-mode bimanual motion, RRT collision-routing, Python + teach-in programs, a Stage / Property shell, live telemetry plots, a TF tree, diagnostics, and scene markers with keep-out obstacles. The full catalogue:
 
 <details>
-<summary><strong>▸ Full cockpit feature catalogue</strong> — 30+ features across motion · programs · vision · safety · observability · scene tools <em>(click to expand)</em></summary>
+<summary><strong>▸ Full cockpit feature catalogue</strong> — motion · programs · vision · safety · observability · scene tools <em>(click to expand)</em></summary>
 
 ### Motion, IK &amp; manipulability
 
@@ -265,7 +263,9 @@ Full architecture & mapping of all 12 prior portfolio projects onto subsystems: 
 ## 🚀 Quick start (simulation)
 
 ```bash
-git clone https://github.com/Rbotic/skate_teleop.git   # official model (skt_v3)
+git clone https://github.com/dsl-robotics/skatearm.git   # this repo (the sim/ tools below live here)
+git clone https://github.com/Rbotic/skate_teleop.git     # the official model (skt_v3)
+cd skatearm
 pip install -r sim/requirements.txt
 
 # one-shot: build the control + collision models in a single step
