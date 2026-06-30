@@ -69,8 +69,13 @@ class _Sandbox(ast.NodeVisitor):
 
     visit_ImportFrom = visit_Import
 
+    # str.format / format_map can walk attributes ("{0.__class__}".format(x))
+    # via the format mini-language with no Attribute AST node — block them too.
+    _BANNED_ATTR = frozenset({"format", "format_map"})
+
     def visit_Attribute(self, node):
-        if isinstance(node.attr, str) and node.attr.startswith("__"):
+        if isinstance(node.attr, str) and (node.attr.startswith("__")
+                                           or node.attr in self._BANNED_ATTR):
             raise _SandboxError(f"access to attribute '{node.attr}' is not allowed")
         self.generic_visit(node)
 

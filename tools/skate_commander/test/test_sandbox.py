@@ -25,6 +25,8 @@ from skate_commander.program import _Sandbox, _SandboxError   # noqa: E402
     "b = __builtins__",
     "g = (lambda: 0).__globals__",
     "object.__subclasses__(object)",
+    '"{0.__class__}".format(())',
+    '"{0.__class__}".format_map({})',
 ])
 def test_sandbox_rejects_escapes(src):
     with pytest.raises(_SandboxError):

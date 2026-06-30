@@ -35,8 +35,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install deps (cockpit + MuJoCo)
-        run: pip install -r tools/skate_commander/requirements.txt mujoco pytest
+      - name: Install deps (cockpit + MuJoCo, pinned)
+        run: pip install -r tools/skate_commander/requirements.txt "mujoco==3.10.0" pytest
       - name: Fetch the official skt_v3 model
         run: git clone --depth 1 https://github.com/Rbotic/skate_teleop.git
       - name: Build the control + collision models
