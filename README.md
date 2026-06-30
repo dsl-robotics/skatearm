@@ -5,7 +5,7 @@
 *An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire.*
 
 <div align="center">
-  <a href="https://dsl-robotics.github.io/skatearm/"><img src="docs/img/cockpit_v0724_demo.gif" width="820" alt="Skate Commander cockpit — mirror mode drives both arms from one slider while live telemetry plots track the motion"></a>
+  <a href="https://dsl-robotics.github.io/skatearm/"><img src="docs/img/commander_mirror.gif" width="820" alt="Skate Commander cockpit — drag-IK and mirror-mode bimanual motion in the v0.8 workstation while live telemetry tracks it"></a>
 </div>
 
 <div align="center">
@@ -38,7 +38,7 @@
 
 <div align="center">
   <img src="docs/img/cell_cycle_demo.gif" width="420px" alt="Autonomous GRAFCET assembly cycle with camera QC and HMI overlay">
-  <img src="docs/img/commander_v06_overview.gif" width="420px" alt="Skate Commander overview: mirror-mode bimanual jog raises both arms from one slider, then teach-in writes a program from hand-moved poses and replays it">
+  <img src="docs/img/commander_teachin.gif" width="420px" alt="Skate Commander teach-in: moving the arms by hand writes rbt program lines that the cockpit can replay">
   <br>
   <em>Left: <strong>Phase 1 complete</strong> — the autonomous bimanual assembly cycle (GRAFCET sequencer, camera QC).
   Right: <strong>Skate Commander</strong> — mirror-mode bimanual jog, then teach-in: move the arms by hand and the cockpit writes the <code>rbt</code> program itself.</em>

@@ -35,7 +35,7 @@ redistributed).
 </div>
 
 <div align="center">
-  <img src="../../docs/img/cockpit_v0724_demo.gif" width="680px" alt="Skate Commander v0.8.0: mirror mode drives both arms from one slider while the live telemetry plots track the motion">
+  <img src="../../docs/img/commander_mirror.gif" width="680px" alt="Skate Commander v0.8.0: drag-IK and mirror-mode bimanual motion in the workstation while live telemetry plots track it">
   <br>
   <em><strong>v0.8.0 cockpit in action</strong> — mirror mode drives both arms from one slider while the live telemetry plots track the motion.</em>
 </div>
