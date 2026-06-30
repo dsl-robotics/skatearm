@@ -113,6 +113,28 @@ def _obstacle_hit(c, rr, o):
     return dx * dx + dy * dy + dz * dz < rr * rr
 
 
+def _capsule_hit(center, axis, radius, half_len, o):
+    """True if a capsule overlaps the virtual obstacle ``o``.
+
+    The capsule is the segment ``center ± half_len*axis`` swept by ``radius``.
+    The axis is sampled at a spacing <= ``radius`` and each sample is tested as
+    a sphere of radius ``radius * 1.12`` — the union of those spheres provably
+    covers the whole capsule (so this never under-blocks), yet it sheds the huge
+    phantom volume an enclosing sphere (radius + half_len) claims against a
+    keep-out box: a long forearm no longer reserves a ~30 cm ball around itself.
+    """
+    n = max(1, int(2.0 * half_len / max(radius, 1e-3)) + 1)
+    rr = radius * 1.12
+    for k in range(n + 1):
+        f = -half_len + (2.0 * half_len) * (k / n)
+        pt = (center[0] + f * axis[0],
+              center[1] + f * axis[1],
+              center[2] + f * axis[2])
+        if _obstacle_hit(pt, rr, o):
+            return True
+    return False
+
+
 def make_collision_guard(collision_xml, get_obstacles=None):
     """Self-collision predicate over the SkateArm box-collision model.
 
@@ -186,8 +208,14 @@ def make_collision_guard(collision_xml, get_obstacles=None):
             if obs:
                 for gi in geom_ids:
                     cx = gd.geom_xpos[gi]
-                    for o in obs:
-                        if _obstacle_hit(cx, geom_r[gi], o):
+                    if int(gm.geom_type[gi]) == 3:         # capsule: test its axis segment
+                        ax = gd.geom_xmat[gi].reshape(3, 3)[:, 2]
+                        r = float(gm.geom_size[gi][0])
+                        hl = float(gm.geom_size[gi][1])
+                        if any(_capsule_hit(cx, ax, r, hl, o) for o in obs):
+                            return True
+                    else:                                  # compact geom: enclosing sphere
+                        if any(_obstacle_hit(cx, geom_r[gi], o) for o in obs):
                             return True
         return False
 

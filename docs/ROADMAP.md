@@ -115,5 +115,5 @@ A review from five viewpoints (casual visitor → expert roboticist) surfaced th
 - [x] **One-shot sim setup** — `sim/make.py` builds the control + collision models from a single `--skt-dir` (or `--clone` to fetch the model first).
 - [x] **Security threat model** — `SECURITY.md` documents the pickle-over-UDP / trusted-LAN posture.
 - [x] **Hardened wire decoder** — `decode_packet` uses a restricted unpickler by default (whitelists the telemetry classes + numpy, blocks `os.system` / `eval` / reduce-gadget RCE); `SKATE_WIRE=raw` opts out, `pickle` stays the firmware default. Transport **auth** still pending.
-- [ ] **Capsule / convex guard geometry** — replace the cockpit guard's conservative bounding-sphere / box approximation with capsule / convex volumes, so the planner stops detouring around phantom volume.
+- [x] **Capsule obstacle geometry** — the keep-out-obstacle check now tests each capsule link against its actual swept segment (provably-covering sampling, never under-blocks) instead of a fat enclosing sphere, so the planner stops detouring around phantom volume around long links. (Self-collision was already MuJoCo-capsule-accurate.)
 - [ ] **Interactive browser demo** — drive the live preview against a small in-browser kinematic stub (today it replays baked telemetry).
