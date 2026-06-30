@@ -175,7 +175,7 @@ pkt/s, elbow tracking error 0.015 rad, watchdog dampen < 0.3 s
 * `ros2_control` hardware interface + MoveIt 2 config for the bimanual chains
   (the `joint_states` + URDF path already works for RViz/planning-scene use);
 * gripper action server;
-* real-hardware validation when the Skate lands in Riga — wire numbers above
+* real-hardware validation when the Skate lands — wire numbers above
   are sim-endpoint numbers until then.
 
 ## Credits

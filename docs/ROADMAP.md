@@ -82,7 +82,7 @@
 
 *Watch-outs: hardware-arrival timing is the main unknown; calibration is the hardest part (budget time for it); solo-dev — keep v1.0 focused on cockpit + bridge + safety, push AI/autonomy to v1.x.*
 
-## Phase 2 — Real Skate bring-up (hardware in Riga)  *(→ v1.x, post-1.0: autonomous cell + learned policies)*
+## Phase 2 — Real Skate bring-up (on hardware arrival)  *(→ v1.x, post-1.0: autonomous cell + learned policies)*
 - [ ] Unboxing → teleop → joint-by-joint validation (document as handbook chapters)
 - [ ] `skate_ros2` against real UDP endpoint
 - [ ] Teleop dataset collection (LeRobot format) → dataset hub

@@ -3,7 +3,7 @@
 > Status: **v1 approved 11.06.2026.** Decisions 1–3 signed off (fit progression
 > H9/d9 → H7/g6; PETG print first, one CNC aluminium pair later; takt ≤ 60 s,
 > stretch 30 s). Decision 4 (gripper jaw vs Ø20 peg) stays open until the robot
-> arrives in Riga. Sim implementation can start.
+> arrives. Sim implementation can start.
 
 ## 1. Task statement
 
@@ -91,4 +91,4 @@ drawing — links to the metrology/engineering-drawing portfolio projects.
 1. ✅ Fit class progression H9/d9 → H7/g6 — approved 11.06.2026.
 2. ✅ PETG print v1, one aluminium CNC pair later — approved 11.06.2026.
 3. ✅ Takt target ≤ 60 s (stretch 30 s) — approved 11.06.2026.
-4. ⏳ Gripper jaw geometry vs Ø20 peg — **open**, to verify when the robot arrives in Riga; sim proceeds without a detailed gripper model until then.
+4. ⏳ Gripper jaw geometry vs Ø20 peg — **open**, to verify when the robot arrives; sim proceeds without a detailed gripper model until then.

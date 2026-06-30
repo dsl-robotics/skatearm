@@ -37,7 +37,7 @@ flowchart LR
     SEQ --> DASH
 ```
 
-Sim-first: everything runs against the MuJoCo twin until the real Skate arrives in Riga; the motion layer then switches target via the `skate_ros2` UDP bridge (shipped — `tools/skate_ros2/`, with the Skate Commander web cockpit on top: drag-IK, mirror mode, dual-arm carry, jerk-limited motion, teach-in, natural-language programs and closed-loop visual servoing, all collision-guarded).
+Sim-first: everything runs against the MuJoCo twin until the real Skate arrives; the motion layer then switches target via the `skate_ros2` UDP bridge (shipped — `tools/skate_ros2/`, with the Skate Commander web cockpit on top: drag-IK, mirror mode, dual-arm carry, jerk-limited motion, teach-in, natural-language programs and closed-loop visual servoing, all collision-guarded).
 
 ## Mapping: 12 portfolio projects → subsystems
 

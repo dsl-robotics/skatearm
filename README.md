@@ -4,7 +4,7 @@
 
 *An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire.*
 
-> **Status — simulation today.** Everything here is sim-validated in MuJoCo; the real Skate is en route to Riga, so no real-hardware performance is claimed yet — hardware bring-up is Phase 2.
+> **Status — simulation today.** Everything here is sim-validated in MuJoCo; the real Skate is en route, so no real-hardware performance is claimed yet — hardware bring-up is Phase 2.
 
 <div align="center">
   <a href="https://dsl-robotics.github.io/skatearm/"><img src="docs/img/commander_mirror.gif" width="820" alt="Skate Commander cockpit — drag-IK and mirror-mode bimanual motion in the v0.8 workstation while live telemetry tracks it"></a>
@@ -197,7 +197,7 @@ A ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, d
 | Tracking error | 0.015 rad (vs the MuJoCo model) |
 | Watchdog dampen after silence | < 0.3 s (configured timeout) |
 
-*These are sim-endpoint figures: command rate and watchdog timeout are configured targets confirmed in simulation, and tracking error is against the MuJoCo model. Real-hardware numbers come once the Skate reaches Riga.*
+*These are sim-endpoint figures: command rate and watchdog timeout are configured targets confirmed in simulation, and tracking error is against the MuJoCo model. Real-hardware numbers come once the Skate arrives.*
 
 <div align="center">
   <img src="docs/img/ros2_wire_stats.png" width="560px" alt="Wire statistics: packet rates and joint tracking during the demo">
@@ -256,7 +256,7 @@ flowchart TB
     CAM --> QC
 ```
 
-**Demonstrator task:** one arm holds/fixtures a part, the other inserts (peg-in-hole class), then in-cell measurement decides accept/reject and logs to the dashboard. The real Skate (16 DoF, span 1615 mm, RPi 5, UDP control) is en route to Riga — Phase 2 starts on arrival; `skate_ros2` is already waiting for it.
+**Demonstrator task:** one arm holds/fixtures a part, the other inserts (peg-in-hole class), then in-cell measurement decides accept/reject and logs to the dashboard. The real Skate (16 DoF, span 1615 mm, RPi 5, UDP control) is en route — Phase 2 starts on arrival; `skate_ros2` is already waiting for it.
 
 Full architecture & mapping of all 12 prior portfolio projects onto subsystems: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Phased plan: [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -314,7 +314,7 @@ Ideas and requests from other Skate owners are welcome — open an issue.
 ## Author
 
 **Daniels Skots Lavs** — mechatronics student (RTU), industrial electronics technician.
-📍 Riga / EU · **open to junior robotics software roles**
+**open to junior robotics software roles**
 [CV (PDF)](docs/Daniels_Skots_Lavs_CV_EN.pdf) · [GitHub profile](https://github.com/Lavs-Daniels-Skots-231RMC173) · [Engineering portfolio](https://github.com/Lavs-Daniels-Skots-231RMC173/engineering-portfolio) · porche121004@gmail.com
 
 ## License
