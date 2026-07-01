@@ -1,0 +1,23 @@
+# Velocity/acceleration limits for time-parameterization (position limits come
+# from the URDF). Conservative for a shared-workspace bimanual robot; scale up
+# once validated on hardware. Grippers move slower than the arm joints.
+default_velocity_scaling_factor: 0.3
+default_acceleration_scaling_factor: 0.3
+
+joint_limits:
+  a0_armL_a8:  {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a1_armL_a9:  {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a2_armL_a10: {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a3_armL_a11: {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a4_armL_a12: {has_velocity_limits: true, max_velocity: 2.0, has_acceleration_limits: true, max_acceleration: 4.0}
+  a5_armL_a13: {has_velocity_limits: true, max_velocity: 2.0, has_acceleration_limits: true, max_acceleration: 4.0}
+  a6_armL_a14: {has_velocity_limits: true, max_velocity: 2.0, has_acceleration_limits: true, max_acceleration: 4.0}
+  a7_armL_a15: {has_velocity_limits: true, max_velocity: 1.0, has_acceleration_limits: true, max_acceleration: 2.0}
+  a0_armR_a16: {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a1_armR_a17: {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a2_armR_a18: {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a3_armR_a19: {has_velocity_limits: true, max_velocity: 1.5, has_acceleration_limits: true, max_acceleration: 3.0}
+  a4_armR_a20: {has_velocity_limits: true, max_velocity: 2.0, has_acceleration_limits: true, max_acceleration: 4.0}
+  a5_armR_a21: {has_velocity_limits: true, max_velocity: 2.0, has_acceleration_limits: true, max_acceleration: 4.0}
+  a6_armR_a22: {has_velocity_limits: true, max_velocity: 2.0, has_acceleration_limits: true, max_acceleration: 4.0}
+  a7_armR_a23: {has_velocity_limits: true, max_velocity: 1.0, has_acceleration_limits: true, max_acceleration: 2.0}

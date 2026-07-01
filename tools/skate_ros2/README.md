@@ -144,6 +144,40 @@ Parameters: `robot_host`, `robot_port`, `tx_rate` (60), `rx_rate` (60),
 `cmd_timeout` (0.3), `auto_deadman` (true), `overtemp_c` (58.0) — all
 exposed as launch arguments of `skate_bridge.launch.py` too.
 
+## MoveIt 2 (bimanual planning)
+
+[`skate_moveit_config`](../skate_moveit_config/) is a MoveIt 2 config for the
+two arms: `left_arm` / `right_arm` / `both_arms` planning groups, an SRDF
+**generated from the URDF** (`make_srdf.py`, so the 197-pair collision matrix
+tracks the model and `sim/make_collision_model.py`'s excludes), OMPL planning,
+and per-arm `FollowJointTrajectory` controllers.
+
+Execution reuses **this** driver instead of a second control path: the
+`moveit_bridge` node runs one action server per arm, interpolates the planned
+trajectory (`skate_ros2/traj_interp.py` — pure Python, unit-tested) and streams
+it to `skate/joint_position_cmd`, so MoveIt inherits the driver's
+arm-at-measured-pose / deadman / estop / overtemp safety instead of
+re-implementing it.
+
+```bash
+# sim endpoint on :2000, then:
+ros2 launch skate_moveit_config demo.launch.py \
+    model_path:=/path/to/skate_teleop/skt_v3 robot_host:=127.0.0.1
+# plan in the RViz MotionPlanning panel: move_group -> moveit_bridge -> driver -> sim
+```
+
+> **Status — built &amp; planning-verified on ROS 2 Jazzy** (Ubuntu 24.04 / WSL2):
+> `colcon build` clean, `move_group` loads the config and **MoveItPy plans
+> collision-free bimanual trajectories** (2/2, ~13–15 waypoints). Three real
+> bugs were caught &amp; fixed during the live bring-up (URDF/SRDF robot-name
+> match, `file://` mesh URIs, Jazzy list-form planning-pipeline params). The
+> SRDF↔URDF consistency and the interpolation are also unit-tested without ROS.
+> Full trajectory execution to the sim is wired (the bridge accepts
+> FollowJointTrajectory goals); a visual end-to-end run needs a cross-process
+> DDS config on WSL2 (fine on a native ROS 2 box). On hardware, a `ros2_control`
+> `JointTrajectoryController` + a Skate `SystemInterface` is the production
+> alternative to the Python bridge.
+
 ## Sim endpoint: honest approximations
 
 The emulator is faithful on the wire (port, packet layout, watchdog timing,
@@ -172,8 +206,11 @@ pkt/s, elbow tracking error 0.015 rad, watchdog dampen < 0.3 s
 
 ## Roadmap
 
-* `ros2_control` hardware interface + MoveIt 2 config for the bimanual chains
-  (the `joint_states` + URDF path already works for RViz/planning-scene use);
+* MoveIt 2 config + `FollowJointTrajectory` bridge for the bimanual chains —
+  **authored & structurally validated** ([`tools/skate_moveit_config`](../skate_moveit_config/),
+  see the MoveIt 2 section above); the live `colcon build` + planning run awaits
+  a ROS 2 machine, and a native `ros2_control` hardware interface is the
+  production alternative to the Python bridge;
 * gripper action server;
 * real-hardware validation when the Skate lands — wire numbers above
   are sim-endpoint numbers until then.

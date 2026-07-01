@@ -291,7 +291,8 @@ Tools get built because SkateArm needs them — then released standalone:
 
 | Tool | What it is | Status |
 |---|---|---|
-| [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified; MoveIt config next) |
+| [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified) |
+| [`skate_moveit_config`](tools/skate_moveit_config/) | MoveIt 2 config for the bimanual chains — SRDF generated from the URDF, OMPL planning, and a FollowJointTrajectory bridge to the UDP driver | ✅ **built & planning-verified on ROS 2 Jazzy** (colcon + move_group + MoveItPy 2/2 plans) |
 | [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin with drag-IK, mirror-mode bimanual motion, RRT collision-routing, Python + teach-in programs, an application shell, live telemetry and scene/obstacle tools (full list in the [feature catalogue](#-skate-commander--web-cockpit) above) · sim-validated camera tools parked pending a real depth sensor · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.8.1** (real-camera passthrough waits for hardware) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |

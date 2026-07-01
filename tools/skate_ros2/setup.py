@@ -28,6 +28,7 @@ setup(
         "console_scripts": [
             "driver = skate_ros2.driver_node:main",
             "sim_endpoint = skate_ros2.sim_endpoint:main",
+            "moveit_bridge = skate_ros2.moveit_bridge_node:main",
         ],
     },
 )

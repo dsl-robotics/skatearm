@@ -1,0 +1,64 @@
+# RViz2 config for the Skate MoveIt demo — a MotionPlanning panel over the
+# planning scene + robot model. A starting layout: pick left_arm / right_arm /
+# both_arms in the panel, set a goal and Plan & Execute. RViz fills any
+# unspecified fields with its defaults.
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+  - Class: moveit_rviz_plugin/MotionPlanning
+    Name: MotionPlanning
+    Planning Request:
+      Planning Group: left_arm
+    Planned Path:
+      Loop Animation: true
+      Show Trail: false
+      State Display Time: 0.05 s
+Visualization Manager:
+  Global Options:
+    Fixed Frame: base_link2
+    Background Color: 48; 48; 48
+    Frame Rate: 30
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Plane Cell Count: 10
+      Color: 160; 160; 164
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Show Names: true
+      Marker Scale: 0.3
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Description Topic:
+        Value: /robot_description
+      Visual Enabled: true
+    - Class: moveit_rviz_plugin/PlanningScene
+      Name: PlanningScene
+      Move Group Namespace: ""
+      Robot Description: robot_description
+      Scene Geometry:
+        Scene Alpha: 0.9
+      Scene Robot:
+        Robot Alpha: 0.5
+        Show Robot Visual: true
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 2.0
+      Pitch: 0.35
+      Yaw: 0.9
+      Focal Point:
+        X: 0.0
+        Y: 0.30
+        Z: 0.20
+Window Geometry:
+  Height: 900
+  Width: 1400
+  MotionPlanning:
+    collapsed: false

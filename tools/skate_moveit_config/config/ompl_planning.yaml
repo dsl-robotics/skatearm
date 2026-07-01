@@ -1,0 +1,52 @@
+# OMPL planner configuration (MoveIt's default planning pipeline). Standard
+# planner set; RRTConnect is the default for the arm groups. The bimanual
+# `both_arms` group plans in joint space (14 DoF).
+planner_configs:
+  RRTConnect:
+    type: geometric::RRTConnect
+    range: 0.0
+  RRTstar:
+    type: geometric::RRTstar
+    range: 0.0
+    goal_bias: 0.05
+    delay_collision_checking: 1
+  PRM:
+    type: geometric::PRM
+    max_nearest_neighbors: 10
+  PRMstar:
+    type: geometric::PRMstar
+  BKPIECE:
+    type: geometric::BKPIECE
+    range: 0.0
+    border_fraction: 0.9
+
+left_arm:
+  default_planner_config: RRTConnect
+  planner_configs:
+    - RRTConnect
+    - RRTstar
+    - PRM
+    - PRMstar
+    - BKPIECE
+  projection_evaluator: joints(a0_armL_a8,a1_armL_a9)
+  longest_valid_segment_fraction: 0.005
+
+right_arm:
+  default_planner_config: RRTConnect
+  planner_configs:
+    - RRTConnect
+    - RRTstar
+    - PRM
+    - PRMstar
+    - BKPIECE
+  projection_evaluator: joints(a0_armR_a16,a1_armR_a17)
+  longest_valid_segment_fraction: 0.005
+
+both_arms:
+  default_planner_config: RRTConnect
+  planner_configs:
+    - RRTConnect
+    - RRTstar
+    - PRM
+  projection_evaluator: joints(a0_armL_a8,a0_armR_a16)
+  longest_valid_segment_fraction: 0.005

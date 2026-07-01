@@ -1,0 +1,39 @@
+# MoveIt talks to the robot through two FollowJointTrajectory controllers, one
+# per arm. Those action servers are provided by the Python bridge
+# `skate_ros2/moveit_bridge_node.py` (traj_bridge), which interpolates the
+# planned trajectory and streams it to the existing skate_driver over
+# skate/joint_position_cmd — so MoveIt inherits the driver's deadman/estop
+# safety instead of re-implementing it. (On hardware a ros2_control
+# JointTrajectoryController + a Skate SystemInterface is the production path.)
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
+
+moveit_simple_controller_manager:
+  controller_names:
+    - skate_left_arm_controller
+    - skate_right_arm_controller
+
+  skate_left_arm_controller:
+    type: FollowJointTrajectory
+    action_ns: follow_joint_trajectory
+    default: true
+    joints:
+      - a0_armL_a8
+      - a1_armL_a9
+      - a2_armL_a10
+      - a3_armL_a11
+      - a4_armL_a12
+      - a5_armL_a13
+      - a6_armL_a14
+
+  skate_right_arm_controller:
+    type: FollowJointTrajectory
+    action_ns: follow_joint_trajectory
+    default: true
+    joints:
+      - a0_armR_a16
+      - a1_armR_a17
+      - a2_armR_a18
+      - a3_armR_a19
+      - a4_armR_a20
+      - a5_armR_a21
+      - a6_armR_a22

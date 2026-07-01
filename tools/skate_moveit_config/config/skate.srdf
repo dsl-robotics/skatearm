@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MoveIt 2 semantic description for the R.Botic Skate (skt_v3).
+     GENERATED from skt_v3.urdf by make_srdf.py — do not hand-edit;
+     re-run the generator, or the MoveIt Setup Assistant, instead.
+     NB: robot name matches the URDF (MoveIt requires it). -->
+<robot name="r04">
+  <!-- planning groups: serial KDL chains, fixed base to wrist tip -->
+  <group name="left_arm"><chain base_link="base_link2" tip_link="wrist_a2_1"/></group>
+  <group name="right_arm"><chain base_link="base_link2" tip_link="wrist_a2_Mirror__1"/></group>
+  <group name="both_arms"><group name="left_arm"/><group name="right_arm"/></group>
+  <group name="left_gripper"><joint name="a7_armL_a15"/></group>
+  <group name="right_gripper"><joint name="a7_armR_a23"/></group>
+  <!-- group states (home = elbows bent 90 deg, per names.DEFAULT_POSE) -->
+  <group_state name="home" group="left_arm">
+    <joint name="a0_armL_a8" value="0.0"/>
+    <joint name="a1_armL_a9" value="0.0"/>
+    <joint name="a2_armL_a10" value="0.0"/>
+    <joint name="a3_armL_a11" value="1.5708"/>
+    <joint name="a4_armL_a12" value="0.0"/>
+    <joint name="a5_armL_a13" value="0.0"/>
+    <joint name="a6_armL_a14" value="0.0"/>
+  </group_state>
+  <group_state name="home" group="right_arm">
+    <joint name="a0_armR_a16" value="0.0"/>
+    <joint name="a1_armR_a17" value="0.0"/>
+    <joint name="a2_armR_a18" value="0.0"/>
+    <joint name="a3_armR_a19" value="1.5708"/>
+    <joint name="a4_armR_a20" value="0.0"/>
+    <joint name="a5_armR_a21" value="0.0"/>
+    <joint name="a6_armR_a22" value="0.0"/>
+  </group_state>
+  <group_state name="open" group="left_gripper"><joint name="a7_armL_a15" value="0.35"/></group_state>
+  <group_state name="closed" group="left_gripper"><joint name="a7_armL_a15" value="0.0"/></group_state>
+  <group_state name="open" group="right_gripper"><joint name="a7_armR_a23" value="0.35"/></group_state>
+  <group_state name="closed" group="right_gripper"><joint name="a7_armR_a23" value="0.0"/></group_state>
+  <!-- end effectors -->
+  <end_effector name="left_ee" parent_link="wrist_a2_1" group="left_gripper"/>
+  <end_effector name="right_ee" parent_link="wrist_a2_Mirror__1" group="right_gripper"/>
+  <!-- fixed base (work-cell configuration) -->
+  <virtual_joint name="world_joint" type="fixed" parent_frame="world" child_link="base_link2"/>
+  <!-- allowed-collision matrix (adjacent + known self-overlap classes) -->
+  <disable_collisions link1="base_link" link2="base_link2" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="hip_1" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="hip_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="neck_1" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="shoulder_1" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="shoulder_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="head_1" link2="neck_1" reason="Adjacent"/>
+  <disable_collisions link1="hip_1" link2="lowArm_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="lowArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="midArm_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="midArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="shoulder_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="shoulder_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="upperArm_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="upperArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="upperLeg_1" reason="Adjacent"/>
+  <disable_collisions link1="hip_1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="hip_1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="lowArm_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="lowArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="midArm_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="midArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="shoulder_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="shoulder_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="upperArm_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="upperArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="upperLeg_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="hip_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="lowerLeg_1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="lowerLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="midArm_1" reason="Adjacent"/>
+  <disable_collisions link1="lowArm_1" link2="shoulder_1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="upperArm_1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="wrist_a0_1" reason="Adjacent"/>
+  <disable_collisions link1="lowArm_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="lowArm_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="lowerLeg_1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="lowerLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="midArm_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="shoulder_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="upperArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="wrist_a0_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowArm_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="midArm_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="midArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="shoulder_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="shoulder_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="upperArm_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="upperArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="upperLeg_1" reason="Adjacent"/>
+  <disable_collisions link1="lowerLeg_1" link2="wheel_1" reason="Adjacent"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="midArm_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="midArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="shoulder_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="shoulder_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="upperArm_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="upperArm_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="upperLeg_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wheel_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="lowerLeg_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="shoulder_1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="upperArm_1" reason="Adjacent"/>
+  <disable_collisions link1="midArm_1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="midArm_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="shoulder_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="upperArm_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="midArm_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="upperArm_1" reason="Adjacent"/>
+  <disable_collisions link1="shoulder_1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="shoulder_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="upperArm_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="shoulder_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="upperArm_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="upperLeg_1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="upperLeg_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="wheel_1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="wheel_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperArm_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="upperLeg_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="wheel_1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a0_1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a0_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a1_1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a1_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="wheel_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wrist_a0_1" link2="wrist_a1_1" reason="Adjacent"/>
+  <disable_collisions link1="wrist_a0_1" link2="wrist_a2_1" reason="Never"/>
+  <disable_collisions link1="wrist_a0_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="wrist_a0_Mirror__1" link2="wrist_a1_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="wrist_a0_Mirror__1" link2="wrist_a2_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wrist_a0_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wrist_a1_1" link2="wrist_a2_1" reason="Adjacent"/>
+  <disable_collisions link1="wrist_a1_1" link2="wrist_a3_1" reason="Never"/>
+  <disable_collisions link1="wrist_a1_Mirror__1" link2="wrist_a2_Mirror__1" reason="Adjacent"/>
+  <disable_collisions link1="wrist_a1_Mirror__1" link2="wrist_a3_Mirror__1" reason="Never"/>
+  <disable_collisions link1="wrist_a2_1" link2="wrist_a3_1" reason="Adjacent"/>
+  <disable_collisions link1="wrist_a2_Mirror__1" link2="wrist_a3_Mirror__1" reason="Adjacent"/>
+</robot>

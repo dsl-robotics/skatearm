@@ -56,7 +56,7 @@
 
 ### Pre-hardware prep (now, while the Skate ships — shipped as v0.7.x–v0.8.0)
 - [x] **Bimanual benchmark suite** (`sim/benchmark.py`) — repeatable reach / carry / peg-insert tasks with quantitative metrics, headless &amp; seeded, built on the shared task-space primitives; `--json` report + smoke tests. Delivers the "MuJoCo benchmark suite" community tool.
-- [ ] MoveIt 2 + `ros2_control` over the bridge, validated in sim (then re-pointed at the real robot)
+- [x] MoveIt 2 config + `FollowJointTrajectory` bridge over the driver — **built & planning-verified on ROS 2 Jazzy** (`tools/skate_moveit_config`): `colcon build` clean, `move_group` loads it, and MoveItPy plans collision-free bimanual trajectories (2/2). Three real bugs were fixed during the live bring-up (URDF/SRDF robot-name match, `file://` mesh URIs, Jazzy list-form pipeline params). Full trajectory execution is wired (the bridge accepts FollowJointTrajectory goals); the visual end-to-end sim run needs a cross-process DDS config on WSL2, and a native `ros2_control` hardware interface is the production path
 - [ ] LeRobot dataset-recorder: teleop / teach-in → `LeRobotDataset` (so demos can be captured day-one of hardware)
 - [ ] Cockpit polish: mobile/responsive layout, persisted settings & panel state, keyboard shortcuts
 - [ ] Handbook skeleton in the docs (unboxing → first teleop)

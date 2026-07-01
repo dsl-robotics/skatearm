@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>skate_moveit_config</name>
+  <version>0.1.0</version>
+  <description>
+    MoveIt 2 configuration for the R.Botic Skate (skt_v3) bimanual upper body —
+    left_arm / right_arm / both_arms planning groups, an SRDF derived from the
+    URDF, OMPL planning and a FollowJointTrajectory controller wiring that
+    drives the arms through the skate_ros2 UDP bridge. Part of the SkateArm
+    project. NOTE: authored + structurally validated without ROS; a live
+    `colcon build` + MoveIt planning run awaits a ROS 2 machine.
+  </description>
+  <maintainer email="porche121004@gmail.com">Daniels Skots Lavs</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>skate_ros2</exec_depend>
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_kinematics</exec_depend>
+  <exec_depend>moveit_planners_ompl</exec_depend>
+  <exec_depend>moveit_simple_controller_manager</exec_depend>
+  <exec_depend>moveit_configs_utils</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
