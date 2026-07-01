@@ -144,6 +144,58 @@ Parameters: `robot_host`, `robot_port`, `tx_rate` (60), `rx_rate` (60),
 `cmd_timeout` (0.3), `auto_deadman` (true), `overtemp_c` (58.0) — all
 exposed as launch arguments of `skate_bridge.launch.py` too.
 
+## Running on Windows (WSL2)
+
+There is no native ROS 2 on Windows — use **WSL2 Ubuntu 24.04** (= ROS 2
+**Jazzy**). This is the exact environment the MoveIt config was built and
+planning-verified on.
+
+```powershell
+# once, in Windows PowerShell:
+wsl --install -d Ubuntu-24.04     # then set up the Linux user it prompts for
+```
+
+```bash
+# inside the WSL Ubuntu shell — add the ROS 2 apt repo + install Jazzy:
+sudo apt update && sudo apt install -y software-properties-common curl
+sudo add-apt-repository -y universe
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+     -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu noble main" \
+  | sudo tee /etc/apt/sources.list.d/ros2.list
+sudo apt update && sudo apt install -y \
+  ros-jazzy-desktop ros-jazzy-moveit ros-jazzy-moveit-py \
+  python3-colcon-common-extensions python3-pip
+pip install mujoco --break-system-packages   # the sim endpoint needs it
+
+# build the workspace (your repo shows up under /mnt/c/... from WSL):
+mkdir -p ~/skate_ws/src
+cp -r /mnt/c/path/to/skatearm/tools/skate_ros2 \
+      /mnt/c/path/to/skatearm/tools/skate_moveit_config ~/skate_ws/src/
+cd ~/skate_ws && colcon build && source install/setup.bash
+
+# run it (see the MoveIt 2 section below):
+python3 -m skate_ros2.sim_endpoint --model /mnt/c/.../skt_v3/skt_v3_control.xml &
+ros2 launch skate_moveit_config demo.launch.py \
+    model_path:=/mnt/c/.../skt_v3 robot_host:=127.0.0.1
+```
+
+> **WSL2 DDS caveat.** WSL2's default networking often breaks ROS 2
+> **cross-process discovery** — two nodes on the same host can't see each
+> other's topics/actions and `ros2 topic list` comes up empty. In-process
+> MoveItPy **planning works regardless** (verified); the multi-node
+> **execution** loop (move_group ↔ bridge ↔ driver) needs discovery. If you hit
+> it, switch to CycloneDDS with a loopback profile:
+>
+> ```bash
+> sudo apt install -y ros-jazzy-rmw-cyclonedds-cpp
+> export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+> # a ~/cyclonedds.xml that pins 127.0.0.1 + unicast <Peer>s + AllowMulticast=false, then:
+> export CYCLONEDDS_URI=file://$HOME/cyclonedds.xml
+> ```
+>
+> On a native ROS 2 Linux box none of this is needed — discovery just works.
+
 ## MoveIt 2 (bimanual planning)
 
 [`skate_moveit_config`](../skate_moveit_config/) is a MoveIt 2 config for the
