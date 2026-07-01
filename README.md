@@ -2,7 +2,7 @@
 
 **A two-armed robot you can drive from your browser — a 3D simulation today, built to switch to the real [R.Botic Skate](https://www.rboticlabs.com/shop/p/skate-upper-body-v2) when the hardware arrives.**
 
-*An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire.*
+*An open bimanual work-cell & tool ecosystem: two-handed assembly with in-cell quality inspection, built sim-first in MuJoCo, then deployed over the robot's native UDP wire — with a **ROS 2 driver and MoveIt 2 motion planning** on top.*
 
 > **Status — simulation today.** Everything here is sim-validated in MuJoCo; the real Skate is en route, so no real-hardware performance is claimed yet — hardware bring-up is Phase 2.
 
@@ -51,7 +51,7 @@
 | You want to… | Go to |
 |---|---|
 | Drive the robot (twin or real) from a browser | [🕹 Skate Commander](#-skate-commander--web-cockpit) |
-| Connect a ROS 2 stack to a Skate | [🔌 skate_ros2](#-skate_ros2--the-wire) |
+| Connect a ROS 2 / MoveIt 2 stack to a Skate | [🔌 skate_ros2](#-skate_ros2--the-wire) |
 | See the autonomous assembly cell | [🏭 Work-cell](#-autonomous-work-cell-phase-1--complete) |
 | Get the control-ready model & collision layer | [🦾 Sim foundations](#-sim-foundations-phase-0) |
 | Run it yourself | [🚀 Quick start](#-quick-start-simulation) |
@@ -181,7 +181,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 
 ## 🔌 skate_ros2 — the wire
 
-A ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, deadman semantics, 26-DoF ordering) plus a **MuJoCo sim endpoint speaking the same protocol** — develop your stack before the robot arrives, then swap `127.0.0.1` for `r.local`. Safety mirrors the firmware: arm-at-measured-pose, command-freshness deadman, 58 °C overtemp latch. 17 unit tests run without ROS; end-to-end verified over real sockets.
+A ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, deadman semantics, 26-DoF ordering) plus a **MuJoCo sim endpoint speaking the same protocol** — develop your stack before the robot arrives, then swap `127.0.0.1` for `r.local`. Safety mirrors the firmware: arm-at-measured-pose, command-freshness deadman, 58 °C overtemp latch. The wire &amp; safety logic is unit-tested without ROS; end-to-end verified over real sockets. **On top of the wire sits a MoveIt 2 planning stack** (below).
 
 <div align="center">
   <img src="docs/img/ros2_wire_demo.gif" width="560px" alt="skate_ros2 wire demo: client teleoperates the MuJoCo endpoint over real UDP; at t=11s the client goes silent and the watchdog dampens the robot">
@@ -198,6 +198,16 @@ A ROS 2 driver over Skate's **native UDP protocol** (documented packet layout, d
 | Watchdog dampen after silence | < 0.3 s (configured timeout) |
 
 *These are sim-endpoint figures: command rate and watchdog timeout are configured targets confirmed in simulation, and tracking error is against the MuJoCo model. Real-hardware numbers come once the Skate arrives.*
+
+### MoveIt 2 motion planning
+
+On top of the wire, [`skate_moveit_config`](tools/skate_moveit_config/) adds **MoveIt 2** planning for the two arms — `left_arm` / `right_arm` / `both_arms` groups, an SRDF generated from the URDF, OMPL. **Built &amp; planning-verified on ROS 2 Jazzy:** `move_group` loads the config and **MoveItPy plans collision-free bimanual trajectories**. A `FollowJointTrajectory` bridge streams the plan to the driver, so MoveIt inherits the same deadman / e-stop / overtemp safety instead of re-implementing it:
+
+```
+MoveIt 2 (skate_moveit_config)  →  FollowJointTrajectory bridge  →  skate_driver  →  UDP  →  MuJoCo sim / real Skate
+```
+
+Full docs + a **Windows/WSL2 setup guide** are in [`tools/skate_ros2/`](tools/skate_ros2/) and [`tools/skate_moveit_config/`](tools/skate_moveit_config/).
 
 <div align="center">
   <img src="docs/img/ros2_wire_stats.png" width="560px" alt="Wire statistics: packet rates and joint tracking during the demo">
