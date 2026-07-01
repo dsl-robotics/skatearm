@@ -1,0 +1,215 @@
+{
+  "reach": {
+    "trials": [
+      {
+        "err_l_mm": 0.38,
+        "err_r_mm": 0.26,
+        "max_err_mm": 0.38,
+        "wall_s": 0.14,
+        "success": true
+      },
+      {
+        "err_l_mm": 0.15,
+        "err_r_mm": 0.26,
+        "max_err_mm": 0.26,
+        "wall_s": 0.13,
+        "success": true
+      },
+      {
+        "err_l_mm": 0.21,
+        "err_r_mm": 0.1,
+        "max_err_mm": 0.21,
+        "wall_s": 0.14,
+        "success": true
+      },
+      {
+        "err_l_mm": 0.23,
+        "err_r_mm": 0.13,
+        "max_err_mm": 0.23,
+        "wall_s": 0.14,
+        "success": true
+      },
+      {
+        "err_l_mm": 0.2,
+        "err_r_mm": 0.23,
+        "max_err_mm": 0.23,
+        "wall_s": 0.13,
+        "success": true
+      }
+    ],
+    "summary": {
+      "err_l_mm": {
+        "mean": 0.23,
+        "median": 0.21,
+        "min": 0.15,
+        "max": 0.38
+      },
+      "err_r_mm": {
+        "mean": 0.2,
+        "median": 0.23,
+        "min": 0.1,
+        "max": 0.26
+      },
+      "max_err_mm": {
+        "mean": 0.26,
+        "median": 0.23,
+        "min": 0.21,
+        "max": 0.38
+      },
+      "wall_s": {
+        "mean": 0.14,
+        "median": 0.14,
+        "min": 0.13,
+        "max": 0.14
+      },
+      "success_rate": "5/5"
+    }
+  },
+  "carry": {
+    "trials": [
+      {
+        "base_z_mm": 79.2,
+        "peg_z_mm": 120.4,
+        "base_carried_mm": 104.5,
+        "peg_carried_mm": 115.0,
+        "peg_tilt_deg": 1.8,
+        "retained": true,
+        "success": true
+      },
+      {
+        "base_z_mm": 79.1,
+        "peg_z_mm": 120.5,
+        "base_carried_mm": 106.2,
+        "peg_carried_mm": 113.4,
+        "peg_tilt_deg": 1.8,
+        "retained": true,
+        "success": true
+      },
+      {
+        "base_z_mm": 78.9,
+        "peg_z_mm": 120.5,
+        "base_carried_mm": 107.6,
+        "peg_carried_mm": 112.1,
+        "peg_tilt_deg": 1.8,
+        "retained": true,
+        "success": true
+      },
+      {
+        "base_z_mm": 79.3,
+        "peg_z_mm": 120.4,
+        "base_carried_mm": 104.4,
+        "peg_carried_mm": 115.2,
+        "peg_tilt_deg": 1.8,
+        "retained": true,
+        "success": true
+      },
+      {
+        "base_z_mm": 79.1,
+        "peg_z_mm": 120.4,
+        "base_carried_mm": 105.4,
+        "peg_carried_mm": 114.1,
+        "peg_tilt_deg": 1.8,
+        "retained": true,
+        "success": true
+      }
+    ],
+    "summary": {
+      "base_z_mm": {
+        "mean": 79.12,
+        "median": 79.1,
+        "min": 78.9,
+        "max": 79.3
+      },
+      "peg_z_mm": {
+        "mean": 120.44,
+        "median": 120.4,
+        "min": 120.4,
+        "max": 120.5
+      },
+      "base_carried_mm": {
+        "mean": 105.62,
+        "median": 105.4,
+        "min": 104.4,
+        "max": 107.6
+      },
+      "peg_carried_mm": {
+        "mean": 113.96,
+        "median": 114.1,
+        "min": 112.1,
+        "max": 115.2
+      },
+      "peg_tilt_deg": {
+        "mean": 1.8,
+        "median": 1.8,
+        "min": 1.8,
+        "max": 1.8
+      },
+      "success_rate": "5/5"
+    }
+  },
+  "insert": {
+    "trials": [
+      {
+        "depth_mm": 18.5,
+        "peg_tilt_deg": 1.2,
+        "wall_s": 0.7,
+        "aborted": false,
+        "in_pocket": true,
+        "success": true
+      },
+      {
+        "depth_mm": 18.7,
+        "peg_tilt_deg": 1.3,
+        "wall_s": 0.6,
+        "aborted": false,
+        "in_pocket": true,
+        "success": true
+      },
+      {
+        "depth_mm": 18.6,
+        "peg_tilt_deg": 1.4,
+        "wall_s": 0.6,
+        "aborted": false,
+        "in_pocket": true,
+        "success": true
+      },
+      {
+        "depth_mm": 18.3,
+        "peg_tilt_deg": 1.2,
+        "wall_s": 0.6,
+        "aborted": false,
+        "in_pocket": true,
+        "success": true
+      },
+      {
+        "depth_mm": 19.3,
+        "peg_tilt_deg": 1.3,
+        "wall_s": 0.6,
+        "aborted": false,
+        "in_pocket": true,
+        "success": true
+      }
+    ],
+    "summary": {
+      "depth_mm": {
+        "mean": 18.68,
+        "median": 18.6,
+        "min": 18.3,
+        "max": 19.3
+      },
+      "peg_tilt_deg": {
+        "mean": 1.28,
+        "median": 1.3,
+        "min": 1.2,
+        "max": 1.4
+      },
+      "wall_s": {
+        "mean": 0.62,
+        "median": 0.6,
+        "min": 0.6,
+        "max": 0.7
+      },
+      "success_rate": "5/5"
+    }
+  }
+}

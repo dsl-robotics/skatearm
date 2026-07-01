@@ -41,11 +41,11 @@ Verified: holds RELAXED and WORK poses with **max error < 0.03 rad (~1.5°)**, s
 
 `make_collision_model.py` builds `skt_v3_collision.xml` on top of the control model:
 
-- mesh geoms become **visual-only**; each body gets an auto-generated **box collision geom** from the compiled model's AABB (`m.geom_aabb` — using compiled values respects MuJoCo's mesh re-centering; raw mesh vertices + XML offsets double-count it and produce giant boxes)
+- mesh geoms become **visual-only**; each body gets an auto-fitted **capsule** (a **sphere** when the link is near-isotropic) from the compiled model's AABB (`m.geom_aabb` — compiled values respect MuJoCo's mesh re-centering). Capsules hug the elongated arm links far better than boxes; `--boxes` keeps the old box behaviour. The current model is 22 capsules + 5 spheres.
 - residual home-pose overlaps (link mounts: torso↔shoulders/hips, wrists↔hips at hanging pose) are **auto-excluded** — 11 pairs
 - contacts **re-enabled**: poses still hold at < 0.03 rad; commanded arm-crossing now *blocks on the hips* instead of tunneling; a staged out→up→together trajectory ends in a stable wrist↔wrist contact
 
-Known limitation: AABB boxes overestimate the L-shaped wrist links, so hands "touch" a bit early and the direct path to a hands-together pose snags on the hip boxes (the demo routes around: OUT → UP → MEET). Capsules/convex decomposition are the next refinement.
+Known limitation: the AABB fit still slightly overestimates the L-shaped wrist links (a per-link shrink of 0.62 tightens them), so hands can "touch" a hair early and the hands-together route stays OUT → UP → MEET. Convex-hull decomposition of the bulky torso is a possible future refinement.
 
 ## Files
 
@@ -63,6 +63,7 @@ Known limitation: AABB boxes overestimate the L-shaped wrist links, so hands "to
 - `sequencer.py` — GRAFCET-style soft-PLC engine + the demonstrator cycle S0–S7. Receptivities are sensor predicates (poses, grasp state, insertion depth, τ), never timers. QC verify is a v1 pose oracle — the camera pipeline replaces it. Cycle log → JSON (see `../logs/cycle_001.json`).
 - `demo_cell_cycle.py` — run the full automatic cycle and render it with an HMI overlay (live GRAFCET step + sensor metrics). Reference cycle: 42.4 s.
 - `qc.py` — camera QC pipeline: `measure()` renders qc_top/qc_side and returns peg presence, alignment (mm) and insertion-depth estimate; `verdict()` applies the spec thresholds; `annotate()` saves inspection images.
+- `benchmark.py` — **bimanual benchmark suite**: headless, seeded, quantitative metrics over N trials for three tasks — reach · carry · peg-insert — reusing the same primitives; `--json` writes a full report (sample: `benchmark_results.json`). `test_benchmark.py` is the smoke test.
 
 ## QC vision lessons (all measured, not guessed)
 
@@ -95,6 +96,30 @@ later does NOT work — a 60° correction demands wrist excursions beyond the
 ±90° joint limits; holding from the start keeps the wrist mid-range (≤2° tilt
 over a 16 cm carry, measured). The orientation error is computed with
 `mju_subQuat` (local frame) and rotated to world to match `mj_jacSite`'s jacr.
+
+## Benchmark suite
+
+`benchmark.py` runs repeatable **bimanual** tasks headlessly under physics — the
+same task-space primitives as the cockpit and the cell demos — and reports
+quantitative metrics over N seeded trials (`--json` writes the full report).
+
+```bash
+python make_control_model.py   skate_teleop/skt_v3
+python make_collision_model.py skate_teleop/skt_v3
+python make_cell_scene.py      skate_teleop/skt_v3
+python benchmark.py --model skate_teleop/skt_v3 --trials 5 --json results.json
+```
+
+| Task | What it measures | Result (5 trials, seed 0) |
+|---|---|---|
+| `reach` | both arms servo to random reachable target pairs | **5/5**, max EE error 0.2–0.4 mm |
+| `carry` | both arms grasp an object each and carry them together (6-DoF, orientation-locked) | **5/5**, objects lifted &amp; carried ~11 cm, peg tilt 1.8° |
+| `insert` | full bimanual peg-in-hole (offset grasps, carry, align, force-guarded descent) | **5/5**, depth 18.7 mm (target 18), peg tilt 1.2–1.4°, no τ-abort |
+
+A true weld-transfer **hand-off** is deferred: the sim grasp is a magnetic weld
+stand-in, so passing one object between two welds is a hardware-era task (the
+robust co-carry above stands in for the two-arm-coordination metric).
+`test_benchmark.py` is the smoke test (one trial of each task).
 
 ## Workspace notes (measured)
 

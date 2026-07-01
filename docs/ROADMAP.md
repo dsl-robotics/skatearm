@@ -55,6 +55,7 @@
 **v1.0 scope (locked):** Skate Commander reliably and safely drives the **real** R.Botic Skate from the browser — jog, drag-IK, mirror, teach-in, programs — calibrated, hardened, documented and demoed on hardware. Autonomous work-cell + learned policies are a separate post-1.0 track (Phases 2–3, targeted at v1.x).
 
 ### Pre-hardware prep (now, while the Skate ships — shipped as v0.7.x–v0.8.0)
+- [x] **Bimanual benchmark suite** (`sim/benchmark.py`) — repeatable reach / carry / peg-insert tasks with quantitative metrics, headless &amp; seeded, built on the shared task-space primitives; `--json` report + smoke tests. Delivers the "MuJoCo benchmark suite" community tool.
 - [ ] MoveIt 2 + `ros2_control` over the bridge, validated in sim (then re-pointed at the real robot)
 - [ ] LeRobot dataset-recorder: teleop / teach-in → `LeRobotDataset` (so demos can be captured day-one of hardware)
 - [ ] Cockpit polish: mobile/responsive layout, persisted settings & panel state, keyboard shortcuts

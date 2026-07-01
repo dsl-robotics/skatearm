@@ -295,7 +295,7 @@ Tools get built because SkateArm needs them — then released standalone:
 | [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin with drag-IK, mirror-mode bimanual motion, RRT collision-routing, Python + teach-in programs, an application shell, live telemetry and scene/obstacle tools (full list in the [feature catalogue](#-skate-commander--web-cockpit) above) · sim-validated camera tools parked pending a real depth sensor · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.8.1** (real-camera passthrough waits for hardware) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |
-| MuJoCo benchmark suite | Repeatable bimanual tasks for policy comparison | planned |
+| [MuJoCo benchmark suite](sim/benchmark.py) | Repeatable bimanual tasks — reach · carry · peg-insert — with quantitative metrics, headless &amp; seeded | ✅ **first version in [sim/](sim/)** |
 | URDF/config validator | Sanity-check tool for Skate configs | planned |
 | Getting-started handbook | From unboxing to first teleop | planned |
 
