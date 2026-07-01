@@ -31,9 +31,24 @@ from skate_ros2 import names                    # noqa: E402
 from skate_ros2.protocol import SkateLink       # noqa: E402
 
 from . import planner                           # noqa: E402
+from .kinematics import rot_error               # noqa: E402
 
 OVERTEMP_C = 58.0          # PETG limit, per official docs
 OVERTEMP_RELEASE_C = 53.0
+
+
+def _quat_to_R(q):
+    """three.js quaternion [x, y, z, w] -> 3x3 rotation matrix (world)."""
+    x, y, z, w = (float(v) for v in q)
+    n = (x * x + y * y + z * z + w * w) ** 0.5
+    if n < 1e-12:
+        return np.eye(3)
+    x, y, z, w = x / n, y / n, z / n, w / n
+    return np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w)],
+        [2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+        [2 * (x * z - y * w),     2 * (y * z + x * w),     1 - 2 * (x * x + y * y)],
+    ])
 
 
 class RobotBridge:
@@ -101,6 +116,8 @@ class RobotBridge:
         self.ik_targets = {"left": None, "right": None}
         self.ik_err = {"left": None, "right": None}
         self.ik_manip = {"left": None, "right": None}   # singularity awareness
+        self.ik_targR = {"left": None, "right": None}   # optional 6-DoF orientation (3x3)
+        self.ik_oerr = {"left": None, "right": None}    # orientation error, deg
         # cartesian-step targets auto-clear on arrival (or stall); drag-gizmo
         # targets are cleared by the UI on release
         self.ik_auto = {"left": False, "right": False}
@@ -609,6 +626,14 @@ class RobotBridge:
         v[self.mirror_axis] = -v[self.mirror_axis]
         return v
 
+    def _mirror_rot(self, R):
+        """Reflect an orientation across the same plane _mirror_vec uses.
+        Conjugation by the axis reflection M (det -1) keeps M R M a proper
+        rotation, so the mirrored wrist frame stays valid."""
+        M = np.eye(3)
+        M[self.mirror_axis, self.mirror_axis] = -1.0
+        return M @ np.asarray(R, dtype=float) @ M
+
     def _joint_locked(self, idx):
         """Lower chain is untouchable in REAL mode — balance belongs to the
         firmware. (The UI greys it out; this enforces it for programs too.)"""
@@ -672,22 +697,30 @@ class RobotBridge:
                                                self.lo[idx], self.hi[idx]))
         return self._guard_ok(prev)
 
-    def _ik_one(self, arm, pos, auto):
+    def _ik_one(self, arm, pos, auto, rot=None):
         self.ik_targets[arm] = np.asarray(pos, dtype=float)
+        self.ik_targR[arm] = None if rot is None else np.asarray(rot, dtype=float)
         self.ik_auto[arm] = bool(auto)
         self._ik_prev[arm] = None
         self._ik_stall[arm] = 0.0
 
-    def set_ik_target(self, arm, pos, auto=False):
-        """Drag-gizmo target (world meters); ignored unless armed & resumed."""
+    def set_ik_target(self, arm, pos, auto=False, rot=None):
+        """Drag-gizmo target (world meters) + optional orientation (a three.js
+        quaternion [x,y,z,w] or a 3x3 matrix). ``rot=None`` is the classic
+        position-only (free wrist) solve; a quaternion makes it a full 6-DoF
+        pose target. Ignored unless armed & resumed."""
         if (arm in self.kin and self.targ is not None and not self.estop
                 and len(pos) == 3):
             self.seq_stop()                # manual input overrides playback
-            self._ik_one(arm, pos, auto)
+            R = None
+            if rot is not None:
+                R = _quat_to_R(rot) if len(rot) == 4 else np.asarray(rot, dtype=float)
+            self._ik_one(arm, pos, auto, R)
             if self.mirror:
                 other = "right" if arm == "left" else "left"
                 if other in self.kin:
-                    self._ik_one(other, self._mirror_vec(pos), auto)
+                    self._ik_one(other, self._mirror_vec(pos), auto,
+                                 None if R is None else self._mirror_rot(R))
 
     def reachable(self, arm, pos, tol=0.015, iters=160):
         """IK feasibility test: can ``arm`` put its TCP at world point ``pos``
@@ -730,7 +763,9 @@ class RobotBridge:
     def _clear_one(self, arm):
         if arm in self.ik_targets:
             self.ik_targets[arm] = None
+            self.ik_targR[arm] = None
             self.ik_err[arm] = None
+            self.ik_oerr[arm] = None
             self.ik_manip[arm] = None
             self.ik_auto[arm] = False
             self._ik_prev[arm] = None
@@ -854,10 +889,17 @@ class RobotBridge:
                                         self.lo, self.hi)
                 for arm, target in self.ik_targets.items():
                     if target is not None and arm in self.kin:
+                        tR = self.ik_targR.get(arm)
                         self.targ, err = self.kin[arm].ik_step(
-                            self.targ, target, q_ref=self.ik_comfort)
+                            self.targ, target, target_R=tR, q_ref=self.ik_comfort)
                         self.ik_err[arm] = err
                         self.ik_manip[arm] = self.kin[arm].manipulability(self.targ)
+                        if tR is not None:
+                            _, Rc = self.kin[arm].fk_pose(self.targ)
+                            self.ik_oerr[arm] = round(float(np.degrees(
+                                np.linalg.norm(rot_error(Rc, tR)))), 1)
+                        else:
+                            self.ik_oerr[arm] = None
                         if self.ik_auto.get(arm):      # cart-step target
                             p = self._ik_prev[arm]
                             if p is not None and p - err < 1e-5:
@@ -913,6 +955,7 @@ class RobotBridge:
                    for a, e in self.ik_err.items()},
             "manip": {a: (None if v is None else round(v, 3))
                       for a, v in self.ik_manip.items()},
+            "ik_ori": {a: self.ik_oerr.get(a) for a in ("left", "right")},
             "seq": {"n": len(self.waypoints), "names": list(self.wp_names),
                     "idx": self.seq_idx, "playing": self.seq_playing,
                     "loop": self.seq_loop, "active": self.seq_active},

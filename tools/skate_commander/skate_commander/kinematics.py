@@ -6,7 +6,8 @@ positions to < 1e-6 m). The Jacobian is central-difference numeric — at 7
 joints per arm and 20-60 Hz it is far below the cost of anything else.
 
 The IK is deliberately conservative for teleop:
-* position-only (3 DoF target), wrist orientation is free;
+* position (3-DoF, free wrist) by default, or full 6-DoF pose when an
+  orientation target is supplied — one shared damped-least-squares step;
 * one damped-least-squares step per call, error capped at ``step_m`` and
   joint motion capped at ``dq_max`` — the arm *glides* toward the target;
 * joint limits clamped every step.
@@ -50,6 +51,35 @@ def _axis_rot(ax, th):
     return np.eye(3) + np.sin(th) * K + (1 - np.cos(th)) * (K @ K)
 
 
+def rot_error(R_cur, R_tgt):
+    """World-frame rotation vector (axis*angle, rad) taking R_cur -> R_tgt.
+
+    The orientation analogue of ``target - current``: feed it as the angular
+    half of a 6-DoF task-space error. Matrix-log based, with a stable
+    near-pi branch so a half-turn never blows up.
+    """
+    Re = np.asarray(R_tgt, float) @ np.asarray(R_cur, float).T
+    cos = (np.trace(Re) - 1.0) * 0.5
+    cos = max(-1.0, min(1.0, cos))
+    ang = float(np.arccos(cos))
+    if ang < 1e-9:
+        return np.zeros(3)
+    if ang < np.pi - 1e-6:
+        w = np.array([Re[2, 1] - Re[1, 2],
+                      Re[0, 2] - Re[2, 0],
+                      Re[1, 0] - Re[0, 1]])
+        return ang * w / (2.0 * np.sin(ang))
+    # near pi: recover the axis from the symmetric part (Re + I)/2 ≈ a a^T
+    A = (Re + np.eye(3)) * 0.5
+    axis = np.sqrt(np.clip(np.diag(A), 0.0, 1.0))
+    k = int(np.argmax(axis))
+    for j in range(3):
+        if j != k:
+            axis[j] = np.copysign(axis[j], A[k, j])
+    n = np.linalg.norm(axis)
+    return np.zeros(3) if n < 1e-9 else ang * axis / n
+
+
 class ArmKinematics:
     """FK/IK for one arm chain of the skt_v3 model."""
 
@@ -88,6 +118,21 @@ class ArmKinematics:
                 Rj = Rj @ _axis_rot(j["axis"], q26[j["index"]])
             R = R @ Rj
         return x + R @ self.tool
+
+    def fk_pose(self, q26):
+        """(TCP world position, TCP world rotation 3x3). Same forward pass as
+        fk(), but also returns the wrist orientation — the extra output the
+        6-DoF (position + orientation) IK needs. The tool offset is a pure
+        translation in the wrist frame, so the TCP orientation IS R."""
+        x = np.zeros(3)
+        R = np.eye(3)
+        for j in self.chain:
+            x = x + R @ np.asarray(j["xyz"])
+            Rj = _rpy(*j["rpy"])
+            if j["index"] is not None:
+                Rj = Rj @ _axis_rot(j["axis"], q26[j["index"]])
+            R = R @ Rj
+        return x + R @ self.tool, R
 
     def jacobian(self, q26, eps=1e-5):
         """3x7 numeric Jacobian of the wrist position wrt this arm's joints."""
@@ -135,14 +180,42 @@ class ArmKinematics:
             J[:, k] = np.cross(axes[k], p - origins[k])
         return p, J
 
+    def fk_jac6(self, q26):
+        """(TCP position, TCP rotation 3x3, 6x7 geometric Jacobian) in one
+        pass. Rows 0-2 are the linear-velocity map (axis x lever, identical
+        to jacobian()); rows 3-5 the angular map (the joint axis itself) —
+        the three extra rows the 6-DoF orientation task needs, essentially
+        free on top of the position Jacobian."""
+        x = np.zeros(3)
+        R = np.eye(3)
+        axes, origins = [], []
+        for j in self.chain:
+            x = x + R @ np.asarray(j["xyz"])
+            Rfix = _rpy(*j["rpy"])
+            if j["index"] is not None:
+                if j["index"] in self.idx:
+                    ax = np.asarray(j["axis"], float)
+                    axes.append((R @ Rfix) @ (ax / np.linalg.norm(ax)))
+                    origins.append(x.copy())
+                Rj = Rfix @ _axis_rot(j["axis"], q26[j["index"]])
+            else:
+                Rj = Rfix
+            R = R @ Rj
+        p = x + R @ self.tool
+        J = np.zeros((6, len(self.idx)))
+        for k in range(len(axes)):
+            J[:3, k] = np.cross(axes[k], p - origins[k])
+            J[3:, k] = axes[k]
+        return p, R, J
+
     def manipulability_fast(self, q26):
         """Same metric as manipulability() but one FK pass (geometric J)."""
         _, J = self._fk_jac_fast(q26)
         s = np.linalg.svd(J, compute_uv=False)
         return float(s[-1] / s[0]) if s[0] > 1e-12 else 0.0
 
-    def ik_step(self, q26, target, lam=0.05, step_m=0.04, dq_max=0.06,
-                q_ref=None, k_null=0.15):
+    def ik_step(self, q26, target, target_R=None, lam=0.05, step_m=0.04,
+                step_rad=0.5, dq_max=0.06, q_ref=None, k_null=0.15, w_ori=0.6):
         """One DLS step toward ``target`` (world, meters).
 
         Returns (new_q26 copy, err_m_before_step). Call repeatedly (e.g. each
@@ -157,6 +230,9 @@ class ArmKinematics:
         posture back.
         """
         q = np.array(q26, dtype=float)
+        if target_R is not None:                  # full 6-DoF pose task
+            return self._ik_step6(q, target, target_R, lam, step_m,
+                                  step_rad, dq_max, q_ref, k_null, w_ori)
         cur = self.fk(q)
         e = np.asarray(target, float) - cur
         err = float(np.linalg.norm(e))
@@ -176,6 +252,42 @@ class ArmKinematics:
         for k, i in enumerate(self.idx):
             q[i] = np.clip(q[i] + dq[k], self.lo[k], self.hi[k])
         return q, err
+
+    def _ik_step6(self, q, target, target_R, lam, step_m, step_rad,
+                  dq_max, q_ref, k_null, w_ori):
+        """6-DoF DLS step: drive TCP position AND orientation together over
+        the 6x7 geometric Jacobian. Position error is returned (metres) so
+        callers keep the same (q, err) contract as the 3-DoF path. Orientation
+        is capped at ``step_rad``/step and weighted by ``w_ori``; the shared
+        DLS damping ``lam`` keeps joint speed bounded through wrist
+        singularities, and the null-space anchor still relaxes the elbow."""
+        cur, R = self.fk_pose(q)
+        ep = np.asarray(target, float) - cur
+        er = rot_error(R, np.asarray(target_R, float))
+        perr = float(np.linalg.norm(ep))
+        oerr = float(np.linalg.norm(er))
+        if perr < 1e-4 and oerr < 1e-3:
+            return q, perr
+        if perr > step_m:                          # glide position, don't jump
+            ep = ep * (step_m / perr)
+        if oerr > step_rad:                        # glide orientation too
+            er = er * (step_rad / oerr)
+        _, _, J = self.fk_jac6(q)
+        w = np.ones(6)
+        w[3:] = w_ori                              # weight orientation rows
+        Jw = J * w[:, None]
+        e6 = np.concatenate([ep, w_ori * er])
+        JJt = Jw @ Jw.T + (lam ** 2) * np.eye(6)
+        dq = Jw.T @ np.linalg.solve(JJt, e6)
+        if q_ref is not None:
+            qa = np.array([q[i] for i in self.idx])
+            ra = np.array([q_ref[i] for i in self.idx])
+            N = np.eye(len(self.idx)) - Jw.T @ np.linalg.solve(JJt, Jw)
+            dq = dq + N @ np.clip(k_null * (ra - qa), -0.02, 0.02)
+        dq = np.clip(dq, -dq_max, dq_max)
+        for k, i in enumerate(self.idx):
+            q[i] = np.clip(q[i] + dq[k], self.lo[k], self.hi[k])
+        return q, perr
 
 
 def reach_map(kin, base, n=3000, guard=None, seed=0):

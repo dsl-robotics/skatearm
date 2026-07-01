@@ -187,7 +187,12 @@ function setupGizmo() {
     if (now - lastSend < 50) return;          // 20 Hz target stream
     lastSend = now;
     const p = tc.object.position;
-    send({ type: "ik_target", arm: draggingArm, pos: [p.x, p.y, p.z] });
+    const msg = { type: "ik_target", arm: draggingArm, pos: [p.x, p.y, p.z] };
+    if (tc.getMode && tc.getMode() === "rotate") {   // 6-DoF: hold pos, command orientation
+      const q = tc.object.quaternion;
+      msg.rot = [q.x, q.y, q.z, q.w];
+    }
+    send(msg);
   });
   // click a sphere to attach the gizmo; click elsewhere to detach
   const ray = new THREE.Raycaster();
@@ -243,7 +248,10 @@ function updateEE() {
   for (const arm of ["left", "right"]) {
     if (!eeObjs[arm]) continue;
     tcpWorld(arm, _wp);
-    if (markers[arm] && draggingArm !== arm) markers[arm].position.copy(_wp);
+    if (markers[arm] && draggingArm !== arm) {
+      markers[arm].position.copy(_wp);
+      eeObjs[arm].getWorldQuaternion(markers[arm].quaternion);   // keep rotate-ring aligned to the wrist
+    }
     const t = traces[arm];
     if (t && traceOn && _wp.distanceTo(t.last) > 0.004) {
       const a = t.line.geometry.attributes.position;

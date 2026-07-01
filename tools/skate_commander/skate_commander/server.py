@@ -850,7 +850,8 @@ def handle_command(bridge: RobotBridge, cmd: dict, runner=None, tools=None,
     elif t == "set_joint":
         bridge.set_joint(int(cmd["idx"]), float(cmd["value"]))
     elif t == "ik_target":
-        bridge.set_ik_target(cmd.get("arm"), cmd.get("pos", ()), auto=bool(cmd.get("auto")))
+        bridge.set_ik_target(cmd.get("arm"), cmd.get("pos", ()),
+                             auto=bool(cmd.get("auto")), rot=cmd.get("rot"))
     elif t == "ik_clear":
         bridge.clear_ik_target(cmd.get("arm"))
     elif t == "wp_add":

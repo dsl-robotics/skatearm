@@ -76,7 +76,7 @@
   <img src="docs/img/skate_commander_lockup.png" width="560" alt="Skate Commander — web cockpit, digital twin, real robot">
 </div>
 
-> 🚧 **Early access · under active development** — v0.8.0 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
+> 🚧 **Early access · under active development** — v0.8.1 is sim-first; drive the twin in your browser now, real-Skate support lands with the hardware.
 
 A browser cockpit for the Skate: a 3D digital twin built from the official URDF, driven over the **same UDP wire** the real robot speaks. Starts E-stopped, arms at the robot's measured pose, deadman drops in 0.3 s if the tab closes.
 
@@ -100,7 +100,7 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 |---|---|
 | Jog + sliders | Hold −/+, drag the thumb, or jump straight to a limit; amber = your command, azure = actual position |
 | Cartesian jog | Step the TCP along world X/Y/Z in mm — server-side IK, auto-stops on arrival |
-| Drag-IK | Grab a wrist sphere in 3D — server-side DLS IK (damped least squares inverse kinematics) glides all 7 arm joints |
+| Drag-IK (3- or 6-DoF) | Grab a wrist sphere in 3D — server-side DLS IK (damped least squares inverse kinematics) glides all 7 arm joints. The tool rail's **rotate** mode adds wrist **orientation** for a full 6-DoF pose target (position is held while the wrist reorients) |
 | Singularity awareness | Live manipulability readout; a **SING** chip warns near a wrist singularity, where a small cartesian move would need huge joint speeds |
 | Manipulability map | A **DEX** toggle renders a coloured point cloud of the arm's reachable workspace — warm where the arm is dexterous, blue near its singular reach limits |
 | Mirror mode | Bimanual: jog/slider/IK on one arm is reflected onto the other — the sign map is *measured* from the model's FK, not guessed |
@@ -174,9 +174,9 @@ A browser cockpit for the Skate: a 3D digital twin built from the official URDF,
 </details>
 
 <div align="center">
-  <img src="docs/img/cockpit_v0724_cockpit.webp" width="720px" alt="The Skate Commander cockpit (v0.8.0): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
+  <img src="docs/img/cockpit_v0724_cockpit.webp" width="720px" alt="The Skate Commander cockpit (v0.8.1): an Isaac-Sim-style workstation — menu bar, tool rail, 3D twin, STAGE / PROPERTY dock and live telemetry plots">
   <br>
-  <em><strong>v0.8.0 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots. Mirror mode, dual-arm carry, jerk-limited motion and teach-in all live here. <strong><a href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (drive the joints — no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
+  <em><strong>v0.8.1 cockpit</strong> — an Isaac-Sim-style workstation: a menu bar, a left tool rail, the 3D MuJoCo twin, a STAGE / PROPERTY dock and live telemetry plots. Mirror mode, dual-arm carry, jerk-limited motion and teach-in all live here. <strong><a href="https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html">▶ Live preview</a></strong> (drive the joints — no install) · full docs: <a href="tools/skate_commander/">tools/skate_commander/</a></em>
 </div>
 
 ## 🔌 skate_ros2 — the wire
@@ -292,7 +292,7 @@ Tools get built because SkateArm needs them — then released standalone:
 | Tool | What it is | Status |
 |---|---|---|
 | [`skate_ros2`](tools/skate_ros2/) | ROS 2 bridge over Skate's native UDP + protocol-true MuJoCo sim endpoint | ✅ **shipped** (sim-verified; MoveIt config next) |
-| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin with drag-IK, mirror-mode bimanual motion, RRT collision-routing, Python + teach-in programs, an application shell, live telemetry and scene/obstacle tools (full list in the [feature catalogue](#-skate-commander--web-cockpit) above) · sim-validated camera tools parked pending a real depth sensor · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.8.0** (real-camera passthrough waits for hardware) |
+| [`skate_commander`](tools/skate_commander/) | Web cockpit — browser digital twin with drag-IK, mirror-mode bimanual motion, RRT collision-routing, Python + teach-in programs, an application shell, live telemetry and scene/obstacle tools (full list in the [feature catalogue](#-skate-commander--web-cockpit) above) · sim-validated camera tools parked pending a real depth sensor · [live preview](https://raw.githack.com/dsl-robotics/skatearm/main/tools/skate_commander/preview.html) | ✅ **v0.8.1** (real-camera passthrough waits for hardware) |
 | Control-ready MJCF | skt_v3 with actuators, ready for control work | ✅ first version in [sim/](sim/) |
 | Teleop dataset hub | Bimanual datasets in LeRobot format | planned |
 | MuJoCo benchmark suite | Repeatable bimanual tasks for policy comparison | planned |
